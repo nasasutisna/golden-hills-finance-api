@@ -1,0 +1,136 @@
+"use strict";
+var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+var __metadata = (this && this.__metadata) || function (k, v) {
+    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
+};
+var EmployeesService_1;
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.EmployeesService = void 0;
+const common_1 = require("@nestjs/common");
+const employees_repository_1 = require("./employees.repository");
+let EmployeesService = EmployeesService_1 = class EmployeesService {
+    constructor(employeesRepository) {
+        this.employeesRepository = employeesRepository;
+        this.logger = new common_1.Logger(EmployeesService_1.name);
+    }
+    async findAll(queryOptions) {
+        const { page = 1, limit = 10, sortBy = 'firstName', sortOrder = 'asc', search, searchFields, filters } = queryOptions;
+        const skip = (page - 1) * limit;
+        let where = {};
+        if (search && searchFields) {
+            const fields = searchFields.split(',');
+            where.OR = fields.map((field) => ({
+                [field]: { contains: search, mode: 'insensitive' },
+            }));
+        }
+        if (filters) {
+            where = { ...where, ...filters };
+        }
+        const { employees, total } = await this.employeesRepository.findAll({
+            skip,
+            take: limit,
+            where,
+            orderBy: { [sortBy]: sortOrder },
+        });
+        const totalPages = Math.ceil(total / limit);
+        return {
+            data: employees,
+            meta: {
+                page,
+                limit,
+                total,
+                totalPages,
+                hasNext: page < totalPages,
+                hasPrevious: page > 1,
+            },
+        };
+    }
+    async findById(id) {
+        return await this.employeesRepository.findById(id);
+    }
+    async findByEmployeeCode(employeeCode) {
+        const employee = await this.employeesRepository.findByEmployeeCode(employeeCode);
+        if (!employee) {
+            throw new common_1.ConflictException('Employee not found');
+        }
+        return employee;
+    }
+    async create(createEmployeeDto) {
+        const existingEmployee = await this.employeesRepository.findByEmployeeCode(createEmployeeDto.employeeCode);
+        if (existingEmployee) {
+            throw new common_1.ConflictException('Employee code already exists');
+        }
+        try {
+            const employee = await this.employeesRepository.create(createEmployeeDto);
+            this.logger.log(`Employee created: ${employee.employeeCode}`);
+            return employee;
+        }
+        catch (error) {
+            if (error instanceof common_1.ConflictException) {
+                throw error;
+            }
+            this.logger.error('Error creating employee:', error);
+            throw error;
+        }
+    }
+    async update(id, updateEmployeeDto) {
+        try {
+            const employee = await this.employeesRepository.update(id, updateEmployeeDto);
+            this.logger.log(`Employee updated: ${employee.employeeCode}`);
+            return employee;
+        }
+        catch (error) {
+            this.logger.error('Error updating employee:', error);
+            throw error;
+        }
+    }
+    async softDelete(id) {
+        const employee = await this.employeesRepository.softDelete(id);
+        this.logger.log(`Employee soft deleted: ${employee.employeeCode}`);
+        return employee;
+    }
+    async restore(id) {
+        const employee = await this.employeesRepository.restore(id);
+        this.logger.log(`Employee restored: ${employee.employeeCode}`);
+        return employee;
+    }
+    async deactivate(id) {
+        const employee = await this.employeesRepository.deactivate(id);
+        this.logger.log(`Employee deactivated: ${employee.employeeCode}`);
+        return employee;
+    }
+    async activate(id) {
+        const employee = await this.employeesRepository.activate(id);
+        this.logger.log(`Employee activated: ${employee.employeeCode}`);
+        return employee;
+    }
+    async getByPosition(positionId) {
+        return await this.employeesRepository.getByPosition(positionId);
+    }
+    async getByDepartment(department) {
+        return await this.employeesRepository.getByDepartment(department);
+    }
+    async getByEmploymentStatus(status) {
+        return await this.employeesRepository.getByEmploymentStatus(status);
+    }
+    async getEmployeeStatistics() {
+        return await this.employeesRepository.getEmployeeStatistics();
+    }
+    async count(where) {
+        return await this.employeesRepository.count(where);
+    }
+    async exists(id) {
+        return await this.employeesRepository.exists(id);
+    }
+};
+exports.EmployeesService = EmployeesService;
+exports.EmployeesService = EmployeesService = EmployeesService_1 = __decorate([
+    (0, common_1.Injectable)(),
+    __metadata("design:paramtypes", [employees_repository_1.EmployeesRepository])
+], EmployeesService);
+//# sourceMappingURL=employees.service.js.map

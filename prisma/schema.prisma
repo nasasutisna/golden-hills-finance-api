@@ -1,0 +1,691 @@
+// Prisma Schema for Golden Hills Finance Management System
+
+generator client {
+  provider = "prisma-client-js"
+  engineType = "library"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+// ============================================================
+// AUTHENTICATION & AUTHORIZATION
+// ============================================================
+
+model User {
+  id                String    @id @default(uuid())
+  username          String    @unique
+  email             String    @unique
+  password          String    @db.VarChar(255)
+  firstName         String    @map("first_name") @db.VarChar(100)
+  lastName          String    @map("last_name") @db.VarChar(100)
+  phoneNumber       String?   @map("phone_number") @db.VarChar(20)
+  avatar            String?
+  isActive          Boolean   @default(true) @map("is_active")
+  isEmailVerified   Boolean   @default(false) @map("is_email_verified")
+  lastLoginAt       DateTime? @map("last_login_at")
+  refreshToken      String?   @map("refresh_token") @db.Text
+  refreshTokenExpiry DateTime? @map("refresh_token_expiry")
+  roleId            String    @map("role_id")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+  deletedAt         DateTime? @map("deleted_at")
+
+  // Relations
+  role                      Role                              @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  employee                  Employee?
+  createdApprovalHistories  ApprovalHistory[]                 @relation("CreatedBy")
+  approvedApprovalHistories ApprovalHistory[]                 @relation("ApprovedByUser")
+  notifications            Notification[]
+  createdFileAttachments    FileAttachment[]                  @relation("FileUploadBy")
+  cashTransactions          CashTransaction[]
+  employeeSalaryHeaders     EmployeeSalaryHeader[]
+
+  @@index([email])
+  @@index([username])
+  @@index([roleId])
+  @@index([deletedAt])
+  @@map("users")
+}
+
+model Role {
+  id          String   @id @default(uuid())
+  name        String   @unique @db.VarChar(50)
+  description String?  @db.Text
+  permissions String?  @db.Text
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  // Relations
+  users             User[]
+  employees         Employee[]
+  approvedHistories ApprovalHistory[] @relation("ApprovedByRole")
+
+  @@index([name])
+  @@index([deletedAt])
+  @@map("roles")
+}
+
+// ============================================================
+// RESIDENT MANAGEMENT
+// ============================================================
+
+model HouseBlock {
+  id                String    @id @default(uuid())
+  blockCode         String    @unique @map("block_code") @db.VarChar(20)
+  blockName         String    @map("block_name") @db.VarChar(100)
+  blockType         String?   @map("block_type") @db.VarChar(50)
+  address           String?   @db.VarChar(255)
+  totalUnits        Int       @default(0) @map("total_units")
+  totalFloors       Int?      @map("total_floors")
+  constructionYear  Int?      @map("construction_year")
+  landArea          Decimal?  @map("land_area") @db.Decimal(10, 2)
+  buildingArea      Decimal?  @map("building_area") @db.Decimal(10, 2)
+  facilities        String?   @db.Text
+  isActive          Boolean   @default(true) @map("is_active")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+  deletedAt         DateTime? @map("deleted_at")
+
+  // Relations
+  residents Resident[]
+
+  @@index([blockCode])
+  @@index([deletedAt])
+  @@map("house_blocks")
+}
+
+model Resident {
+  id                String    @id @default(uuid())
+  residentCode      String    @unique @map("resident_code") @db.VarChar(20)
+  firstName         String    @map("first_name") @db.VarChar(100)
+  lastName          String    @map("last_name") @db.VarChar(100)
+  email             String?   @unique @db.VarChar(100)
+  phoneNumber       String?   @map("phone_number") @db.VarChar(20)
+  alternatePhone    String?   @map("alternate_phone") @db.VarChar(20)
+  identityNumber    String?   @map("identity_number") @db.VarChar(50)
+  dateOfBirth       DateTime? @map("date_of_birth")
+  gender            String?   @db.VarChar(20)
+  occupation        String?   @db.VarChar(100)
+  maritalStatus     String?   @map("marital_status") @db.VarChar(20)
+  emergencyContact  String?   @map("emergency_contact") @db.VarChar(100)
+  emergencyPhone    String?   @map("emergency_phone") @db.VarChar(20)
+  houseBlockId      String?   @map("house_block_id")
+  unitNumber        String?   @map("unit_number") @db.VarChar(20)
+  moveInDate        DateTime? @map("move_in_date")
+  moveOutDate       DateTime? @map("move_out_date")
+  ownershipType     String?   @map("ownership_type") @db.VarChar(20)
+  isActive          Boolean   @default(true) @map("is_active")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+  deletedAt         DateTime? @map("deleted_at")
+
+  // Relations
+  houseBlock HouseBlock?      @relation(fields: [houseBlockId], references: [id], onDelete: SetNull)
+  invoices   ResidentInvoice[]
+  payments   ResidentPayment[]
+
+  @@index([residentCode])
+  @@index([email])
+  @@index([houseBlockId])
+  @@index([deletedAt])
+  @@map("residents")
+}
+
+// ============================================================
+// EMPLOYEE MANAGEMENT
+// ============================================================
+
+model EmployeePosition {
+  id              String    @id @default(uuid())
+  positionCode    String    @unique @map("position_code") @db.VarChar(20)
+  positionName    String    @map("position_name") @db.VarChar(100)
+  department      String    @db.VarChar(100)
+  description     String?   @db.Text
+  salaryGrade     String?   @map("salary_grade") @db.VarChar(20)
+  level           Int?
+  isActive        Boolean   @default(true) @map("is_active")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  deletedAt       DateTime? @map("deleted_at")
+
+  // Relations
+  employees Employee[]
+
+  @@index([positionCode])
+  @@index([deletedAt])
+  @@map("employee_positions")
+}
+
+model Employee {
+  id                   String    @id @default(uuid())
+  employeeCode         String    @unique @map("employee_code") @db.VarChar(20)
+  firstName            String    @map("first_name") @db.VarChar(100)
+  lastName             String    @map("last_name") @db.VarChar(100)
+  email                String?   @unique @db.VarChar(100)
+  phoneNumber          String?   @map("phone_number") @db.VarChar(20)
+  alternatePhone       String?   @map("alternate_phone") @db.VarChar(20)
+  identityNumber       String?   @map("identity_number") @db.VarChar(50)
+  dateOfBirth          DateTime? @map("date_of_birth")
+  gender               String?   @db.VarChar(20)
+  maritalStatus        String?   @map("marital_status") @db.VarChar(20)
+  address              String?   @db.VarChar(255)
+  city                 String?   @db.VarChar(100)
+  province             String?   @db.VarChar(100)
+  postalCode           String?   @map("postal_code") @db.VarChar(10)
+  emergencyContact     String?   @map("emergency_contact") @db.VarChar(100)
+  emergencyPhone       String?   @map("emergency_phone") @db.VarChar(20)
+  positionId           String    @map("position_id")
+  hireDate             DateTime  @map("hire_date")
+  probationEndDate     DateTime? @map("probation_end_date")
+  employmentStatus     String    @map("employment_status") @db.VarChar(20)
+  bankName             String?   @map("bank_name") @db.VarChar(100)
+  bankAccountNumber    String?   @map("bank_account_number") @db.VarChar(50)
+  bankAccountName      String?   @map("bank_account_name") @db.VarChar(100)
+  taxId                String?   @map("tax_id") @db.VarChar(30)
+  photo                String?
+  notes                String?   @db.Text
+  userId               String?   @unique @map("user_id")
+  roleId               String?   @map("role_id")
+  isActive             Boolean   @default(true) @map("is_active")
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+  deletedAt            DateTime? @map("deleted_at")
+
+  // Relations
+  position             EmployeePosition              @relation(fields: [positionId], references: [id], onDelete: Restrict)
+  user                 User?                         @relation(fields: [userId], references: [id], onDelete: SetNull)
+  role                 Role?                         @relation(fields: [roleId], references: [id], onDelete: SetNull)
+  salaryHeaders        EmployeeSalaryHeader[]
+  cashAdvances         EmployeeCashAdvance[]
+
+  @@index([employeeCode])
+  @@index([email])
+  @@index([positionId])
+  @@index([deletedAt])
+  @@map("employees")
+}
+
+// ============================================================
+// FINANCIAL MANAGEMENT
+// ============================================================
+
+model FeeType {
+  id             String    @id @default(uuid())
+  feeCode        String    @unique @map("fee_code") @db.VarChar(20)
+  feeName        String    @map("fee_name") @db.VarChar(100)
+  description    String?   @db.Text
+  feeCategory    String    @map("fee_category") @db.VarChar(50)
+  isRecurring    Boolean   @default(false) @map("is_recurring")
+  recurrencePeriod String?  @map("recurrence_period") @db.VarChar(20)
+  isTaxable      Boolean   @default(false) @map("is_taxable")
+  defaultAmount  Decimal?  @map("default_amount") @db.Decimal(15, 2)
+  taxRate        Decimal?  @map("tax_rate") @db.Decimal(5, 2)
+  effectiveDate  DateTime? @map("effective_date")
+  expiryDate     DateTime? @map("expiry_date")
+  isActive       Boolean   @default(true) @map("is_active")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  deletedAt      DateTime? @map("deleted_at")
+
+  // Relations
+  invoiceDetails ResidentInvoiceDetail[]
+
+  @@index([feeCode])
+  @@index([deletedAt])
+  @@map("fee_types")
+}
+
+model TransactionCategory {
+  id             String    @id @default(uuid())
+  categoryCode   String    @unique @map("category_code") @db.VarChar(20)
+  categoryName   String    @map("category_name") @db.VarChar(100)
+  description    String?   @db.Text
+  categoryType   String    @map("category_type") @db.VarChar(20)
+  isActive       Boolean   @default(true) @map("is_active")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
+  deletedAt      DateTime? @map("deleted_at")
+
+  // Relations
+  transactions CashTransaction[]
+
+  @@index([categoryCode])
+  @@index([deletedAt])
+  @@map("transaction_categories")
+}
+
+model CashTransaction {
+  id                String    @id @default(uuid())
+  transactionNumber String    @unique @map("transaction_number") @db.VarChar(50)
+  transactionDate   DateTime  @map("transaction_date")
+  transactionType   String    @map("transaction_type") @db.VarChar(20)
+  amount            Decimal   @db.Decimal(15, 2)
+  categoryId        String?   @map("category_id")
+  description       String?   @db.Text
+  referenceType     String?   @map("reference_type") @db.VarChar(50)
+  referenceId       String?   @map("reference_id")
+  status            String    @db.VarChar(20) @default("DRAFT")
+  approvedBy        String?   @map("approved_by")
+  approvedAt        DateTime? @map("approved_at")
+  createdBy         String    @map("created_by")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+  deletedAt         DateTime? @map("deleted_at")
+
+  // Relations
+  category TransactionCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  creator  User                   @relation(fields: [createdBy], references: [id], onDelete: Restrict)
+  approvals ApprovalHistory[]
+
+  @@index([transactionNumber])
+  @@index([transactionDate])
+  @@index([transactionType])
+  @@index([categoryId])
+  @@index([deletedAt])
+  @@map("cash_transactions")
+}
+
+model ResidentInvoice {
+  id                 String    @id @default(uuid())
+  invoiceNumber      String    @unique @map("invoice_number") @db.VarChar(50)
+  residentId         String    @map("resident_id")
+  invoiceDate        DateTime  @map("invoice_date")
+  dueDate            DateTime  @map("due_date")
+  subtotal           Decimal   @default(0) @db.Decimal(15, 2)
+  taxAmount          Decimal   @default(0) @map("tax_amount") @db.Decimal(15, 2)
+  discountAmount     Decimal   @default(0) @map("discount_amount") @db.Decimal(15, 2)
+  totalAmount        Decimal   @default(0) @map("total_amount") @db.Decimal(15, 2)
+  paidAmount         Decimal   @default(0) @map("paid_amount") @db.Decimal(15, 2)
+  balanceAmount      Decimal   @default(0) @map("balance_amount") @db.Decimal(15, 2)
+  status             String    @db.VarChar(20) @default("DRAFT")
+  notes              String?   @db.Text
+  createdBy          String    @map("created_by")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+  deletedAt          DateTime? @map("deleted_at")
+
+  // Relations
+  resident Resident     @relation(fields: [residentId], references: [id], onDelete: Restrict)
+  details   ResidentInvoiceDetail[]
+  payments  ResidentPayment[]
+
+  @@index([invoiceNumber])
+  @@index([residentId])
+  @@index([invoiceDate])
+  @@index([status])
+  @@index([deletedAt])
+  @@map("resident_invoices")
+}
+
+model ResidentInvoiceDetail {
+  id              String    @id @default(uuid())
+  invoiceId       String    @map("invoice_id")
+  feeTypeId       String    @map("fee_type_id")
+  description     String?   @db.VarChar(255)
+  quantity        Int       @default(1)
+  unitPrice       Decimal   @map("unit_price") @db.Decimal(15, 2)
+  taxRate         Decimal?  @map("tax_rate") @db.Decimal(5, 2)
+  taxAmount       Decimal   @default(0) @map("tax_amount") @db.Decimal(15, 2)
+  discountAmount  Decimal   @default(0) @map("discount_amount") @db.Decimal(15, 2)
+  subtotal        Decimal   @db.Decimal(15, 2)
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  deletedAt       DateTime? @map("deleted_at")
+
+  // Relations
+  invoice  ResidentInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  feeType  FeeType         @relation(fields: [feeTypeId], references: [id], onDelete: Restrict)
+
+  @@index([invoiceId])
+  @@index([feeTypeId])
+  @@map("resident_invoice_details")
+}
+
+model ResidentPayment {
+  id                String    @id @default(uuid())
+  paymentNumber     String    @unique @map("payment_number") @db.VarChar(50)
+  residentId        String    @map("resident_id")
+  invoiceId         String?   @map("invoice_id")
+  paymentDate       DateTime  @map("payment_date")
+  amount            Decimal   @db.Decimal(15, 2)
+  paymentMethod     String    @map("payment_method") @db.VarChar(20)
+  referenceNumber   String?   @map("reference_number") @db.VarChar(100)
+  bankName          String?   @map("bank_name") @db.VarChar(100)
+  notes             String?   @db.Text
+  transactionId     String?   @map("transaction_id") @db.VarChar(100)
+  createdBy         String    @map("created_by")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+  deletedAt         DateTime? @map("deleted_at")
+
+  // Relations
+  resident Resident       @relation(fields: [residentId], references: [id], onDelete: Restrict)
+  invoice  ResidentInvoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+
+  @@index([paymentNumber])
+  @@index([residentId])
+  @@index([invoiceId])
+  @@index([paymentDate])
+  @@index([deletedAt])
+  @@map("resident_payments")
+}
+
+// ============================================================
+// INVENTORY MANAGEMENT
+// ============================================================
+
+model Inventory {
+  id              String    @id @default(uuid())
+  itemCode        String    @unique @map("item_code") @db.VarChar(50)
+  itemName        String    @map("item_name") @db.VarChar(200)
+  description     String?   @db.Text
+  itemType        String    @map("item_type") @db.VarChar(50)
+  unit            String    @db.VarChar(20)
+  currentStock    Int       @default(0) @map("current_stock")
+  minStockLevel   Int?      @map("min_stock_level")
+  maxStockLevel   Int?      @map("max_stock_level")
+  reorderQuantity Int?      @map("reorder_quantity")
+  unitCost        Decimal?  @map("unit_cost") @db.Decimal(15, 2)
+  location        String?   @db.VarChar(100)
+  supplier        String?   @db.VarChar(200)
+  supplierContact String?   @map("supplier_contact") @db.VarChar(100)
+  notes           String?   @db.Text
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  deletedAt       DateTime? @map("deleted_at")
+
+  // Relations
+  requests InventoryRequest[]
+
+  @@index([itemCode])
+  @@index([itemType])
+  @@index([deletedAt])
+  @@map("inventories")
+}
+
+model InventoryRequest {
+  id                String    @id @default(uuid())
+  requestNumber     String    @unique @map("request_number") @db.VarChar(50)
+  inventoryId       String    @map("inventory_id")
+  requestedQuantity Int       @map("requested_quantity")
+  requestDate       DateTime  @map("request_date")
+  requiredDate      DateTime? @map("required_date")
+  purpose           String?   @db.Text
+  department        String?   @db.VarChar(100)
+  priority          String    @db.VarChar(20) @default("MEDIUM")
+  status            String    @db.VarChar(20) @default("PENDING")
+  approvedBy        String?   @map("approved_by")
+  approvedAt        DateTime? @map("approved_at")
+  approvalNotes     String?   @map("approval_notes") @db.Text
+  requestedBy       String    @map("requested_by")
+  completedAt       DateTime? @map("completed_at")
+  notes             String?   @db.Text
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+  deletedAt         DateTime? @map("deleted_at")
+
+  // Relations
+  inventory Inventory @relation(fields: [inventoryId], references: [id], onDelete: Restrict)
+
+  @@index([requestNumber])
+  @@index([inventoryId])
+  @@index([status])
+  @@index([deletedAt])
+  @@map("inventory_requests")
+}
+
+// ============================================================
+// SALARY MANAGEMENT
+// ============================================================
+
+model SalaryComponent {
+  id              String    @id @default(uuid())
+  componentCode   String    @unique @map("component_code") @db.VarChar(50)
+  componentName   String    @map("component_name") @db.VarChar(100)
+  description     String?   @db.Text
+  componentType   String    @map("component_type") @db.VarChar(20)
+  calculationType String    @map("calculation_type") @db.VarChar(20)
+  isTaxable       Boolean   @default(false) @map("is_taxable")
+  isFixed         Boolean   @default(true) @map("is_fixed")
+  fixedAmount     Decimal?  @map("fixed_amount") @db.Decimal(15, 2)
+  percentage      Decimal?  @db.Decimal(5, 2)
+  calculationBase String?   @map("calculation_base") @db.VarChar(20)
+  calculationOrder Int      @default(0) @map("calculation_order")
+  isActive        Boolean   @default(true) @map("is_active")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  deletedAt       DateTime? @map("deleted_at")
+
+  // Relations
+  salaryDetails EmployeeSalaryDetail[]
+
+  @@index([componentCode])
+  @@index([componentType])
+  @@index([deletedAt])
+  @@map("salary_components")
+}
+
+model EmployeeSalaryHeader {
+  id               String    @id @default(uuid())
+  payrollNumber    String    @unique @map("payroll_number") @db.VarChar(50)
+  employeeId       String    @map("employee_id")
+  payPeriod        String    @map("pay_period") @db.VarChar(10)
+  paymentDate      DateTime? @map("payment_date")
+  basicSalary      Decimal?  @map("basic_salary") @db.Decimal(15, 2)
+  totalAllowances  Decimal?  @map("total_allowances") @db.Decimal(15, 2)
+  totalDeductions  Decimal?  @map("total_deductions") @db.Decimal(15, 2)
+  netSalary        Decimal?  @map("net_salary") @db.Decimal(15, 2)
+  status           String    @db.VarChar(20) @default("DRAFT")
+  workDays         Int?      @map("work_days")
+  daysWorked       Int?      @map("days_worked")
+  overtimeHours     Decimal?  @map("overtime_hours") @db.Decimal(5, 2)
+  leaveDays        Int?      @map("leave_days")
+  locked           Boolean   @default(false)
+  notes            String?   @db.Text
+  createdBy        String    @map("created_by")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+  deletedAt        DateTime? @map("deleted_at")
+
+  // Relations
+  employee Employee             @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  creator  User                 @relation(fields: [createdBy], references: [id], onDelete: Restrict)
+  details  EmployeeSalaryDetail[]
+
+  @@index([payrollNumber])
+  @@index([employeeId])
+  @@index([payPeriod])
+  @@index([status])
+  @@index([deletedAt])
+  @@map("employee_salary_headers")
+}
+
+model EmployeeSalaryDetail {
+  id              String    @id @default(uuid())
+  salaryHeaderId  String    @map("salary_header_id")
+  componentId     String    @map("component_id")
+  amount          Decimal   @db.Decimal(15, 2)
+  quantity        Int       @default(1)
+  manualOverride  Boolean   @default(false) @map("manual_override")
+  notes           String?   @db.Text
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  deletedAt       DateTime? @map("deleted_at")
+
+  // Relations
+  salaryHeader EmployeeSalaryHeader @relation(fields: [salaryHeaderId], references: [id], onDelete: Cascade)
+  component    SalaryComponent       @relation(fields: [componentId], references: [id], onDelete: Restrict)
+
+  @@index([salaryHeaderId])
+  @@index([componentId])
+  @@map("employee_salary_details")
+}
+
+model EmployeeCashAdvance {
+  id                    String    @id @default(uuid())
+  advanceNumber         String    @unique @map("advance_number") @db.VarChar(50)
+  employeeId            String    @map("employee_id")
+  requestDate           DateTime  @map("request_date")
+  amount                Decimal   @db.Decimal(15, 2)
+  purpose               String    @db.Text
+  expectedRepaymentDate DateTime? @map("expected_repayment_date")
+  installmentCount      Int?      @default(1) @map("installment_count")
+  status                String    @db.VarChar(20) @default("PENDING")
+  approvedBy            String?   @map("approved_by")
+  approvedAt            DateTime? @map("approved_at")
+  disbursementDate     DateTime? @map("disbursement_date")
+  approvalNotes         String?   @map("approval_notes") @db.Text
+  requestedBy           String    @map("requested_by")
+  notes                 String?   @db.Text
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+  deletedAt             DateTime? @map("deleted_at")
+
+  // Relations
+  employee  Employee              @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  repayments CashAdvanceRepayment[]
+  approvals ApprovalHistory[]
+
+  @@index([advanceNumber])
+  @@index([employeeId])
+  @@index([status])
+  @@index([deletedAt])
+  @@map("employee_cash_advances")
+}
+
+model CashAdvanceRepayment {
+  id          String    @id @default(uuid())
+  advanceId   String    @map("advance_id")
+  amount      Decimal   @db.Decimal(15, 2)
+  paymentDate DateTime  @map("payment_date")
+  notes       String?   @db.Text
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  // Relations
+  advance EmployeeCashAdvance @relation(fields: [advanceId], references: [id], onDelete: Cascade)
+
+  @@index([advanceId])
+  @@index([paymentDate])
+  @@map("cash_advance_repayments")
+}
+
+// ============================================================
+// COMMUNITY & NOTIFICATIONS
+// ============================================================
+
+model CommunityEvent {
+  id                    String    @id @default(uuid())
+  eventCode             String    @unique @map("event_code") @db.VarChar(50)
+  eventName             String    @map("event_name") @db.VarChar(200)
+  description           String?   @db.Text
+  eventType             String    @map("event_type") @db.VarChar(50)
+  location              String?   @db.VarChar(200)
+  startDate             DateTime  @map("start_date")
+  endDate               DateTime? @map("end_date")
+  expectedAttendees     Int?      @map("expected_attendees")
+  budget                Decimal?  @db.Decimal(15, 2)
+  status                String    @db.VarChar(20) @default("SCHEDULED")
+  organizer             String?   @db.VarChar(100)
+  contactNumber         String?   @map("contact_number") @db.VarChar(20)
+  isActive              Boolean   @default(true) @map("is_active")
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+  deletedAt             DateTime? @map("deleted_at")
+
+  @@index([eventCode])
+  @@index([eventType])
+  @@index([status])
+  @@index([deletedAt])
+  @@map("community_events")
+}
+
+model Notification {
+  id         String    @id @default(uuid())
+  userId     String    @map("user_id")
+  title      String    @db.VarChar(200)
+  message    String    @db.Text
+  type       String    @db.VarChar(20) @default("INFO")
+  priority   String    @db.VarChar(20) @default("NORMAL")
+  actionType String?   @map("action_type") @db.VarChar(50)
+  actionId   String?   @map("action_id")
+  isRead     Boolean   @default(false) @map("is_read")
+  readAt     DateTime? @map("read_at")
+  expiresAt  DateTime? @map("expires_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+  deletedAt  DateTime? @map("deleted_at")
+
+  // Relations
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isRead])
+  @@index([priority])
+  @@index([deletedAt])
+  @@map("notifications")
+}
+
+// ============================================================
+// FILE ATTACHMENTS
+// ============================================================
+
+model FileAttachment {
+  id          String    @id @default(uuid())
+  entityType  String    @map("entity_type") @db.VarChar(50)
+  entityId    String    @map("entity_id")
+  fileName    String    @map("file_name") @db.VarChar(255)
+  filePath    String    @map("file_path") @db.VarChar(500)
+  fileSize    Int       @map("file_size")
+  mimeType    String    @map("mime_type") @db.VarChar(100)
+  category    String?   @db.VarChar(50)
+  description String?   @db.Text
+  uploadedBy  String    @map("uploaded_by")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  // Relations
+  uploader User @relation("FileUploadBy", fields: [uploadedBy], references: [id], onDelete: Restrict)
+
+  @@index([entityType])
+  @@index([entityId])
+  @@index([deletedAt])
+  @@map("file_attachments")
+}
+
+// ============================================================
+// APPROVAL HISTORIES
+// ============================================================
+
+model ApprovalHistory {
+  id          String    @id @default(uuid())
+  entityType  String    @map("entity_type") @db.VarChar(50)
+  entityId    String    @map("entity_id")
+  action      String    @db.VarChar(50)
+  status      String    @db.VarChar(50)
+  approvedBy  String?   @map("approved_by")
+  approvedAt  DateTime? @map("approved_at")
+  comments    String?   @db.Text
+  createdBy   String    @map("created_by")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  // Relations
+  approverUser  User?                 @relation("ApprovedByUser", fields: [approvedBy], references: [id], onDelete: SetNull, map: "approval_histories_approver_user_fkey")
+  approverRole  Role?                 @relation("ApprovedByRole", fields: [approvedBy], references: [id], onDelete: SetNull, map: "approval_histories_approver_role_fkey")
+  creator       User                  @relation("CreatedBy", fields: [createdBy], references: [id], onDelete: Restrict, map: "approval_histories_creator_fkey")
+  transaction   CashTransaction?      @relation(fields: [entityId], references: [id], onDelete: Cascade, map: "approval_histories_transaction_fkey")
+  advance       EmployeeCashAdvance?  @relation(fields: [entityId], references: [id], onDelete: Cascade, map: "approval_histories_advance_fkey")
+
+  @@index([entityType])
+  @@index([entityId])
+  @@index([approvedBy])
+  @@index([deletedAt])
+  @@map("approval_histories")
+}

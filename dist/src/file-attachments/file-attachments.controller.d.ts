@@ -1,0 +1,123 @@
+import { FileAttachmentsService } from './file-attachments.service';
+import { UpdateFileAttachmentDto } from './dto/update-file-attachment.dto';
+import { QueryFileAttachmentsDto } from './dto/query-file-attachments.dto';
+import { Response } from 'express';
+export declare class FileAttachmentsController {
+    private readonly fileAttachmentsService;
+    constructor(fileAttachmentsService: FileAttachmentsService);
+    uploadFile(file: Express.Multer.File, userId: string, entityType: string, entityId: string, category?: string, description?: string): Promise<{
+        id: string;
+        description: string | null;
+        createdAt: Date;
+        updatedAt: Date;
+        deletedAt: Date | null;
+        entityType: string;
+        entityId: string;
+        fileName: string;
+        filePath: string;
+        fileSize: number;
+        mimeType: string;
+        category: string | null;
+        uploadedBy: string;
+    }>;
+    uploadFiles(files: Express.Multer.File[], userId: string, entityType: string, entityId: string, category?: string, description?: string): Promise<{
+        id: string;
+        description: string | null;
+        createdAt: Date;
+        updatedAt: Date;
+        deletedAt: Date | null;
+        entityType: string;
+        entityId: string;
+        fileName: string;
+        filePath: string;
+        fileSize: number;
+        mimeType: string;
+        category: string | null;
+        uploadedBy: string;
+    }[]>;
+    findAll(queryDto: QueryFileAttachmentsDto): Promise<{
+        attachments: import(".prisma/client").FileAttachment[];
+        total: number;
+    }>;
+    getFileStats(): Promise<{
+        totalFiles: number;
+        totalSize: number;
+    }>;
+    findByEntity(entityType: string, entityId: string): Promise<{
+        id: string;
+        description: string | null;
+        createdAt: Date;
+        updatedAt: Date;
+        deletedAt: Date | null;
+        entityType: string;
+        entityId: string;
+        fileName: string;
+        filePath: string;
+        fileSize: number;
+        mimeType: string;
+        category: string | null;
+        uploadedBy: string;
+    }[]>;
+    findByCategory(category: string): Promise<{
+        id: string;
+        description: string | null;
+        createdAt: Date;
+        updatedAt: Date;
+        deletedAt: Date | null;
+        entityType: string;
+        entityId: string;
+        fileName: string;
+        filePath: string;
+        fileSize: number;
+        mimeType: string;
+        category: string | null;
+        uploadedBy: string;
+    }[]>;
+    findById(id: string): Promise<{
+        id: string;
+        description: string | null;
+        createdAt: Date;
+        updatedAt: Date;
+        deletedAt: Date | null;
+        entityType: string;
+        entityId: string;
+        fileName: string;
+        filePath: string;
+        fileSize: number;
+        mimeType: string;
+        category: string | null;
+        uploadedBy: string;
+    }>;
+    downloadFile(id: string, res: Response): Promise<void>;
+    viewFile(id: string, res: Response): Promise<void>;
+    update(id: string, updateFileAttachmentDto: UpdateFileAttachmentDto): Promise<{
+        id: string;
+        description: string | null;
+        createdAt: Date;
+        updatedAt: Date;
+        deletedAt: Date | null;
+        entityType: string;
+        entityId: string;
+        fileName: string;
+        filePath: string;
+        fileSize: number;
+        mimeType: string;
+        category: string | null;
+        uploadedBy: string;
+    }>;
+    remove(id: string): Promise<{
+        id: string;
+        description: string | null;
+        createdAt: Date;
+        updatedAt: Date;
+        deletedAt: Date | null;
+        entityType: string;
+        entityId: string;
+        fileName: string;
+        filePath: string;
+        fileSize: number;
+        mimeType: string;
+        category: string | null;
+        uploadedBy: string;
+    }>;
+}

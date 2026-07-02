@@ -1,0 +1,282 @@
+import { ResidentInvoicesService } from './resident-invoices.service';
+import { CreateResidentInvoiceDto } from './dto/create-resident-invoice.dto';
+import { UpdateResidentInvoiceDto } from './dto/update-resident-invoice.dto';
+import { QueryOptionsDto } from '../common/dto/query-options.dto';
+export declare class ResidentInvoicesController {
+    private readonly residentInvoicesService;
+    constructor(residentInvoicesService: ResidentInvoicesService);
+    create(createResidentInvoiceDto: CreateResidentInvoiceDto): Promise<{
+        statusCode: number;
+        message: string;
+        data: {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            deletedAt: Date | null;
+            notes: string | null;
+            status: string;
+            createdBy: string;
+            invoiceNumber: string;
+            residentId: string;
+            invoiceDate: Date;
+            dueDate: Date;
+            subtotal: import("@prisma/client-runtime-utils").Decimal;
+            taxAmount: import("@prisma/client-runtime-utils").Decimal;
+            discountAmount: import("@prisma/client-runtime-utils").Decimal;
+            totalAmount: import("@prisma/client-runtime-utils").Decimal;
+            paidAmount: import("@prisma/client-runtime-utils").Decimal;
+            balanceAmount: import("@prisma/client-runtime-utils").Decimal;
+        };
+    }>;
+    findAll(queryOptions: QueryOptionsDto): Promise<{
+        statusCode: number;
+        message: string;
+        data: {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            deletedAt: Date | null;
+            notes: string | null;
+            status: string;
+            createdBy: string;
+            invoiceNumber: string;
+            residentId: string;
+            invoiceDate: Date;
+            dueDate: Date;
+            subtotal: import("@prisma/client-runtime-utils").Decimal;
+            taxAmount: import("@prisma/client-runtime-utils").Decimal;
+            discountAmount: import("@prisma/client-runtime-utils").Decimal;
+            totalAmount: import("@prisma/client-runtime-utils").Decimal;
+            paidAmount: import("@prisma/client-runtime-utils").Decimal;
+            balanceAmount: import("@prisma/client-runtime-utils").Decimal;
+        }[];
+        meta: {
+            page: number;
+            limit: number;
+            total: number;
+            totalPages: number;
+            hasNext: boolean;
+            hasPrevious: boolean;
+        };
+    }>;
+    getStatistics(residentId?: string): Promise<{
+        statusCode: number;
+        message: string;
+        data: {
+            totalInvoices: number;
+            pendingInvoices: number;
+            paidInvoices: number;
+            overdueInvoices: number;
+            totalAmount: number;
+            totalPaid: number;
+            totalOutstanding: number;
+        };
+    }>;
+    getOverdue(): Promise<{
+        statusCode: number;
+        message: string;
+        data: {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            deletedAt: Date | null;
+            notes: string | null;
+            status: string;
+            createdBy: string;
+            invoiceNumber: string;
+            residentId: string;
+            invoiceDate: Date;
+            dueDate: Date;
+            subtotal: import("@prisma/client-runtime-utils").Decimal;
+            taxAmount: import("@prisma/client-runtime-utils").Decimal;
+            discountAmount: import("@prisma/client-runtime-utils").Decimal;
+            totalAmount: import("@prisma/client-runtime-utils").Decimal;
+            paidAmount: import("@prisma/client-runtime-utils").Decimal;
+            balanceAmount: import("@prisma/client-runtime-utils").Decimal;
+        }[];
+    }>;
+    getByResident(residentId: string): Promise<{
+        statusCode: number;
+        message: string;
+        data: {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            deletedAt: Date | null;
+            notes: string | null;
+            status: string;
+            createdBy: string;
+            invoiceNumber: string;
+            residentId: string;
+            invoiceDate: Date;
+            dueDate: Date;
+            subtotal: import("@prisma/client-runtime-utils").Decimal;
+            taxAmount: import("@prisma/client-runtime-utils").Decimal;
+            discountAmount: import("@prisma/client-runtime-utils").Decimal;
+            totalAmount: import("@prisma/client-runtime-utils").Decimal;
+            paidAmount: import("@prisma/client-runtime-utils").Decimal;
+            balanceAmount: import("@prisma/client-runtime-utils").Decimal;
+        }[];
+    }>;
+    getByStatus(status: string): Promise<{
+        statusCode: number;
+        message: string;
+        data: {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            deletedAt: Date | null;
+            notes: string | null;
+            status: string;
+            createdBy: string;
+            invoiceNumber: string;
+            residentId: string;
+            invoiceDate: Date;
+            dueDate: Date;
+            subtotal: import("@prisma/client-runtime-utils").Decimal;
+            taxAmount: import("@prisma/client-runtime-utils").Decimal;
+            discountAmount: import("@prisma/client-runtime-utils").Decimal;
+            totalAmount: import("@prisma/client-runtime-utils").Decimal;
+            paidAmount: import("@prisma/client-runtime-utils").Decimal;
+            balanceAmount: import("@prisma/client-runtime-utils").Decimal;
+        }[];
+    }>;
+    findOne(id: string): Promise<{
+        statusCode: number;
+        message: string;
+        data: {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            deletedAt: Date | null;
+            notes: string | null;
+            status: string;
+            createdBy: string;
+            invoiceNumber: string;
+            residentId: string;
+            invoiceDate: Date;
+            dueDate: Date;
+            subtotal: import("@prisma/client-runtime-utils").Decimal;
+            taxAmount: import("@prisma/client-runtime-utils").Decimal;
+            discountAmount: import("@prisma/client-runtime-utils").Decimal;
+            totalAmount: import("@prisma/client-runtime-utils").Decimal;
+            paidAmount: import("@prisma/client-runtime-utils").Decimal;
+            balanceAmount: import("@prisma/client-runtime-utils").Decimal;
+        };
+    }>;
+    update(id: string, updateResidentInvoiceDto: UpdateResidentInvoiceDto): Promise<{
+        statusCode: number;
+        message: string;
+        data: {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            deletedAt: Date | null;
+            notes: string | null;
+            status: string;
+            createdBy: string;
+            invoiceNumber: string;
+            residentId: string;
+            invoiceDate: Date;
+            dueDate: Date;
+            subtotal: import("@prisma/client-runtime-utils").Decimal;
+            taxAmount: import("@prisma/client-runtime-utils").Decimal;
+            discountAmount: import("@prisma/client-runtime-utils").Decimal;
+            totalAmount: import("@prisma/client-runtime-utils").Decimal;
+            paidAmount: import("@prisma/client-runtime-utils").Decimal;
+            balanceAmount: import("@prisma/client-runtime-utils").Decimal;
+        };
+    }>;
+    markAsPaid(id: string): Promise<{
+        statusCode: number;
+        message: string;
+        data: {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            deletedAt: Date | null;
+            notes: string | null;
+            status: string;
+            createdBy: string;
+            invoiceNumber: string;
+            residentId: string;
+            invoiceDate: Date;
+            dueDate: Date;
+            subtotal: import("@prisma/client-runtime-utils").Decimal;
+            taxAmount: import("@prisma/client-runtime-utils").Decimal;
+            discountAmount: import("@prisma/client-runtime-utils").Decimal;
+            totalAmount: import("@prisma/client-runtime-utils").Decimal;
+            paidAmount: import("@prisma/client-runtime-utils").Decimal;
+            balanceAmount: import("@prisma/client-runtime-utils").Decimal;
+        };
+    }>;
+    markAsOverdue(id: string): Promise<{
+        statusCode: number;
+        message: string;
+        data: {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            deletedAt: Date | null;
+            notes: string | null;
+            status: string;
+            createdBy: string;
+            invoiceNumber: string;
+            residentId: string;
+            invoiceDate: Date;
+            dueDate: Date;
+            subtotal: import("@prisma/client-runtime-utils").Decimal;
+            taxAmount: import("@prisma/client-runtime-utils").Decimal;
+            discountAmount: import("@prisma/client-runtime-utils").Decimal;
+            totalAmount: import("@prisma/client-runtime-utils").Decimal;
+            paidAmount: import("@prisma/client-runtime-utils").Decimal;
+            balanceAmount: import("@prisma/client-runtime-utils").Decimal;
+        };
+    }>;
+    cancel(id: string, reason?: string): Promise<{
+        statusCode: number;
+        message: string;
+        data: {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            deletedAt: Date | null;
+            notes: string | null;
+            status: string;
+            createdBy: string;
+            invoiceNumber: string;
+            residentId: string;
+            invoiceDate: Date;
+            dueDate: Date;
+            subtotal: import("@prisma/client-runtime-utils").Decimal;
+            taxAmount: import("@prisma/client-runtime-utils").Decimal;
+            discountAmount: import("@prisma/client-runtime-utils").Decimal;
+            totalAmount: import("@prisma/client-runtime-utils").Decimal;
+            paidAmount: import("@prisma/client-runtime-utils").Decimal;
+            balanceAmount: import("@prisma/client-runtime-utils").Decimal;
+        };
+    }>;
+    remove(id: string): Promise<{
+        statusCode: number;
+        message: string;
+        data: {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            deletedAt: Date | null;
+            notes: string | null;
+            status: string;
+            createdBy: string;
+            invoiceNumber: string;
+            residentId: string;
+            invoiceDate: Date;
+            dueDate: Date;
+            subtotal: import("@prisma/client-runtime-utils").Decimal;
+            taxAmount: import("@prisma/client-runtime-utils").Decimal;
+            discountAmount: import("@prisma/client-runtime-utils").Decimal;
+            totalAmount: import("@prisma/client-runtime-utils").Decimal;
+            paidAmount: import("@prisma/client-runtime-utils").Decimal;
+            balanceAmount: import("@prisma/client-runtime-utils").Decimal;
+        };
+    }>;
+}
