@@ -11,13 +11,13 @@ export declare class EmployeePositionsController {
         data: {
             id: string;
             description: string | null;
+            isActive: boolean;
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
-            isActive: boolean;
-            department: string;
             positionCode: string;
             positionName: string;
+            department: string;
             salaryGrade: string | null;
             level: number | null;
         };
@@ -28,13 +28,13 @@ export declare class EmployeePositionsController {
         data: {
             id: string;
             description: string | null;
+            isActive: boolean;
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
-            isActive: boolean;
-            department: string;
             positionCode: string;
             positionName: string;
+            department: string;
             salaryGrade: string | null;
             level: number | null;
         }[];
@@ -53,13 +53,13 @@ export declare class EmployeePositionsController {
         data: {
             id: string;
             description: string | null;
+            isActive: boolean;
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
-            isActive: boolean;
-            department: string;
             positionCode: string;
             positionName: string;
+            department: string;
             salaryGrade: string | null;
             level: number | null;
         }[];
@@ -70,13 +70,13 @@ export declare class EmployeePositionsController {
         data: {
             id: string;
             description: string | null;
+            isActive: boolean;
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
-            isActive: boolean;
-            department: string;
             positionCode: string;
             positionName: string;
+            department: string;
             salaryGrade: string | null;
             level: number | null;
         }[];
@@ -87,13 +87,13 @@ export declare class EmployeePositionsController {
         data: {
             id: string;
             description: string | null;
+            isActive: boolean;
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
-            isActive: boolean;
-            department: string;
             positionCode: string;
             positionName: string;
+            department: string;
             salaryGrade: string | null;
             level: number | null;
         };
@@ -104,13 +104,13 @@ export declare class EmployeePositionsController {
         data: {
             id: string;
             description: string | null;
+            isActive: boolean;
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
-            isActive: boolean;
-            department: string;
             positionCode: string;
             positionName: string;
+            department: string;
             salaryGrade: string | null;
             level: number | null;
         };
@@ -121,13 +121,13 @@ export declare class EmployeePositionsController {
         data: {
             id: string;
             description: string | null;
+            isActive: boolean;
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
-            isActive: boolean;
-            department: string;
             positionCode: string;
             positionName: string;
+            department: string;
             salaryGrade: string | null;
             level: number | null;
         };
@@ -138,13 +138,13 @@ export declare class EmployeePositionsController {
         data: {
             id: string;
             description: string | null;
+            isActive: boolean;
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
-            isActive: boolean;
-            department: string;
             positionCode: string;
             positionName: string;
+            department: string;
             salaryGrade: string | null;
             level: number | null;
         };

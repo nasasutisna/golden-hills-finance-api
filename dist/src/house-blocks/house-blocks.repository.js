@@ -36,6 +36,17 @@ let HouseBlocksRepository = class HouseBlocksRepository {
                             isActive: true,
                         },
                     },
+                    coordinator: {
+                        select: {
+                            id: true,
+                            username: true,
+                            email: true,
+                            firstName: true,
+                            lastName: true,
+                            phoneNumber: true,
+                            isActive: true,
+                        },
+                    },
                 },
             }),
             this.prisma.houseBlock.count({ where: { ...where, deletedAt: null } }),
@@ -59,6 +70,17 @@ let HouseBlocksRepository = class HouseBlocksRepository {
                     },
                     orderBy: { unitNumber: 'asc' },
                 },
+                coordinator: {
+                    select: {
+                        id: true,
+                        username: true,
+                        email: true,
+                        firstName: true,
+                        lastName: true,
+                        phoneNumber: true,
+                        isActive: true,
+                    },
+                },
             },
         });
         if (!houseBlock) {
@@ -69,7 +91,20 @@ let HouseBlocksRepository = class HouseBlocksRepository {
     async findByBlockCode(blockCode) {
         return this.prisma.houseBlock.findFirst({
             where: { blockCode, deletedAt: null },
-            include: { residents: true },
+            include: {
+                residents: true,
+                coordinator: {
+                    select: {
+                        id: true,
+                        username: true,
+                        email: true,
+                        firstName: true,
+                        lastName: true,
+                        phoneNumber: true,
+                        isActive: true,
+                    },
+                },
+            },
         });
     }
     async create(data) {

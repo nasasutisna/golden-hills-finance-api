@@ -17,9 +17,9 @@ export class ResidentsService {
 
     let where: any = {};
 
-    // Add search filter
-    if (search && searchFields) {
-      const fields = searchFields.split(',');
+    // Add search filter with default fields
+    if (search) {
+      const fields = searchFields ? searchFields.split(',') : ['firstName', 'lastName', 'residentCode', 'email'];
       where.OR = fields.map((field) => ({
         [field]: { contains: search },
       }));
@@ -122,6 +122,47 @@ export class ResidentsService {
 
   async count(where?: any): Promise<number> {
     return await this.residentsRepository.count(where);
+  }
+
+  async getStats() {
+    const totalResidents = await this.residentsRepository.count();
+    const activeResidents = await this.residentsRepository.getActiveResidentsCount();
+    const inactiveResidents = totalResidents - activeResidents;
+
+    // Get residents by ownership type
+    const owners = await this.residentsRepository.count({ ownershipType: 'OWNER' });
+    const renters = await this.residentsRepository.count({ ownershipType: 'RENTER' });
+
+    // Get residents by gender
+    const males = await this.residentsRepository.count({ gender: 'MALE' });
+    const females = await this.residentsRepository.count({ gender: 'FEMALE' });
+
+    // Get residents by marital status
+    const single = await this.residentsRepository.count({ maritalStatus: 'SINGLE' });
+    const married = await this.residentsRepository.count({ maritalStatus: 'MARRIED' });
+    const divorced = await this.residentsRepository.count({ maritalStatus: 'DIVORCED' });
+    const widowed = await this.residentsRepository.count({ maritalStatus: 'WIDOWED' });
+
+    return {
+      total: totalResidents,
+      active: activeResidents,
+      inactive: inactiveResidents,
+      ownership: {
+        owners,
+        renters,
+      },
+      gender: {
+        male: males,
+        female: females,
+        other: totalResidents - males - females,
+      },
+      maritalStatus: {
+        single,
+        married,
+        divorced,
+        widowed,
+      },
+    };
   }
 
   async exists(id: string): Promise<boolean> {

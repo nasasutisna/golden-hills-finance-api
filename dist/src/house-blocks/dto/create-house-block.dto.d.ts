@@ -17,4 +17,5 @@ export declare class CreateHouseBlockDto {
     amenities?: string;
     isActive?: boolean;
     description?: string;
+    coordinatorId?: string;
 }

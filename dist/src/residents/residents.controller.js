@@ -61,6 +61,14 @@ let ResidentsController = class ResidentsController {
             data: residents,
         };
     }
+    async getStats() {
+        const stats = await this.residentsService.getStats();
+        return {
+            statusCode: 200,
+            message: 'Resident statistics retrieved successfully',
+            data: stats,
+        };
+    }
     async findOne(id) {
         const resident = await this.residentsService.findById(id);
         return {
@@ -148,6 +156,18 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], ResidentsController.prototype, "getByHouseBlock", null);
+__decorate([
+    (0, common_1.Get)('stats'),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Get residents statistics',
+        description: 'Get comprehensive statistics about residents',
+    }),
+    http_response_decorator_1.ApiResponseDecorators.ok(),
+    http_response_decorator_1.ApiResponseDecorators.standard(),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", []),
+    __metadata("design:returntype", Promise)
+], ResidentsController.prototype, "getStats", null);
 __decorate([
     (0, common_1.Get)(':id'),
     (0, swagger_1.ApiOperation)({

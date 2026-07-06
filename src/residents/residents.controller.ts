@@ -100,6 +100,22 @@ export class ResidentsController {
     };
   }
 
+  @Get('stats')
+  @ApiOperation({
+    summary: 'Get residents statistics',
+    description: 'Get comprehensive statistics about residents',
+  })
+  @ApiResponseDecorators.ok()
+  @ApiResponseDecorators.standard()
+  async getStats() {
+    const stats = await this.residentsService.getStats();
+    return {
+      statusCode: 200,
+      message: 'Resident statistics retrieved successfully',
+      data: stats,
+    };
+  }
+
   @Get(':id')
   @ApiOperation({
     summary: 'Get resident by ID',

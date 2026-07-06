@@ -83,7 +83,6 @@ __decorate([
         required: false,
     }),
     (0, class_validator_1.IsOptional)(),
-    (0, class_validator_1.IsPhoneNumber)(),
     __metadata("design:type", String)
 ], CreateResidentDto.prototype, "phoneNumber", void 0);
 __decorate([
@@ -93,7 +92,6 @@ __decorate([
         required: false,
     }),
     (0, class_validator_1.IsOptional)(),
-    (0, class_validator_1.IsPhoneNumber)(),
     __metadata("design:type", String)
 ], CreateResidentDto.prototype, "alternatePhone", void 0);
 __decorate([
@@ -180,7 +178,6 @@ __decorate([
         required: false,
     }),
     (0, class_validator_1.IsOptional)(),
-    (0, class_validator_1.IsPhoneNumber)(),
     __metadata("design:type", String)
 ], CreateResidentDto.prototype, "emergencyPhone", void 0);
 __decorate([

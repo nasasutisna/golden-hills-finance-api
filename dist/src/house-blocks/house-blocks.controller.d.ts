@@ -10,20 +10,21 @@ export declare class HouseBlocksController {
         message: string;
         data: {
             id: string;
+            isActive: boolean;
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
-            isActive: boolean;
-            address: string | null;
             blockCode: string;
             blockName: string;
             blockType: string | null;
+            address: string | null;
             totalUnits: number;
             totalFloors: number | null;
             constructionYear: number | null;
             landArea: import("@prisma/client-runtime-utils").Decimal | null;
             buildingArea: import("@prisma/client-runtime-utils").Decimal | null;
             facilities: string | null;
+            coordinatorId: string | null;
         };
     }>;
     findAll(queryOptions: QueryOptionsDto): Promise<{
@@ -31,20 +32,21 @@ export declare class HouseBlocksController {
         message: string;
         data: {
             id: string;
+            isActive: boolean;
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
-            isActive: boolean;
-            address: string | null;
             blockCode: string;
             blockName: string;
             blockType: string | null;
+            address: string | null;
             totalUnits: number;
             totalFloors: number | null;
             constructionYear: number | null;
             landArea: import("@prisma/client-runtime-utils").Decimal | null;
             buildingArea: import("@prisma/client-runtime-utils").Decimal | null;
             facilities: string | null;
+            coordinatorId: string | null;
         }[];
         meta: {
             page: number;
@@ -70,20 +72,21 @@ export declare class HouseBlocksController {
         message: string;
         data: {
             id: string;
+            isActive: boolean;
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
-            isActive: boolean;
-            address: string | null;
             blockCode: string;
             blockName: string;
             blockType: string | null;
+            address: string | null;
             totalUnits: number;
             totalFloors: number | null;
             constructionYear: number | null;
             landArea: import("@prisma/client-runtime-utils").Decimal | null;
             buildingArea: import("@prisma/client-runtime-utils").Decimal | null;
             facilities: string | null;
+            coordinatorId: string | null;
         };
     }>;
     update(id: string, updateHouseBlockDto: UpdateHouseBlockDto): Promise<{
@@ -91,20 +94,21 @@ export declare class HouseBlocksController {
         message: string;
         data: {
             id: string;
+            isActive: boolean;
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
-            isActive: boolean;
-            address: string | null;
             blockCode: string;
             blockName: string;
             blockType: string | null;
+            address: string | null;
             totalUnits: number;
             totalFloors: number | null;
             constructionYear: number | null;
             landArea: import("@prisma/client-runtime-utils").Decimal | null;
             buildingArea: import("@prisma/client-runtime-utils").Decimal | null;
             facilities: string | null;
+            coordinatorId: string | null;
         };
     }>;
     remove(id: string): Promise<{
@@ -112,20 +116,21 @@ export declare class HouseBlocksController {
         message: string;
         data: {
             id: string;
+            isActive: boolean;
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
-            isActive: boolean;
-            address: string | null;
             blockCode: string;
             blockName: string;
             blockType: string | null;
+            address: string | null;
             totalUnits: number;
             totalFloors: number | null;
             constructionYear: number | null;
             landArea: import("@prisma/client-runtime-utils").Decimal | null;
             buildingArea: import("@prisma/client-runtime-utils").Decimal | null;
             facilities: string | null;
+            coordinatorId: string | null;
         };
     }>;
     restore(id: string): Promise<{
@@ -133,20 +138,21 @@ export declare class HouseBlocksController {
         message: string;
         data: {
             id: string;
+            isActive: boolean;
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
-            isActive: boolean;
-            address: string | null;
             blockCode: string;
             blockName: string;
             blockType: string | null;
+            address: string | null;
             totalUnits: number;
             totalFloors: number | null;
             constructionYear: number | null;
             landArea: import("@prisma/client-runtime-utils").Decimal | null;
             buildingArea: import("@prisma/client-runtime-utils").Decimal | null;
             facilities: string | null;
+            coordinatorId: string | null;
         };
     }>;
 }

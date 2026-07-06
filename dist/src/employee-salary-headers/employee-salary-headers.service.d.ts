@@ -12,10 +12,11 @@ export declare class EmployeeSalaryHeadersService {
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
-        status: string;
-        employeeId: string;
         notes: string | null;
+        status: string;
+        createdBy: string;
         payrollNumber: string;
+        employeeId: string;
         payPeriod: string;
         paymentDate: Date | null;
         basicSalary: import("@prisma/client-runtime-utils").Decimal | null;
@@ -27,7 +28,6 @@ export declare class EmployeeSalaryHeadersService {
         overtimeHours: import("@prisma/client-runtime-utils").Decimal | null;
         leaveDays: number | null;
         locked: boolean;
-        createdBy: string;
     }>;
     findAll(queryDto: QueryEmployeeSalaryHeadersDto): Promise<{
         headers: import(".prisma/client").EmployeeSalaryHeader[];
@@ -39,10 +39,11 @@ export declare class EmployeeSalaryHeadersService {
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
-        status: string;
-        employeeId: string;
         notes: string | null;
+        status: string;
+        createdBy: string;
         payrollNumber: string;
+        employeeId: string;
         payPeriod: string;
         paymentDate: Date | null;
         basicSalary: import("@prisma/client-runtime-utils").Decimal | null;
@@ -54,17 +55,17 @@ export declare class EmployeeSalaryHeadersService {
         overtimeHours: import("@prisma/client-runtime-utils").Decimal | null;
         leaveDays: number | null;
         locked: boolean;
-        createdBy: string;
     }>;
     remove(id: string): Promise<{
         id: string;
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
-        status: string;
-        employeeId: string;
         notes: string | null;
+        status: string;
+        createdBy: string;
         payrollNumber: string;
+        employeeId: string;
         payPeriod: string;
         paymentDate: Date | null;
         basicSalary: import("@prisma/client-runtime-utils").Decimal | null;
@@ -76,7 +77,6 @@ export declare class EmployeeSalaryHeadersService {
         overtimeHours: import("@prisma/client-runtime-utils").Decimal | null;
         leaveDays: number | null;
         locked: boolean;
-        createdBy: string;
     }>;
     calculateSalary(id: string): Promise<any>;
     private calculateComponentAmount;
@@ -85,10 +85,11 @@ export declare class EmployeeSalaryHeadersService {
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
-        status: string;
-        employeeId: string;
         notes: string | null;
+        status: string;
+        createdBy: string;
         payrollNumber: string;
+        employeeId: string;
         payPeriod: string;
         paymentDate: Date | null;
         basicSalary: import("@prisma/client-runtime-utils").Decimal | null;
@@ -100,17 +101,17 @@ export declare class EmployeeSalaryHeadersService {
         overtimeHours: import("@prisma/client-runtime-utils").Decimal | null;
         leaveDays: number | null;
         locked: boolean;
-        createdBy: string;
     }>;
     markAsPaid(id: string, paymentDate?: Date): Promise<{
         id: string;
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
-        status: string;
-        employeeId: string;
         notes: string | null;
+        status: string;
+        createdBy: string;
         payrollNumber: string;
+        employeeId: string;
         payPeriod: string;
         paymentDate: Date | null;
         basicSalary: import("@prisma/client-runtime-utils").Decimal | null;
@@ -122,6 +123,5 @@ export declare class EmployeeSalaryHeadersService {
         overtimeHours: import("@prisma/client-runtime-utils").Decimal | null;
         leaveDays: number | null;
         locked: boolean;
-        createdBy: string;
     }>;
 }

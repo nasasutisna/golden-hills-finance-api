@@ -7,6 +7,10 @@ export declare class FileAttachmentsService {
     constructor(repository: FileAttachmentsRepository);
     create(createFileAttachmentDto: CreateFileAttachmentDto, userId: string): Promise<{
         id: string;
+        description: string | null;
+        createdAt: Date;
+        updatedAt: Date;
+        deletedAt: Date | null;
         entityType: string;
         entityId: string;
         fileName: string;
@@ -14,11 +18,7 @@ export declare class FileAttachmentsService {
         fileSize: number;
         mimeType: string;
         category: string | null;
-        description: string | null;
         uploadedBy: string;
-        createdAt: Date;
-        updatedAt: Date;
-        deletedAt: Date | null;
     }>;
     findAll(queryDto: QueryFileAttachmentsDto): Promise<{
         attachments: import(".prisma/client").FileAttachment[];
@@ -26,6 +26,10 @@ export declare class FileAttachmentsService {
     }>;
     findById(id: string): Promise<{
         id: string;
+        description: string | null;
+        createdAt: Date;
+        updatedAt: Date;
+        deletedAt: Date | null;
         entityType: string;
         entityId: string;
         fileName: string;
@@ -33,14 +37,14 @@ export declare class FileAttachmentsService {
         fileSize: number;
         mimeType: string;
         category: string | null;
-        description: string | null;
         uploadedBy: string;
-        createdAt: Date;
-        updatedAt: Date;
-        deletedAt: Date | null;
     }>;
     findByEntity(entityType: string, entityId: string): Promise<{
         id: string;
+        description: string | null;
+        createdAt: Date;
+        updatedAt: Date;
+        deletedAt: Date | null;
         entityType: string;
         entityId: string;
         fileName: string;
@@ -48,14 +52,14 @@ export declare class FileAttachmentsService {
         fileSize: number;
         mimeType: string;
         category: string | null;
-        description: string | null;
         uploadedBy: string;
-        createdAt: Date;
-        updatedAt: Date;
-        deletedAt: Date | null;
     }[]>;
     findByCategory(category: string): Promise<{
         id: string;
+        description: string | null;
+        createdAt: Date;
+        updatedAt: Date;
+        deletedAt: Date | null;
         entityType: string;
         entityId: string;
         fileName: string;
@@ -63,14 +67,14 @@ export declare class FileAttachmentsService {
         fileSize: number;
         mimeType: string;
         category: string | null;
-        description: string | null;
         uploadedBy: string;
-        createdAt: Date;
-        updatedAt: Date;
-        deletedAt: Date | null;
     }[]>;
     update(id: string, updateFileAttachmentDto: UpdateFileAttachmentDto): Promise<{
         id: string;
+        description: string | null;
+        createdAt: Date;
+        updatedAt: Date;
+        deletedAt: Date | null;
         entityType: string;
         entityId: string;
         fileName: string;
@@ -78,14 +82,14 @@ export declare class FileAttachmentsService {
         fileSize: number;
         mimeType: string;
         category: string | null;
-        description: string | null;
         uploadedBy: string;
-        createdAt: Date;
-        updatedAt: Date;
-        deletedAt: Date | null;
     }>;
     remove(id: string): Promise<{
         id: string;
+        description: string | null;
+        createdAt: Date;
+        updatedAt: Date;
+        deletedAt: Date | null;
         entityType: string;
         entityId: string;
         fileName: string;
@@ -93,11 +97,7 @@ export declare class FileAttachmentsService {
         fileSize: number;
         mimeType: string;
         category: string | null;
-        description: string | null;
         uploadedBy: string;
-        createdAt: Date;
-        updatedAt: Date;
-        deletedAt: Date | null;
     }>;
     getFileStats(): Promise<{
         totalFiles: number;

@@ -6,7 +6,6 @@ import {
   IsEmail,
   MinLength,
   MaxLength,
-  IsPhoneNumber,
   IsEnum,
   IsDateString,
   IsBoolean,
@@ -76,7 +75,6 @@ export class CreateResidentDto {
     required: false,
   })
   @IsOptional()
-  @IsPhoneNumber()
   phoneNumber?: string;
 
   @ApiProperty({
@@ -85,7 +83,6 @@ export class CreateResidentDto {
     required: false,
   })
   @IsOptional()
-  @IsPhoneNumber()
   alternatePhone?: string;
 
   @ApiProperty({
@@ -164,7 +161,6 @@ export class CreateResidentDto {
     required: false,
   })
   @IsOptional()
-  @IsPhoneNumber()
   emergencyPhone?: string;
 
   @ApiProperty({

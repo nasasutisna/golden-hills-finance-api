@@ -10,10 +10,10 @@ export declare class TransactionCategoriesService {
         data: {
             id: string;
             description: string | null;
+            isActive: boolean;
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
-            isActive: boolean;
             categoryCode: string;
             categoryName: string;
             categoryType: string;
@@ -30,10 +30,10 @@ export declare class TransactionCategoriesService {
     findById(id: string): Promise<{
         id: string;
         description: string | null;
+        isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
-        isActive: boolean;
         categoryCode: string;
         categoryName: string;
         categoryType: string;
@@ -41,10 +41,10 @@ export declare class TransactionCategoriesService {
     create(createTransactionCategoryDto: CreateTransactionCategoryDto): Promise<{
         id: string;
         description: string | null;
+        isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
-        isActive: boolean;
         categoryCode: string;
         categoryName: string;
         categoryType: string;
@@ -52,10 +52,10 @@ export declare class TransactionCategoriesService {
     update(id: string, updateTransactionCategoryDto: UpdateTransactionCategoryDto): Promise<{
         id: string;
         description: string | null;
+        isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
-        isActive: boolean;
         categoryCode: string;
         categoryName: string;
         categoryType: string;
@@ -63,10 +63,10 @@ export declare class TransactionCategoriesService {
     softDelete(id: string): Promise<{
         id: string;
         description: string | null;
+        isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
-        isActive: boolean;
         categoryCode: string;
         categoryName: string;
         categoryType: string;
@@ -74,10 +74,10 @@ export declare class TransactionCategoriesService {
     restore(id: string): Promise<{
         id: string;
         description: string | null;
+        isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
-        isActive: boolean;
         categoryCode: string;
         categoryName: string;
         categoryType: string;
@@ -85,10 +85,10 @@ export declare class TransactionCategoriesService {
     getByType(categoryType: string): Promise<{
         id: string;
         description: string | null;
+        isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
-        isActive: boolean;
         categoryCode: string;
         categoryName: string;
         categoryType: string;
@@ -96,10 +96,10 @@ export declare class TransactionCategoriesService {
     getActiveCategories(): Promise<{
         id: string;
         description: string | null;
+        isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
-        isActive: boolean;
         categoryCode: string;
         categoryName: string;
         categoryType: string;
@@ -107,10 +107,10 @@ export declare class TransactionCategoriesService {
     getParentCategories(): Promise<{
         id: string;
         description: string | null;
+        isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
-        isActive: boolean;
         categoryCode: string;
         categoryName: string;
         categoryType: string;

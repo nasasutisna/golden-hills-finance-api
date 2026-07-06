@@ -9,28 +9,28 @@ export declare class RolesController {
         statusCode: number;
         message: string;
         data: {
-            name: string;
             id: string;
+            name: string;
             description: string | null;
+            permissions: string | null;
+            isActive: boolean;
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
-            isActive: boolean;
-            permissions: string | null;
         };
     }>;
     findAll(queryOptions: QueryOptionsDto): Promise<{
         statusCode: number;
         message: string;
         data: {
-            name: string;
             id: string;
+            name: string;
             description: string | null;
+            permissions: string | null;
+            isActive: boolean;
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
-            isActive: boolean;
-            permissions: string | null;
         }[];
         meta: {
             page: number;
@@ -45,56 +45,56 @@ export declare class RolesController {
         statusCode: number;
         message: string;
         data: {
-            name: string;
             id: string;
+            name: string;
             description: string | null;
+            permissions: string | null;
+            isActive: boolean;
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
-            isActive: boolean;
-            permissions: string | null;
         };
     }>;
     update(id: string, updateRoleDto: UpdateRoleDto): Promise<{
         statusCode: number;
         message: string;
         data: {
-            name: string;
             id: string;
+            name: string;
             description: string | null;
+            permissions: string | null;
+            isActive: boolean;
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
-            isActive: boolean;
-            permissions: string | null;
         };
     }>;
     remove(id: string): Promise<{
         statusCode: number;
         message: string;
         data: {
-            name: string;
             id: string;
+            name: string;
             description: string | null;
+            permissions: string | null;
+            isActive: boolean;
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
-            isActive: boolean;
-            permissions: string | null;
         };
     }>;
     restore(id: string): Promise<{
         statusCode: number;
         message: string;
         data: {
-            name: string;
             id: string;
+            name: string;
             description: string | null;
+            permissions: string | null;
+            isActive: boolean;
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
-            isActive: boolean;
-            permissions: string | null;
         };
     }>;
 }

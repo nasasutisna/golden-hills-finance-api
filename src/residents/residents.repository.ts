@@ -43,12 +43,12 @@ export class ResidentsRepository {
       where: { id, deletedAt: null },
       include: include || {
         houseBlock: true,
-        residentInvoices: {
+        invoices: {
           where: { deletedAt: null },
           take: 5,
           orderBy: { createdAt: 'desc' },
         },
-        residentPayments: {
+        payments: {
           where: { deletedAt: null },
           take: 5,
           orderBy: { createdAt: 'desc' },

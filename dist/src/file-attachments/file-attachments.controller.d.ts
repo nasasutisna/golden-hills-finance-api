@@ -7,6 +7,10 @@ export declare class FileAttachmentsController {
     constructor(fileAttachmentsService: FileAttachmentsService);
     uploadFile(file: Express.Multer.File, userId: string, entityType: string, entityId: string, category?: string, description?: string): Promise<{
         id: string;
+        description: string | null;
+        createdAt: Date;
+        updatedAt: Date;
+        deletedAt: Date | null;
         entityType: string;
         entityId: string;
         fileName: string;
@@ -14,14 +18,14 @@ export declare class FileAttachmentsController {
         fileSize: number;
         mimeType: string;
         category: string | null;
-        description: string | null;
         uploadedBy: string;
-        createdAt: Date;
-        updatedAt: Date;
-        deletedAt: Date | null;
     }>;
     uploadFiles(files: Express.Multer.File[], userId: string, entityType: string, entityId: string, category?: string, description?: string): Promise<{
         id: string;
+        description: string | null;
+        createdAt: Date;
+        updatedAt: Date;
+        deletedAt: Date | null;
         entityType: string;
         entityId: string;
         fileName: string;
@@ -29,11 +33,7 @@ export declare class FileAttachmentsController {
         fileSize: number;
         mimeType: string;
         category: string | null;
-        description: string | null;
         uploadedBy: string;
-        createdAt: Date;
-        updatedAt: Date;
-        deletedAt: Date | null;
     }[]>;
     findAll(queryDto: QueryFileAttachmentsDto): Promise<{
         attachments: import(".prisma/client").FileAttachment[];
@@ -45,6 +45,10 @@ export declare class FileAttachmentsController {
     }>;
     findByEntity(entityType: string, entityId: string): Promise<{
         id: string;
+        description: string | null;
+        createdAt: Date;
+        updatedAt: Date;
+        deletedAt: Date | null;
         entityType: string;
         entityId: string;
         fileName: string;
@@ -52,14 +56,14 @@ export declare class FileAttachmentsController {
         fileSize: number;
         mimeType: string;
         category: string | null;
-        description: string | null;
         uploadedBy: string;
-        createdAt: Date;
-        updatedAt: Date;
-        deletedAt: Date | null;
     }[]>;
     findByCategory(category: string): Promise<{
         id: string;
+        description: string | null;
+        createdAt: Date;
+        updatedAt: Date;
+        deletedAt: Date | null;
         entityType: string;
         entityId: string;
         fileName: string;
@@ -67,14 +71,14 @@ export declare class FileAttachmentsController {
         fileSize: number;
         mimeType: string;
         category: string | null;
-        description: string | null;
         uploadedBy: string;
-        createdAt: Date;
-        updatedAt: Date;
-        deletedAt: Date | null;
     }[]>;
     findById(id: string): Promise<{
         id: string;
+        description: string | null;
+        createdAt: Date;
+        updatedAt: Date;
+        deletedAt: Date | null;
         entityType: string;
         entityId: string;
         fileName: string;
@@ -82,16 +86,16 @@ export declare class FileAttachmentsController {
         fileSize: number;
         mimeType: string;
         category: string | null;
-        description: string | null;
         uploadedBy: string;
-        createdAt: Date;
-        updatedAt: Date;
-        deletedAt: Date | null;
     }>;
     downloadFile(id: string, res: Response): Promise<void>;
     viewFile(id: string, res: Response): Promise<void>;
     update(id: string, updateFileAttachmentDto: UpdateFileAttachmentDto): Promise<{
         id: string;
+        description: string | null;
+        createdAt: Date;
+        updatedAt: Date;
+        deletedAt: Date | null;
         entityType: string;
         entityId: string;
         fileName: string;
@@ -99,14 +103,14 @@ export declare class FileAttachmentsController {
         fileSize: number;
         mimeType: string;
         category: string | null;
-        description: string | null;
         uploadedBy: string;
-        createdAt: Date;
-        updatedAt: Date;
-        deletedAt: Date | null;
     }>;
     remove(id: string): Promise<{
         id: string;
+        description: string | null;
+        createdAt: Date;
+        updatedAt: Date;
+        deletedAt: Date | null;
         entityType: string;
         entityId: string;
         fileName: string;
@@ -114,10 +118,6 @@ export declare class FileAttachmentsController {
         fileSize: number;
         mimeType: string;
         category: string | null;
-        description: string | null;
         uploadedBy: string;
-        createdAt: Date;
-        updatedAt: Date;
-        deletedAt: Date | null;
     }>;
 }

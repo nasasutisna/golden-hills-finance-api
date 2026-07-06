@@ -10,11 +10,11 @@ export declare class EmployeeSalaryDetailsController {
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
-        amount: import("@prisma/client-runtime-utils").Decimal;
         notes: string | null;
+        amount: import("@prisma/client-runtime-utils").Decimal;
+        quantity: number;
         salaryHeaderId: string;
         componentId: string;
-        quantity: number;
         manualOverride: boolean;
     }>;
     findAll(queryDto: QueryEmployeeSalaryDetailsDto): Promise<{
@@ -26,11 +26,11 @@ export declare class EmployeeSalaryDetailsController {
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
-        amount: import("@prisma/client-runtime-utils").Decimal;
         notes: string | null;
+        amount: import("@prisma/client-runtime-utils").Decimal;
+        quantity: number;
         salaryHeaderId: string;
         componentId: string;
-        quantity: number;
         manualOverride: boolean;
     }[]>;
     findById(id: string): Promise<{
@@ -38,11 +38,11 @@ export declare class EmployeeSalaryDetailsController {
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
-        amount: import("@prisma/client-runtime-utils").Decimal;
         notes: string | null;
+        amount: import("@prisma/client-runtime-utils").Decimal;
+        quantity: number;
         salaryHeaderId: string;
         componentId: string;
-        quantity: number;
         manualOverride: boolean;
     }>;
     update(id: string, updateEmployeeSalaryDetailDto: UpdateEmployeeSalaryDetailDto): Promise<{
@@ -50,11 +50,11 @@ export declare class EmployeeSalaryDetailsController {
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
-        amount: import("@prisma/client-runtime-utils").Decimal;
         notes: string | null;
+        amount: import("@prisma/client-runtime-utils").Decimal;
+        quantity: number;
         salaryHeaderId: string;
         componentId: string;
-        quantity: number;
         manualOverride: boolean;
     }>;
     remove(id: string): Promise<{
@@ -62,11 +62,11 @@ export declare class EmployeeSalaryDetailsController {
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
-        amount: import("@prisma/client-runtime-utils").Decimal;
         notes: string | null;
+        amount: import("@prisma/client-runtime-utils").Decimal;
+        quantity: number;
         salaryHeaderId: string;
         componentId: string;
-        quantity: number;
         manualOverride: boolean;
     }>;
 }

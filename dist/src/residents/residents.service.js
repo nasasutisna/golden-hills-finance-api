@@ -22,8 +22,8 @@ let ResidentsService = ResidentsService_1 = class ResidentsService {
         const { page = 1, limit = 10, sortBy = 'createdAt', sortOrder = 'desc', search, searchFields, filters } = queryOptions;
         const skip = (page - 1) * limit;
         let where = {};
-        if (search && searchFields) {
-            const fields = searchFields.split(',');
+        if (search) {
+            const fields = searchFields ? searchFields.split(',') : ['firstName', 'lastName', 'residentCode', 'email'];
             where.OR = fields.map((field) => ({
                 [field]: { contains: search },
             }));
@@ -110,6 +110,39 @@ let ResidentsService = ResidentsService_1 = class ResidentsService {
     }
     async count(where) {
         return await this.residentsRepository.count(where);
+    }
+    async getStats() {
+        const totalResidents = await this.residentsRepository.count();
+        const activeResidents = await this.residentsRepository.getActiveResidentsCount();
+        const inactiveResidents = totalResidents - activeResidents;
+        const owners = await this.residentsRepository.count({ ownershipType: 'OWNER' });
+        const renters = await this.residentsRepository.count({ ownershipType: 'RENTER' });
+        const males = await this.residentsRepository.count({ gender: 'MALE' });
+        const females = await this.residentsRepository.count({ gender: 'FEMALE' });
+        const single = await this.residentsRepository.count({ maritalStatus: 'SINGLE' });
+        const married = await this.residentsRepository.count({ maritalStatus: 'MARRIED' });
+        const divorced = await this.residentsRepository.count({ maritalStatus: 'DIVORCED' });
+        const widowed = await this.residentsRepository.count({ maritalStatus: 'WIDOWED' });
+        return {
+            total: totalResidents,
+            active: activeResidents,
+            inactive: inactiveResidents,
+            ownership: {
+                owners,
+                renters,
+            },
+            gender: {
+                male: males,
+                female: females,
+                other: totalResidents - males - females,
+            },
+            maritalStatus: {
+                single,
+                married,
+                divorced,
+                widowed,
+            },
+        };
     }
     async exists(id) {
         return await this.residentsRepository.exists(id);

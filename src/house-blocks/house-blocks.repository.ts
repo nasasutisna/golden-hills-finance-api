@@ -33,6 +33,17 @@ export class HouseBlocksRepository {
               isActive: true,
             },
           },
+          coordinator: {
+            select: {
+              id: true,
+              username: true,
+              email: true,
+              firstName: true,
+              lastName: true,
+              phoneNumber: true,
+              isActive: true,
+            },
+          },
         },
       }),
       this.prisma.houseBlock.count({ where: { ...where, deletedAt: null } }),
@@ -58,6 +69,17 @@ export class HouseBlocksRepository {
           },
           orderBy: { unitNumber: 'asc' },
         },
+        coordinator: {
+          select: {
+            id: true,
+            username: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+            phoneNumber: true,
+            isActive: true,
+          },
+        },
       },
     });
 
@@ -71,7 +93,20 @@ export class HouseBlocksRepository {
   async findByBlockCode(blockCode: string): Promise<HouseBlock | null> {
     return this.prisma.houseBlock.findFirst({
       where: { blockCode, deletedAt: null },
-      include: { residents: true },
+      include: {
+        residents: true,
+        coordinator: {
+          select: {
+            id: true,
+            username: true,
+            email: true,
+            firstName: true,
+            lastName: true,
+            phoneNumber: true,
+            isActive: true,
+          },
+        },
+      },
     });
   }
 
