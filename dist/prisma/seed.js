@@ -1,12 +1,48 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 const client_1 = require("@prisma/client");
+const adapter_mariadb_1 = require("@prisma/adapter-mariadb");
 const bcrypt = require("bcrypt");
-const prisma = new client_1.PrismaClient();
+require("dotenv/config");
+class SeedPrismaService extends client_1.PrismaClient {
+    constructor() {
+        const connectionString = process.env.DATABASE_URL;
+        const adapter = new adapter_mariadb_1.PrismaMariaDb(connectionString);
+        super({ adapter });
+    }
+}
+const prisma = new SeedPrismaService();
 async function main() {
     console.log('Starting database seed...');
     console.log('Creating roles...');
     const roles = await Promise.all([
+        prisma.role.upsert({
+            where: { name: 'SUPERADMIN' },
+            update: {},
+            create: {
+                name: 'SUPERADMIN',
+                description: 'Super Administrator with full system access and control',
+                permissions: JSON.stringify([
+                    'users.manage',
+                    'roles.manage',
+                    'permissions.manage',
+                    'residents.manage',
+                    'employees.manage',
+                    'invoices.manage',
+                    'payments.manage',
+                    'transactions.manage',
+                    'inventory.manage',
+                    'salary.manage',
+                    'events.manage',
+                    'notifications.manage',
+                    'settings.manage',
+                    'system.manage',
+                    'audit.view',
+                    'logs.view',
+                ]),
+                isActive: true,
+            },
+        }),
         prisma.role.upsert({
             where: { name: 'ADMIN' },
             update: {},
@@ -85,21 +121,39 @@ async function main() {
         }),
     ]);
     console.log(`✓ Created ${roles.length} roles`);
-    console.log('Creating admin user...');
-    const hashedPassword = await bcrypt.hash('Admin@123', 10);
-    const adminUser = await prisma.user.upsert({
-        where: { username: 'admin' },
+    console.log('Creating superadmin user...');
+    const superadminPassword = await bcrypt.hash('Superadmin@123', 10);
+    const superadminUser = await prisma.user.upsert({
+        where: { username: 'superadmin' },
         update: {},
         create: {
-            username: 'admin',
-            email: 'admin@goldenhills.com',
-            password: hashedPassword,
+            username: 'superadmin',
+            email: 'superadmin@goldenhills.com',
+            password: superadminPassword,
             firstName: 'Super',
             lastName: 'Admin',
             phoneNumber: '+6281234567890',
             isActive: true,
             isEmailVerified: true,
             roleId: roles[0].id,
+        },
+    });
+    console.log(`✓ Created superadmin user: ${superadminUser.username}`);
+    console.log('Creating admin user...');
+    const adminPassword = await bcrypt.hash('Admin@123', 10);
+    const adminUser = await prisma.user.upsert({
+        where: { username: 'admin' },
+        update: {},
+        create: {
+            username: 'admin',
+            email: 'admin@goldenhills.com',
+            password: adminPassword,
+            firstName: 'System',
+            lastName: 'Administrator',
+            phoneNumber: '+6281234567891',
+            isActive: true,
+            isEmailVerified: true,
+            roleId: roles[1].id,
         },
     });
     console.log(`✓ Created admin user: ${adminUser.username}`);
@@ -329,7 +383,7 @@ async function main() {
             phoneNumber: '+6281234567891',
             isActive: true,
             isEmailVerified: true,
-            roleId: roles[1].id,
+            roleId: roles[2].id,
         },
     });
     const employees = await Promise.all([
@@ -749,7 +803,10 @@ async function main() {
     console.log(`✓ Created ${events.length} community events`);
     console.log('\n✓ Database seed completed successfully!');
     console.log('\nDefault login credentials:');
-    console.log('Admin User:');
+    console.log('Superadmin User:');
+    console.log('  Username: superadmin');
+    console.log('  Password: Superadmin@123');
+    console.log('\nAdmin User:');
     console.log('  Username: admin');
     console.log('  Password: Admin@123');
     console.log('\nEmployee User:');

@@ -62,8 +62,8 @@ let InventoryRequestsService = class InventoryRequestsService {
         }
         if (search) {
             where.OR = [
-                { requestNumber: { contains: search, mode: 'insensitive' } },
-                { purpose: { contains: search, mode: 'insensitive' } },
+                { requestNumber: { contains: search } },
+                { purpose: { contains: search } },
             ];
         }
         const orderBy = sortBy ? { [sortBy]: sortOrder || 'asc' } : { requestDate: 'desc' };

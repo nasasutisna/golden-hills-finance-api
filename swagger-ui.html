@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Golden Hills Finance API Docs</title>
+  <link rel="stylesheet" type="text/css" href="./node_modules/swagger-ui-dist/swagger-ui.css">
+  <style>
+    html {
+      box-sizing: border-box;
+      overflow: -moz-scrollbars-vertical;
+      overflow-y: scroll;
+    }
+    *,
+    *:before,
+    *:after {
+      box-sizing: inherit;
+    }
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Roboto', sans-serif;
+      font-size: 14px;
+      line-height: 1.5;
+      color: #333;
+      background-color: #fff;
+    }
+    #swagger-ui {
+      max-width: 100%;
+      margin: 0 auto;
+    }
+    .topbar {
+      background-color: #1d4ed8;
+      padding: 10px 0;
+    }
+    .topbar-wrapper {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      max-width: 1460px;
+      margin: 0 auto;
+      padding: 0 20px;
+    }
+    .topbar-wrapper .link {
+      display: flex;
+      align-items: center;
+      color: #fff;
+      text-decoration: none;
+      font-size: 1.2em;
+      font-weight: 600;
+    }
+    .topbar-wrapper .link img {
+      height: 40px;
+      margin-right: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="topbar-wrapper">
+      <a class="link" href="#">
+        <span>Golden Hills Finance API Docs</span>
+      </a>
+    </div>
+  </div>
+  <div id="swagger-ui"></div>
+
+  <script src="./node_modules/swagger-ui-dist/swagger-ui-bundle.js" charset="UTF-8"></script>
+  <script src="./node_modules/swagger-ui-dist/swagger-ui-standalone-preset.js" charset="UTF-8"></script>
+  <script>
+    window.onload = function() {
+      const specUrl = './swagger-spec.json';
+
+      // Fetch and validate the spec
+      fetch(specUrl)
+        .then(response => {
+          if (!response.ok) {
+            throw new Error('Failed to load swagger-spec.json');
+          }
+          return response.json();
+        })
+        .then(spec => {
+          const ui = SwaggerUIBundle({
+            spec: spec,
+            dom_id: '#swagger-ui',
+            deepLinking: true,
+            presets: [
+              SwaggerUIBundle.presets.apis,
+              SwaggerUIStandalonePreset
+            ],
+            plugins: [
+              SwaggerUIBundle.plugins.DownloadUrl
+            ],
+            layout: "StandaloneLayout",
+            defaultModelsExpandDepth: 1,
+            defaultModelExpandDepth: 1,
+            docExpansion: "list",
+            persistAuthorization: true,
+            filter: true,
+            showRequestDuration: true,
+            tryItOutEnabled: true,
+            validatorUrl: null,
+            displayRequestDuration: true,
+            displayOperationId: false,
+            syntaxHighlight: {
+              activate: true,
+              theme: "agate"
+            }
+          });
+
+          window.ui = ui;
+        })
+        .catch(error => {
+          console.error('Error loading Swagger spec:', error);
+          document.getElementById('swagger-ui').innerHTML = `
+            <div style="padding: 20px; color: #d32f2f; text-align: center;">
+              <h2>Error Loading API Documentation</h2>
+              <p>Could not load swagger-spec.json. Please make sure the file exists and the server is running.</p>
+              <p><small>Technical details: ${error.message}</small></p>
+            </div>
+          `;
+        });
+    };
+  </script>
+</body>
+</html>

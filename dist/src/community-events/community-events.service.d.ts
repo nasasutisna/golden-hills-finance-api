@@ -8,14 +8,13 @@ export declare class CommunityEventsService {
     create(createCommunityEventDto: CreateCommunityEventDto, userId: string): Promise<{
         id: string;
         description: string | null;
-        isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
-        location: string | null;
         eventCode: string;
         eventName: string;
         eventType: string;
+        location: string | null;
         startDate: Date;
         endDate: Date | null;
         expectedAttendees: number | null;
@@ -23,6 +22,7 @@ export declare class CommunityEventsService {
         status: string;
         organizer: string | null;
         contactNumber: string | null;
+        isActive: boolean;
     }>;
     findAll(queryDto: QueryCommunityEventsDto): Promise<{
         events: import(".prisma/client").CommunityEvent[];
@@ -31,14 +31,13 @@ export declare class CommunityEventsService {
     findById(id: string): Promise<{
         id: string;
         description: string | null;
-        isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
-        location: string | null;
         eventCode: string;
         eventName: string;
         eventType: string;
+        location: string | null;
         startDate: Date;
         endDate: Date | null;
         expectedAttendees: number | null;
@@ -46,18 +45,18 @@ export declare class CommunityEventsService {
         status: string;
         organizer: string | null;
         contactNumber: string | null;
+        isActive: boolean;
     }>;
     update(id: string, updateCommunityEventDto: UpdateCommunityEventDto): Promise<{
         id: string;
         description: string | null;
-        isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
-        location: string | null;
         eventCode: string;
         eventName: string;
         eventType: string;
+        location: string | null;
         startDate: Date;
         endDate: Date | null;
         expectedAttendees: number | null;
@@ -65,18 +64,18 @@ export declare class CommunityEventsService {
         status: string;
         organizer: string | null;
         contactNumber: string | null;
+        isActive: boolean;
     }>;
     remove(id: string): Promise<{
         id: string;
         description: string | null;
-        isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
-        location: string | null;
         eventCode: string;
         eventName: string;
         eventType: string;
+        location: string | null;
         startDate: Date;
         endDate: Date | null;
         expectedAttendees: number | null;
@@ -84,18 +83,18 @@ export declare class CommunityEventsService {
         status: string;
         organizer: string | null;
         contactNumber: string | null;
+        isActive: boolean;
     }>;
     getUpcomingEvents(): Promise<{
         id: string;
         description: string | null;
-        isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
-        location: string | null;
         eventCode: string;
         eventName: string;
         eventType: string;
+        location: string | null;
         startDate: Date;
         endDate: Date | null;
         expectedAttendees: number | null;
@@ -103,5 +102,6 @@ export declare class CommunityEventsService {
         status: string;
         organizer: string | null;
         contactNumber: string | null;
+        isActive: boolean;
     }[]>;
 }

@@ -5,6 +5,7 @@ export interface CurrentUserData {
   username: string;
   email: string;
   roleId: string;
+  roleName: string;
   firstName: string;
   lastName: string;
   permissions?: string[];

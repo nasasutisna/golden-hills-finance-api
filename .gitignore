@@ -30,3 +30,6 @@ coverage/
 
 # Prisma
 prisma/migrations/
+
+# Generated files
+swagger-spec.json

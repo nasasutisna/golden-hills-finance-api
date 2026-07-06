@@ -23,7 +23,9 @@
     "prisma:migrate:reset": "prisma migrate reset",
     "prisma:seed": "ts-node prisma/seed.ts",
     "prisma:studio": "prisma studio",
-    "prisma:deploy": "prisma migrate deploy"
+    "prisma:deploy": "prisma migrate deploy",
+    "swagger:generate": "ts-node scripts/swagger-bundle.ts",
+    "swagger:serve": "npx http-server -p 8080 --cors -o swagger-ui.html"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
@@ -96,5 +98,8 @@
     ],
     "coverageDirectory": "../coverage",
     "testEnvironment": "node"
+  },
+  "optionalDependencies": {
+    "swagger-ui-dist": "^5.32.8"
   }
 }

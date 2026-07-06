@@ -76,6 +76,7 @@ export class AuthController {
   })
   @ApiResponse({ status: 409, description: 'Conflict - User already exists' })
   async register(@Body() registerDto: RegisterDto) {
+    console.log('reg',registerDto)
     const result = await this.authService.register(registerDto);
     return {
       statusCode: HttpStatus.CREATED,

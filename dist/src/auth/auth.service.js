@@ -24,7 +24,15 @@ let AuthService = AuthService_1 = class AuthService {
         this.logger = new common_1.Logger(AuthService_1.name);
     }
     async validateUser(username, password) {
-        const user = await this.usersService.findByUsername(username);
+        const user = await this.usersService.findByUsername(username, {
+            role: {
+                select: {
+                    id: true,
+                    name: true,
+                    description: true,
+                },
+            },
+        });
         if (!user) {
             return null;
         }
@@ -68,6 +76,11 @@ let AuthService = AuthService_1 = class AuthService {
                 firstName: user.firstName,
                 lastName: user.lastName,
                 roleId: user.roleId,
+                role: user.role ? {
+                    id: user.role.id,
+                    name: user.role.name,
+                    description: user.role.description,
+                } : null,
             },
         };
     }
@@ -84,20 +97,35 @@ let AuthService = AuthService_1 = class AuthService {
         const user = await this.usersService.create({
             ...registerDto,
             password: hashedPassword,
+            roleId: registerDto.roleId || this.configService.get('DEFAULT_USER_ROLE_ID', 'default-user-role'),
             isActive: true,
             isEmailVerified: false,
         });
-        const tokens = await this.generateTokens(user);
+        const userWithRole = await this.usersService.findById(user.id, {
+            role: {
+                select: {
+                    id: true,
+                    name: true,
+                    description: true,
+                },
+            },
+        });
+        const tokens = await this.generateTokens(userWithRole);
         this.logger.log(`New user registered: ${user.username}`);
         return {
             ...tokens,
             user: {
-                id: user.id,
-                username: user.username,
-                email: user.email,
-                firstName: user.firstName,
-                lastName: user.lastName,
-                roleId: user.roleId,
+                id: userWithRole.id,
+                username: userWithRole.username,
+                email: userWithRole.email,
+                firstName: userWithRole.firstName,
+                lastName: userWithRole.lastName,
+                roleId: userWithRole.roleId,
+                role: userWithRole.role ? {
+                    id: userWithRole.role.id,
+                    name: userWithRole.role.name,
+                    description: userWithRole.role.description,
+                } : null,
             },
         };
     }

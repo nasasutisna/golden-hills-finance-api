@@ -8,15 +8,15 @@ export declare class SalaryComponentsController {
     create(createSalaryComponentDto: CreateSalaryComponentDto): Promise<{
         id: string;
         description: string | null;
-        isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
-        isTaxable: boolean;
+        isActive: boolean;
         componentCode: string;
         componentName: string;
         componentType: string;
         calculationType: string;
+        isTaxable: boolean;
         isFixed: boolean;
         fixedAmount: import("@prisma/client-runtime-utils").Decimal | null;
         percentage: import("@prisma/client-runtime-utils").Decimal | null;
@@ -30,15 +30,15 @@ export declare class SalaryComponentsController {
     getActiveComponents(): Promise<{
         id: string;
         description: string | null;
-        isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
-        isTaxable: boolean;
+        isActive: boolean;
         componentCode: string;
         componentName: string;
         componentType: string;
         calculationType: string;
+        isTaxable: boolean;
         isFixed: boolean;
         fixedAmount: import("@prisma/client-runtime-utils").Decimal | null;
         percentage: import("@prisma/client-runtime-utils").Decimal | null;
@@ -48,15 +48,15 @@ export declare class SalaryComponentsController {
     findById(id: string): Promise<{
         id: string;
         description: string | null;
-        isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
-        isTaxable: boolean;
+        isActive: boolean;
         componentCode: string;
         componentName: string;
         componentType: string;
         calculationType: string;
+        isTaxable: boolean;
         isFixed: boolean;
         fixedAmount: import("@prisma/client-runtime-utils").Decimal | null;
         percentage: import("@prisma/client-runtime-utils").Decimal | null;
@@ -66,15 +66,15 @@ export declare class SalaryComponentsController {
     update(id: string, updateSalaryComponentDto: UpdateSalaryComponentDto): Promise<{
         id: string;
         description: string | null;
-        isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
-        isTaxable: boolean;
+        isActive: boolean;
         componentCode: string;
         componentName: string;
         componentType: string;
         calculationType: string;
+        isTaxable: boolean;
         isFixed: boolean;
         fixedAmount: import("@prisma/client-runtime-utils").Decimal | null;
         percentage: import("@prisma/client-runtime-utils").Decimal | null;
@@ -84,15 +84,15 @@ export declare class SalaryComponentsController {
     remove(id: string): Promise<{
         id: string;
         description: string | null;
-        isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
-        isTaxable: boolean;
+        isActive: boolean;
         componentCode: string;
         componentName: string;
         componentType: string;
         calculationType: string;
+        isTaxable: boolean;
         isFixed: boolean;
         fixedAmount: import("@prisma/client-runtime-utils").Decimal | null;
         percentage: import("@prisma/client-runtime-utils").Decimal | null;

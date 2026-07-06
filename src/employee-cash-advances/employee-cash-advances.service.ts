@@ -61,8 +61,8 @@ export class EmployeeCashAdvancesService {
 
     if (search) {
       where.OR = [
-        { advanceNumber: { contains: search, mode: 'insensitive' } },
-        { purpose: { contains: search, mode: 'insensitive' } },
+        { advanceNumber: { contains: search } },
+        { purpose: { contains: search } },
       ];
     }
 

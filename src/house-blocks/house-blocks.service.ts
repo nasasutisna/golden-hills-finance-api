@@ -8,19 +8,21 @@ import { HouseBlocksRepository } from './house-blocks.repository';
 export class HouseBlocksService {
   private readonly logger = new Logger(HouseBlocksService.name);
 
-  constructor(private readonly houseBlocksRepository: HouseBlocksRepository) {}
+  constructor(private readonly houseBlocksRepository: HouseBlocksRepository) { }
 
   async findAll(queryOptions: QueryOptionsDto) {
-    const { page = 1, limit = 10, sortBy = 'blockCode', sortOrder = 'asc', search, searchFields, filters } = queryOptions;
+    const { page = 1, limit = 10, sortBy = 'blockCode', sortOrder = 'asc', search, searchFields = 'blockCode,blockName', filters } = queryOptions;
 
     const skip = (page - 1) * limit;
 
     let where: any = {};
 
-    if (search && searchFields) {
-      const fields = searchFields.split(',');
+    if (search) {
+      // Trim whitespace from each field
+      const fields = searchFields.split(',').map(f => f.trim());
+      // MySQL is case-insensitive by default for most collations, so no 'mode' needed
       where.OR = fields.map((field) => ({
-        [field]: { contains: search, mode: 'insensitive' },
+        [field]: { contains: search },
       }));
     }
 

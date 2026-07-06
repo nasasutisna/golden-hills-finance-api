@@ -49,7 +49,15 @@ export class AuthService {
   ) {}
 
   async validateUser(username: string, password: string): Promise<any> {
-    const user = await this.usersService.findByUsername(username);
+    const user = await this.usersService.findByUsername(username, {
+      role: {
+        select: {
+          id: true,
+          name: true,
+          description: true,
+        },
+      },
+    });
 
     if (!user) {
       return null;
@@ -105,6 +113,11 @@ export class AuthService {
         firstName: user.firstName,
         lastName: user.lastName,
         roleId: user.roleId,
+        role: user.role ? {
+          id: user.role.id,
+          name: user.role.name,
+          description: user.role.description,
+        } : null,
       },
     };
   }
@@ -127,28 +140,45 @@ export class AuthService {
       parseInt(this.configService.get<string>('BCRYPT_ROUNDS', '10')),
     );
 
-    // Create user
+    // Create user with default role
     const user = await this.usersService.create({
       ...registerDto,
       password: hashedPassword,
+      roleId: registerDto.roleId || this.configService.get<string>('DEFAULT_USER_ROLE_ID', 'default-user-role'),
       isActive: true,
       isEmailVerified: false,
     });
 
+    // Fetch user with role for response
+    const userWithRole = await this.usersService.findById(user.id, {
+      role: {
+        select: {
+          id: true,
+          name: true,
+          description: true,
+        },
+      },
+    });
+
     // Generate tokens
-    const tokens = await this.generateTokens(user);
+    const tokens = await this.generateTokens(userWithRole);
 
     this.logger.log(`New user registered: ${user.username}`);
 
     return {
       ...tokens,
       user: {
-        id: user.id,
-        username: user.username,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        roleId: user.roleId,
+        id: userWithRole.id,
+        username: userWithRole.username,
+        email: userWithRole.email,
+        firstName: userWithRole.firstName,
+        lastName: userWithRole.lastName,
+        roleId: userWithRole.roleId,
+        role: userWithRole.role ? {
+          id: userWithRole.role.id,
+          name: userWithRole.role.name,
+          description: userWithRole.role.description,
+        } : null,
       },
     };
   }

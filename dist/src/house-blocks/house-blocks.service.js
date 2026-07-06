@@ -19,13 +19,13 @@ let HouseBlocksService = HouseBlocksService_1 = class HouseBlocksService {
         this.logger = new common_1.Logger(HouseBlocksService_1.name);
     }
     async findAll(queryOptions) {
-        const { page = 1, limit = 10, sortBy = 'blockCode', sortOrder = 'asc', search, searchFields, filters } = queryOptions;
+        const { page = 1, limit = 10, sortBy = 'blockCode', sortOrder = 'asc', search, searchFields = 'blockCode,blockName', filters } = queryOptions;
         const skip = (page - 1) * limit;
         let where = {};
-        if (search && searchFields) {
-            const fields = searchFields.split(',');
+        if (search) {
+            const fields = searchFields.split(',').map(f => f.trim());
             where.OR = fields.map((field) => ({
-                [field]: { contains: search, mode: 'insensitive' },
+                [field]: { contains: search },
             }));
         }
         if (filters) {

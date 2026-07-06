@@ -11,16 +11,16 @@ export declare class FeeTypesController {
         data: {
             id: string;
             description: string | null;
-            isActive: boolean;
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
+            isActive: boolean;
+            isTaxable: boolean;
             feeCode: string;
             feeName: string;
             feeCategory: string;
             isRecurring: boolean;
             recurrencePeriod: string | null;
-            isTaxable: boolean;
             defaultAmount: import("@prisma/client-runtime-utils").Decimal | null;
             taxRate: import("@prisma/client-runtime-utils").Decimal | null;
             effectiveDate: Date | null;
@@ -33,16 +33,16 @@ export declare class FeeTypesController {
         data: {
             id: string;
             description: string | null;
-            isActive: boolean;
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
+            isActive: boolean;
+            isTaxable: boolean;
             feeCode: string;
             feeName: string;
             feeCategory: string;
             isRecurring: boolean;
             recurrencePeriod: string | null;
-            isTaxable: boolean;
             defaultAmount: import("@prisma/client-runtime-utils").Decimal | null;
             taxRate: import("@prisma/client-runtime-utils").Decimal | null;
             effectiveDate: Date | null;
@@ -63,16 +63,16 @@ export declare class FeeTypesController {
         data: {
             id: string;
             description: string | null;
-            isActive: boolean;
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
+            isActive: boolean;
+            isTaxable: boolean;
             feeCode: string;
             feeName: string;
             feeCategory: string;
             isRecurring: boolean;
             recurrencePeriod: string | null;
-            isTaxable: boolean;
             defaultAmount: import("@prisma/client-runtime-utils").Decimal | null;
             taxRate: import("@prisma/client-runtime-utils").Decimal | null;
             effectiveDate: Date | null;
@@ -85,16 +85,16 @@ export declare class FeeTypesController {
         data: {
             id: string;
             description: string | null;
-            isActive: boolean;
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
+            isActive: boolean;
+            isTaxable: boolean;
             feeCode: string;
             feeName: string;
             feeCategory: string;
             isRecurring: boolean;
             recurrencePeriod: string | null;
-            isTaxable: boolean;
             defaultAmount: import("@prisma/client-runtime-utils").Decimal | null;
             taxRate: import("@prisma/client-runtime-utils").Decimal | null;
             effectiveDate: Date | null;
@@ -107,16 +107,16 @@ export declare class FeeTypesController {
         data: {
             id: string;
             description: string | null;
-            isActive: boolean;
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
+            isActive: boolean;
+            isTaxable: boolean;
             feeCode: string;
             feeName: string;
             feeCategory: string;
             isRecurring: boolean;
             recurrencePeriod: string | null;
-            isTaxable: boolean;
             defaultAmount: import("@prisma/client-runtime-utils").Decimal | null;
             taxRate: import("@prisma/client-runtime-utils").Decimal | null;
             effectiveDate: Date | null;
@@ -129,16 +129,16 @@ export declare class FeeTypesController {
         data: {
             id: string;
             description: string | null;
-            isActive: boolean;
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
+            isActive: boolean;
+            isTaxable: boolean;
             feeCode: string;
             feeName: string;
             feeCategory: string;
             isRecurring: boolean;
             recurrencePeriod: string | null;
-            isTaxable: boolean;
             defaultAmount: import("@prisma/client-runtime-utils").Decimal | null;
             taxRate: import("@prisma/client-runtime-utils").Decimal | null;
             effectiveDate: Date | null;
@@ -151,16 +151,16 @@ export declare class FeeTypesController {
         data: {
             id: string;
             description: string | null;
-            isActive: boolean;
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
+            isActive: boolean;
+            isTaxable: boolean;
             feeCode: string;
             feeName: string;
             feeCategory: string;
             isRecurring: boolean;
             recurrencePeriod: string | null;
-            isTaxable: boolean;
             defaultAmount: import("@prisma/client-runtime-utils").Decimal | null;
             taxRate: import("@prisma/client-runtime-utils").Decimal | null;
             effectiveDate: Date | null;
@@ -173,16 +173,16 @@ export declare class FeeTypesController {
         data: {
             id: string;
             description: string | null;
-            isActive: boolean;
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
+            isActive: boolean;
+            isTaxable: boolean;
             feeCode: string;
             feeName: string;
             feeCategory: string;
             isRecurring: boolean;
             recurrencePeriod: string | null;
-            isTaxable: boolean;
             defaultAmount: import("@prisma/client-runtime-utils").Decimal | null;
             taxRate: import("@prisma/client-runtime-utils").Decimal | null;
             effectiveDate: Date | null;

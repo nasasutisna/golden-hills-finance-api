@@ -29,7 +29,16 @@ let JwtStrategy = class JwtStrategy extends (0, passport_1.PassportStrategy)(pas
         if (payload.type !== 'access') {
             throw new common_1.UnauthorizedException('Invalid token type');
         }
-        const user = await this.usersService.findById(payload.sub);
+        const user = await this.usersService.findById(payload.sub, {
+            role: {
+                select: {
+                    id: true,
+                    name: true,
+                    description: true,
+                    permissions: true,
+                },
+            },
+        });
         if (!user) {
             throw new common_1.UnauthorizedException('User not found');
         }
@@ -47,6 +56,7 @@ let JwtStrategy = class JwtStrategy extends (0, passport_1.PassportStrategy)(pas
             username: user.username,
             email: user.email,
             roleId: user.roleId,
+            roleName: role?.name || '',
             firstName: user.firstName,
             lastName: user.lastName,
             permissions,

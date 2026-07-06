@@ -18,6 +18,9 @@ let TransformInterceptor = class TransformInterceptor {
                 return data;
             }
             const response = new response_dto_1.ResponseDto(context.switchToHttp().getResponse().statusCode, data?.message || 'Success', data?.data !== undefined ? data.data : data, data?.errors);
+            if (data?.meta) {
+                response.meta = data.meta;
+            }
             response.path = request.url;
             return response;
         }));

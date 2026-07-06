@@ -25,7 +25,7 @@ let UsersService = UsersService_1 = class UsersService {
         if (search && searchFields) {
             const fields = searchFields.split(',');
             where.OR = fields.map((field) => ({
-                [field]: { contains: search, mode: 'insensitive' },
+                [field]: { contains: search },
             }));
         }
         if (filters) {
@@ -50,12 +50,12 @@ let UsersService = UsersService_1 = class UsersService {
             },
         };
     }
-    async findById(id) {
-        const user = await this.usersRepository.findById(id);
+    async findById(id, include) {
+        const user = await this.usersRepository.findById(id, include);
         return this.excludeSensitiveData(user);
     }
-    async findByUsername(username) {
-        const user = await this.usersRepository.findByUsername(username);
+    async findByUsername(username, include) {
+        const user = await this.usersRepository.findByUsername(username, include);
         return user ?? null;
     }
     async findByEmail(email) {

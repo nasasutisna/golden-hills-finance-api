@@ -32,6 +32,12 @@ export class TransformInterceptor<T>
           data?.data !== undefined ? data.data : data,
           data?.errors,
         );
+
+        // Preserve meta if it exists (for paginated responses)
+        if (data?.meta) {
+          (response as any).meta = data.meta;
+        }
+
         response.path = request.url;
         return response;
       }),

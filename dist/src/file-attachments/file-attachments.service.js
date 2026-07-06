@@ -38,12 +38,12 @@ let FileAttachmentsService = class FileAttachmentsService {
             where.category = category;
         }
         if (mimeType) {
-            where.mimeType = { contains: mimeType, mode: 'insensitive' };
+            where.mimeType = { contains: mimeType };
         }
         if (search) {
             where.OR = [
-                { fileName: { contains: search, mode: 'insensitive' } },
-                { description: { contains: search, mode: 'insensitive' } },
+                { fileName: { contains: search } },
+                { description: { contains: search } },
             ];
         }
         const orderBy = sortBy ? { [sortBy]: sortOrder || 'asc' } : { createdAt: 'desc' };

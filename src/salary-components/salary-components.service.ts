@@ -42,9 +42,9 @@ export class SalaryComponentsService {
 
     if (search) {
       where.OR = [
-        { componentCode: { contains: search, mode: 'insensitive' } },
-        { componentName: { contains: search, mode: 'insensitive' } },
-        { description: { contains: search, mode: 'insensitive' } },
+        { componentCode: { contains: search } },
+        { componentName: { contains: search } },
+        { description: { contains: search } },
       ];
     }
 

@@ -27,6 +27,19 @@ export class ResponseDto<T> {
   errors?: string[];
 
   @ApiProperty({
+    description: 'Pagination metadata',
+    nullable: true,
+  })
+  meta?: {
+    page?: number;
+    limit?: number;
+    total?: number;
+    totalPages?: number;
+    hasNext?: boolean;
+    hasPrevious?: boolean;
+  };
+
+  @ApiProperty({
     description: 'Timestamp of the response',
     example: '2024-01-01T00:00:00.000Z',
   })

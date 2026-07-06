@@ -21,7 +21,7 @@ export class UsersService {
     if (search && searchFields) {
       const fields = searchFields.split(',');
       where.OR = fields.map((field) => ({
-        [field]: { contains: search, mode: 'insensitive' },
+        [field]: { contains: search },
       }));
     }
 
@@ -52,13 +52,13 @@ export class UsersService {
     };
   }
 
-  async findById(id: string) {
-    const user = await this.usersRepository.findById(id);
+  async findById(id: string, include?: any) {
+    const user = await this.usersRepository.findById(id, include);
     return this.excludeSensitiveData(user);
   }
 
-  async findByUsername(username: string) {
-    const user = await this.usersRepository.findByUsername(username);
+  async findByUsername(username: string, include?: any) {
+    const user = await this.usersRepository.findByUsername(username, include);
     return user ?? null;
   }
 

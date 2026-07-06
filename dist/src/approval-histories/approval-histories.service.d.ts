@@ -9,15 +9,15 @@ export declare class ApprovalHistoriesService {
         data: {
             comments: string | null;
             id: string;
+            entityType: string;
+            entityId: string;
             createdAt: Date;
             deletedAt: Date | null;
             status: string;
-            entityType: string;
-            entityId: string;
-            action: string;
             approvedBy: string | null;
             approvedAt: Date | null;
             createdBy: string;
+            action: string;
         }[];
         meta: {
             page: number;
@@ -31,28 +31,28 @@ export declare class ApprovalHistoriesService {
     findByEntity(entityType: string, entityId: string): Promise<{
         comments: string | null;
         id: string;
+        entityType: string;
+        entityId: string;
         createdAt: Date;
         deletedAt: Date | null;
         status: string;
-        entityType: string;
-        entityId: string;
-        action: string;
         approvedBy: string | null;
         approvedAt: Date | null;
         createdBy: string;
+        action: string;
     }[]>;
     create(createApprovalHistoryDto: CreateApprovalHistoryDto): Promise<{
         comments: string | null;
         id: string;
+        entityType: string;
+        entityId: string;
         createdAt: Date;
         deletedAt: Date | null;
         status: string;
-        entityType: string;
-        entityId: string;
-        action: string;
         approvedBy: string | null;
         approvedAt: Date | null;
         createdBy: string;
+        action: string;
     }>;
     count(where?: any): Promise<number>;
 }

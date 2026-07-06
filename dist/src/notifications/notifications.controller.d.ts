@@ -11,9 +11,9 @@ export declare class NotificationsController {
         updatedAt: Date;
         deletedAt: Date | null;
         userId: string;
+        title: string;
         message: string;
         type: string;
-        title: string;
         priority: string;
         actionType: string | null;
         actionId: string | null;
@@ -27,9 +27,9 @@ export declare class NotificationsController {
         updatedAt: Date;
         deletedAt: Date | null;
         userId: string;
+        title: string;
         message: string;
         type: string;
-        title: string;
         priority: string;
         actionType: string | null;
         actionId: string | null;
@@ -47,9 +47,9 @@ export declare class NotificationsController {
         updatedAt: Date;
         deletedAt: Date | null;
         userId: string;
+        title: string;
         message: string;
         type: string;
-        title: string;
         priority: string;
         actionType: string | null;
         actionId: string | null;
@@ -63,9 +63,9 @@ export declare class NotificationsController {
         updatedAt: Date;
         deletedAt: Date | null;
         userId: string;
+        title: string;
         message: string;
         type: string;
-        title: string;
         priority: string;
         actionType: string | null;
         actionId: string | null;
@@ -80,9 +80,9 @@ export declare class NotificationsController {
         updatedAt: Date;
         deletedAt: Date | null;
         userId: string;
+        title: string;
         message: string;
         type: string;
-        title: string;
         priority: string;
         actionType: string | null;
         actionId: string | null;
@@ -96,9 +96,9 @@ export declare class NotificationsController {
         updatedAt: Date;
         deletedAt: Date | null;
         userId: string;
+        title: string;
         message: string;
         type: string;
-        title: string;
         priority: string;
         actionType: string | null;
         actionId: string | null;
@@ -112,9 +112,9 @@ export declare class NotificationsController {
         updatedAt: Date;
         deletedAt: Date | null;
         userId: string;
+        title: string;
         message: string;
         type: string;
-        title: string;
         priority: string;
         actionType: string | null;
         actionId: string | null;
@@ -131,9 +131,9 @@ export declare class NotificationsController {
         updatedAt: Date;
         deletedAt: Date | null;
         userId: string;
+        title: string;
         message: string;
         type: string;
-        title: string;
         priority: string;
         actionType: string | null;
         actionId: string | null;

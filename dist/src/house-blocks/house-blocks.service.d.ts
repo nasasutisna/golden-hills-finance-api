@@ -9,14 +9,14 @@ export declare class HouseBlocksService {
     findAll(queryOptions: QueryOptionsDto): Promise<{
         data: {
             id: string;
-            isActive: boolean;
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
+            isActive: boolean;
+            address: string | null;
             blockCode: string;
             blockName: string;
             blockType: string | null;
-            address: string | null;
             totalUnits: number;
             totalFloors: number | null;
             constructionYear: number | null;
@@ -35,14 +35,14 @@ export declare class HouseBlocksService {
     }>;
     findById(id: string): Promise<{
         id: string;
-        isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
+        isActive: boolean;
+        address: string | null;
         blockCode: string;
         blockName: string;
         blockType: string | null;
-        address: string | null;
         totalUnits: number;
         totalFloors: number | null;
         constructionYear: number | null;
@@ -52,14 +52,14 @@ export declare class HouseBlocksService {
     }>;
     findByBlockCode(blockCode: string): Promise<{
         id: string;
-        isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
+        isActive: boolean;
+        address: string | null;
         blockCode: string;
         blockName: string;
         blockType: string | null;
-        address: string | null;
         totalUnits: number;
         totalFloors: number | null;
         constructionYear: number | null;
@@ -69,14 +69,14 @@ export declare class HouseBlocksService {
     }>;
     create(createHouseBlockDto: CreateHouseBlockDto): Promise<{
         id: string;
-        isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
+        isActive: boolean;
+        address: string | null;
         blockCode: string;
         blockName: string;
         blockType: string | null;
-        address: string | null;
         totalUnits: number;
         totalFloors: number | null;
         constructionYear: number | null;
@@ -86,14 +86,14 @@ export declare class HouseBlocksService {
     }>;
     update(id: string, updateHouseBlockDto: UpdateHouseBlockDto): Promise<{
         id: string;
-        isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
+        isActive: boolean;
+        address: string | null;
         blockCode: string;
         blockName: string;
         blockType: string | null;
-        address: string | null;
         totalUnits: number;
         totalFloors: number | null;
         constructionYear: number | null;
@@ -103,14 +103,14 @@ export declare class HouseBlocksService {
     }>;
     softDelete(id: string): Promise<{
         id: string;
-        isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
+        isActive: boolean;
+        address: string | null;
         blockCode: string;
         blockName: string;
         blockType: string | null;
-        address: string | null;
         totalUnits: number;
         totalFloors: number | null;
         constructionYear: number | null;
@@ -120,14 +120,14 @@ export declare class HouseBlocksService {
     }>;
     restore(id: string): Promise<{
         id: string;
-        isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
+        isActive: boolean;
+        address: string | null;
         blockCode: string;
         blockName: string;
         blockType: string | null;
-        address: string | null;
         totalUnits: number;
         totalFloors: number | null;
         constructionYear: number | null;

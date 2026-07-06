@@ -10,15 +10,15 @@ export declare class ApprovalHistoriesController {
         data: {
             comments: string | null;
             id: string;
+            entityType: string;
+            entityId: string;
             createdAt: Date;
             deletedAt: Date | null;
             status: string;
-            entityType: string;
-            entityId: string;
-            action: string;
             approvedBy: string | null;
             approvedAt: Date | null;
             createdBy: string;
+            action: string;
         };
     }>;
     findAll(queryOptions: QueryOptionsDto): Promise<{
@@ -27,15 +27,15 @@ export declare class ApprovalHistoriesController {
         data: {
             comments: string | null;
             id: string;
+            entityType: string;
+            entityId: string;
             createdAt: Date;
             deletedAt: Date | null;
             status: string;
-            entityType: string;
-            entityId: string;
-            action: string;
             approvedBy: string | null;
             approvedAt: Date | null;
             createdBy: string;
+            action: string;
         }[];
         meta: {
             page: number;
@@ -52,15 +52,15 @@ export declare class ApprovalHistoriesController {
         data: {
             comments: string | null;
             id: string;
+            entityType: string;
+            entityId: string;
             createdAt: Date;
             deletedAt: Date | null;
             status: string;
-            entityType: string;
-            entityId: string;
-            action: string;
             approvedBy: string | null;
             approvedAt: Date | null;
             createdBy: string;
+            action: string;
         }[];
     }>;
 }

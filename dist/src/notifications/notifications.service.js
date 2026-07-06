@@ -50,8 +50,8 @@ let NotificationsService = class NotificationsService {
                 where.OR,
                 {
                     OR: [
-                        { title: { contains: search, mode: 'insensitive' } },
-                        { message: { contains: search, mode: 'insensitive' } },
+                        { title: { contains: search } },
+                        { message: { contains: search } },
                     ],
                 },
             ];

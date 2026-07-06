@@ -143,7 +143,7 @@ let PrismaService = PrismaService_1 = class PrismaService extends client_1.Prism
             searchWhere = {
                 ...searchWhere,
                 OR: searchFields.map((field) => ({
-                    [field]: { contains: search, mode: 'insensitive' },
+                    [field]: { contains: search },
                 })),
             };
         }

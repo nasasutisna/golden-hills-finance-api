@@ -74,7 +74,7 @@ export class EmployeeSalaryHeadersService {
     }
 
     if (search) {
-      where.payrollNumber = { contains: search, mode: 'insensitive' };
+      where.payrollNumber = { contains: search };
     }
 
     const orderBy = sortBy ? { [sortBy]: sortOrder || 'asc' } : { payPeriod: 'desc' };

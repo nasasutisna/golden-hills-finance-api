@@ -62,7 +62,7 @@ let EmployeeSalaryHeadersService = class EmployeeSalaryHeadersService {
             where.locked = locked;
         }
         if (search) {
-            where.payrollNumber = { contains: search, mode: 'insensitive' };
+            where.payrollNumber = { contains: search };
         }
         const orderBy = sortBy ? { [sortBy]: sortOrder || 'asc' } : { payPeriod: 'desc' };
         return this.repository.findAll({ skip, take: limit, where, orderBy });

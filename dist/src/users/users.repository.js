@@ -59,14 +59,30 @@ let UsersRepository = class UsersRepository {
         return { users, total };
     }
     async findById(id, include) {
-        const rows = await this.prisma.$queryRawUnsafe('SELECT id, username, email, password, first_name, last_name, is_active, role_id, last_login_at, refresh_token, refresh_token_expiry, created_at, updated_at FROM users WHERE id = ? LIMIT 1', Number(id));
+        if (include) {
+            const user = await this.prisma.user.findFirst({
+                where: { id, deletedAt: null },
+                include,
+            });
+            if (!user) {
+                throw new common_1.NotFoundException('User not found');
+            }
+            return user;
+        }
+        const rows = await this.prisma.$queryRawUnsafe('SELECT id, username, email, password, first_name, last_name, is_active, role_id, last_login_at, refresh_token, refresh_token_expiry, created_at, updated_at FROM users WHERE id = ? LIMIT 1', String(id));
         const user = this.mapLegacyUser(rows[0]);
         if (!user) {
             throw new common_1.NotFoundException('User not found');
         }
         return user;
     }
-    async findByUsername(username) {
+    async findByUsername(username, include) {
+        if (include) {
+            return await this.prisma.user.findFirst({
+                where: { username, deletedAt: null },
+                include,
+            });
+        }
         const rows = await this.prisma.$queryRawUnsafe('SELECT id, username, email, password, first_name, last_name, is_active, role_id, last_login_at, refresh_token, refresh_token_expiry, created_at, updated_at FROM users WHERE username = ? LIMIT 1', username);
         return this.mapLegacyUser(rows[0]);
     }
@@ -115,7 +131,7 @@ let UsersRepository = class UsersRepository {
         if (updates.length === 0) {
             return this.findById(id);
         }
-        values.push(Number(id));
+        values.push(String(id));
         await this.prisma.$executeRawUnsafe(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`, ...values);
         return this.findById(id);
     }

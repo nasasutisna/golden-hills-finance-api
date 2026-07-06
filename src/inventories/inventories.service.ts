@@ -46,9 +46,9 @@ export class InventoriesService {
 
     if (search) {
       where.OR = [
-        { itemCode: { contains: search, mode: 'insensitive' } },
-        { itemName: { contains: search, mode: 'insensitive' } },
-        { description: { contains: search, mode: 'insensitive' } },
+        { itemCode: { contains: search } },
+        { itemName: { contains: search } },
+        { description: { contains: search } },
       ];
     }
 

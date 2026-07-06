@@ -8,14 +8,14 @@ export declare class RolesService {
     constructor(rolesRepository: RolesRepository);
     findAll(queryOptions: QueryOptionsDto): Promise<{
         data: {
-            id: string;
             name: string;
+            id: string;
             description: string | null;
-            permissions: string | null;
-            isActive: boolean;
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
+            isActive: boolean;
+            permissions: string | null;
         }[];
         meta: {
             page: number;
@@ -27,64 +27,64 @@ export declare class RolesService {
         };
     }>;
     findById(id: string): Promise<{
-        id: string;
         name: string;
+        id: string;
         description: string | null;
-        permissions: string | null;
-        isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
+        isActive: boolean;
+        permissions: string | null;
     }>;
     findByName(name: string): Promise<{
-        id: string;
         name: string;
+        id: string;
         description: string | null;
-        permissions: string | null;
-        isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
+        isActive: boolean;
+        permissions: string | null;
     } | null>;
     create(createRoleDto: CreateRoleDto): Promise<{
-        id: string;
         name: string;
+        id: string;
         description: string | null;
-        permissions: string | null;
-        isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
+        isActive: boolean;
+        permissions: string | null;
     }>;
     update(id: string, updateRoleDto: UpdateRoleDto): Promise<{
-        id: string;
         name: string;
+        id: string;
         description: string | null;
-        permissions: string | null;
-        isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
+        isActive: boolean;
+        permissions: string | null;
     }>;
     softDelete(id: string): Promise<{
-        id: string;
         name: string;
+        id: string;
         description: string | null;
-        permissions: string | null;
-        isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
+        isActive: boolean;
+        permissions: string | null;
     }>;
     restore(id: string): Promise<{
-        id: string;
         name: string;
+        id: string;
         description: string | null;
-        permissions: string | null;
-        isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
+        isActive: boolean;
+        permissions: string | null;
     }>;
     count(where?: any): Promise<number>;
     exists(id: string): Promise<boolean>;

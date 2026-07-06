@@ -35,6 +35,7 @@ let AuthController = class AuthController {
         };
     }
     async register(registerDto) {
+        console.log('reg', registerDto);
         const result = await this.authService.register(registerDto);
         return {
             statusCode: common_1.HttpStatus.CREATED,

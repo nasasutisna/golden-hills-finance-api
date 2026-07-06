@@ -30,7 +30,7 @@ let RolesGuard = class RolesGuard {
         if (!user) {
             throw new common_1.ForbiddenException('User not authenticated');
         }
-        const hasRole = requiredRoles.includes(user.roleId);
+        const hasRole = requiredRoles.includes(user.roleName);
         if (!hasRole) {
             throw new common_1.ForbiddenException('Insufficient permissions. Required roles: ' + requiredRoles.join(', '));
         }

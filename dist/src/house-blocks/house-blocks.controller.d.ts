@@ -10,14 +10,14 @@ export declare class HouseBlocksController {
         message: string;
         data: {
             id: string;
-            isActive: boolean;
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
+            isActive: boolean;
+            address: string | null;
             blockCode: string;
             blockName: string;
             blockType: string | null;
-            address: string | null;
             totalUnits: number;
             totalFloors: number | null;
             constructionYear: number | null;
@@ -31,14 +31,14 @@ export declare class HouseBlocksController {
         message: string;
         data: {
             id: string;
-            isActive: boolean;
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
+            isActive: boolean;
+            address: string | null;
             blockCode: string;
             blockName: string;
             blockType: string | null;
-            address: string | null;
             totalUnits: number;
             totalFloors: number | null;
             constructionYear: number | null;
@@ -70,14 +70,14 @@ export declare class HouseBlocksController {
         message: string;
         data: {
             id: string;
-            isActive: boolean;
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
+            isActive: boolean;
+            address: string | null;
             blockCode: string;
             blockName: string;
             blockType: string | null;
-            address: string | null;
             totalUnits: number;
             totalFloors: number | null;
             constructionYear: number | null;
@@ -91,14 +91,14 @@ export declare class HouseBlocksController {
         message: string;
         data: {
             id: string;
-            isActive: boolean;
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
+            isActive: boolean;
+            address: string | null;
             blockCode: string;
             blockName: string;
             blockType: string | null;
-            address: string | null;
             totalUnits: number;
             totalFloors: number | null;
             constructionYear: number | null;
@@ -112,14 +112,14 @@ export declare class HouseBlocksController {
         message: string;
         data: {
             id: string;
-            isActive: boolean;
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
+            isActive: boolean;
+            address: string | null;
             blockCode: string;
             blockName: string;
             blockType: string | null;
-            address: string | null;
             totalUnits: number;
             totalFloors: number | null;
             constructionYear: number | null;
@@ -133,14 +133,14 @@ export declare class HouseBlocksController {
         message: string;
         data: {
             id: string;
-            isActive: boolean;
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
+            isActive: boolean;
+            address: string | null;
             blockCode: string;
             blockName: string;
             blockType: string | null;
-            address: string | null;
             totalUnits: number;
             totalFloors: number | null;
             constructionYear: number | null;

@@ -1,7 +1,17 @@
 import { PrismaClient } from '@prisma/client';
+import { PrismaMariaDb } from '@prisma/adapter-mariadb';
 import * as bcrypt from 'bcrypt';
+import 'dotenv/config';
 
-const prisma = new PrismaClient();
+class SeedPrismaService extends PrismaClient {
+  constructor() {
+    const connectionString = process.env.DATABASE_URL;
+    const adapter = new PrismaMariaDb(connectionString as string);
+    super({ adapter });
+  }
+}
+
+const prisma = new SeedPrismaService();
 
 async function main() {
   console.log('Starting database seed...');
@@ -12,6 +22,33 @@ async function main() {
   console.log('Creating roles...');
 
   const roles = await Promise.all([
+    prisma.role.upsert({
+      where: { name: 'SUPERADMIN' },
+      update: {},
+      create: {
+        name: 'SUPERADMIN',
+        description: 'Super Administrator with full system access and control',
+        permissions: JSON.stringify([
+          'users.manage',
+          'roles.manage',
+          'permissions.manage',
+          'residents.manage',
+          'employees.manage',
+          'invoices.manage',
+          'payments.manage',
+          'transactions.manage',
+          'inventory.manage',
+          'salary.manage',
+          'events.manage',
+          'notifications.manage',
+          'settings.manage',
+          'system.manage',
+          'audit.view',
+          'logs.view',
+        ]),
+        isActive: true,
+      },
+    }),
     prisma.role.upsert({
       where: { name: 'ADMIN' },
       update: {},
@@ -93,11 +130,36 @@ async function main() {
   console.log(`✓ Created ${roles.length} roles`);
 
   // ============================================================
-  // 2. CREATE DEFAULT ADMIN USER
+  // 2. CREATE DEFAULT SUPERADMIN USER
+  // ============================================================
+  console.log('Creating superadmin user...');
+
+  const superadminPassword = await bcrypt.hash('Superadmin@123', 10);
+
+  const superadminUser = await prisma.user.upsert({
+    where: { username: 'superadmin' },
+    update: {},
+    create: {
+      username: 'superadmin',
+      email: 'superadmin@goldenhills.com',
+      password: superadminPassword,
+      firstName: 'Super',
+      lastName: 'Admin',
+      phoneNumber: '+6281234567890',
+      isActive: true,
+      isEmailVerified: true,
+      roleId: roles[0].id, // SUPERADMIN role
+    },
+  });
+
+  console.log(`✓ Created superadmin user: ${superadminUser.username}`);
+
+  // ============================================================
+  // 3. CREATE DEFAULT ADMIN USER
   // ============================================================
   console.log('Creating admin user...');
 
-  const hashedPassword = await bcrypt.hash('Admin@123', 10);
+  const adminPassword = await bcrypt.hash('Admin@123', 10);
 
   const adminUser = await prisma.user.upsert({
     where: { username: 'admin' },
@@ -105,20 +167,20 @@ async function main() {
     create: {
       username: 'admin',
       email: 'admin@goldenhills.com',
-      password: hashedPassword,
-      firstName: 'Super',
-      lastName: 'Admin',
-      phoneNumber: '+6281234567890',
+      password: adminPassword,
+      firstName: 'System',
+      lastName: 'Administrator',
+      phoneNumber: '+6281234567891',
       isActive: true,
       isEmailVerified: true,
-      roleId: roles[0].id, // ADMIN role
+      roleId: roles[1].id, // ADMIN role
     },
   });
 
   console.log(`✓ Created admin user: ${adminUser.username}`);
 
   // ============================================================
-  // 3. CREATE HOUSE BLOCKS
+  // 4. CREATE HOUSE BLOCKS
   // ============================================================
   console.log('Creating house blocks...');
 
@@ -194,7 +256,7 @@ async function main() {
   console.log(`✓ Created ${houseBlocks.length} house blocks`);
 
   // ============================================================
-  // 4. CREATE SAMPLE RESIDENTS
+  // 5. CREATE SAMPLE RESIDENTS
   // ============================================================
   console.log('Creating residents...');
 
@@ -273,7 +335,7 @@ async function main() {
   console.log(`✓ Created ${residents.length} residents`);
 
   // ============================================================
-  // 5. CREATE EMPLOYEE POSITIONS
+  // 6. CREATE EMPLOYEE POSITIONS
   // ============================================================
   console.log('Creating employee positions...');
 
@@ -348,7 +410,7 @@ async function main() {
   console.log(`✓ Created ${positions.length} employee positions`);
 
   // ============================================================
-  // 6. CREATE SAMPLE EMPLOYEES
+  // 7. CREATE SAMPLE EMPLOYEES
   // ============================================================
   console.log('Creating employees...');
 
@@ -365,7 +427,7 @@ async function main() {
       phoneNumber: '+6281234567891',
       isActive: true,
       isEmailVerified: true,
-      roleId: roles[1].id, // ACCOUNTANT role
+      roleId: roles[2].id, // ACCOUNTANT role
     },
   });
 
@@ -464,7 +526,7 @@ async function main() {
   console.log(`✓ Created ${employees.length} employees`);
 
   // ============================================================
-  // 7. CREATE FEE TYPES
+  // 8. CREATE FEE TYPES
   // ============================================================
   console.log('Creating fee types...');
 
@@ -549,7 +611,7 @@ async function main() {
   console.log(`✓ Created ${feeTypes.length} fee types`);
 
   // ============================================================
-  // 8. CREATE TRANSACTION CATEGORIES
+  // 9. CREATE TRANSACTION CATEGORIES
   // ============================================================
   console.log('Creating transaction categories...');
 
@@ -614,7 +676,7 @@ async function main() {
   console.log(`✓ Created ${categories.length} transaction categories`);
 
   // ============================================================
-  // 9. CREATE SALARY COMPONENTS
+  // 10. CREATE SALARY COMPONENTS
   // ============================================================
   console.log('Creating salary components...');
 
@@ -705,7 +767,7 @@ async function main() {
   console.log(`✓ Created ${salaryComponents.length} salary components`);
 
   // ============================================================
-  // 10. CREATE SAMPLE INVENTORY ITEMS
+  // 11. CREATE SAMPLE INVENTORY ITEMS
   // ============================================================
   console.log('Creating inventory items...');
 
@@ -769,7 +831,7 @@ async function main() {
   console.log(`✓ Created ${inventoryItems.length} inventory items`);
 
   // ============================================================
-  // 11. CREATE SAMPLE COMMUNITY EVENTS
+  // 12. CREATE SAMPLE COMMUNITY EVENTS
   // ============================================================
   console.log('Creating community events...');
 
@@ -821,7 +883,10 @@ async function main() {
   // ============================================================
   console.log('\n✓ Database seed completed successfully!');
   console.log('\nDefault login credentials:');
-  console.log('Admin User:');
+  console.log('Superadmin User:');
+  console.log('  Username: superadmin');
+  console.log('  Password: Superadmin@123');
+  console.log('\nAdmin User:');
   console.log('  Username: admin');
   console.log('  Password: Admin@123');
   console.log('\nEmployee User:');

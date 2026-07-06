@@ -53,6 +53,13 @@ __decorate([
 ], ResponseDto.prototype, "errors", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({
+        description: 'Pagination metadata',
+        nullable: true,
+    }),
+    __metadata("design:type", Object)
+], ResponseDto.prototype, "meta", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({
         description: 'Timestamp of the response',
         example: '2024-01-01T00:00:00.000Z',
     }),

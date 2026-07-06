@@ -10,16 +10,16 @@ export declare class FeeTypesService {
         data: {
             id: string;
             description: string | null;
-            isActive: boolean;
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
+            isActive: boolean;
+            isTaxable: boolean;
             feeCode: string;
             feeName: string;
             feeCategory: string;
             isRecurring: boolean;
             recurrencePeriod: string | null;
-            isTaxable: boolean;
             defaultAmount: import("@prisma/client-runtime-utils").Decimal | null;
             taxRate: import("@prisma/client-runtime-utils").Decimal | null;
             effectiveDate: Date | null;
@@ -37,16 +37,16 @@ export declare class FeeTypesService {
     findById(id: string): Promise<{
         id: string;
         description: string | null;
-        isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
+        isActive: boolean;
+        isTaxable: boolean;
         feeCode: string;
         feeName: string;
         feeCategory: string;
         isRecurring: boolean;
         recurrencePeriod: string | null;
-        isTaxable: boolean;
         defaultAmount: import("@prisma/client-runtime-utils").Decimal | null;
         taxRate: import("@prisma/client-runtime-utils").Decimal | null;
         effectiveDate: Date | null;
@@ -55,16 +55,16 @@ export declare class FeeTypesService {
     create(createFeeTypeDto: CreateFeeTypeDto): Promise<{
         id: string;
         description: string | null;
-        isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
+        isActive: boolean;
+        isTaxable: boolean;
         feeCode: string;
         feeName: string;
         feeCategory: string;
         isRecurring: boolean;
         recurrencePeriod: string | null;
-        isTaxable: boolean;
         defaultAmount: import("@prisma/client-runtime-utils").Decimal | null;
         taxRate: import("@prisma/client-runtime-utils").Decimal | null;
         effectiveDate: Date | null;
@@ -73,16 +73,16 @@ export declare class FeeTypesService {
     update(id: string, updateFeeTypeDto: UpdateFeeTypeDto): Promise<{
         id: string;
         description: string | null;
-        isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
+        isActive: boolean;
+        isTaxable: boolean;
         feeCode: string;
         feeName: string;
         feeCategory: string;
         isRecurring: boolean;
         recurrencePeriod: string | null;
-        isTaxable: boolean;
         defaultAmount: import("@prisma/client-runtime-utils").Decimal | null;
         taxRate: import("@prisma/client-runtime-utils").Decimal | null;
         effectiveDate: Date | null;
@@ -91,16 +91,16 @@ export declare class FeeTypesService {
     softDelete(id: string): Promise<{
         id: string;
         description: string | null;
-        isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
+        isActive: boolean;
+        isTaxable: boolean;
         feeCode: string;
         feeName: string;
         feeCategory: string;
         isRecurring: boolean;
         recurrencePeriod: string | null;
-        isTaxable: boolean;
         defaultAmount: import("@prisma/client-runtime-utils").Decimal | null;
         taxRate: import("@prisma/client-runtime-utils").Decimal | null;
         effectiveDate: Date | null;
@@ -109,16 +109,16 @@ export declare class FeeTypesService {
     restore(id: string): Promise<{
         id: string;
         description: string | null;
-        isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
+        isActive: boolean;
+        isTaxable: boolean;
         feeCode: string;
         feeName: string;
         feeCategory: string;
         isRecurring: boolean;
         recurrencePeriod: string | null;
-        isTaxable: boolean;
         defaultAmount: import("@prisma/client-runtime-utils").Decimal | null;
         taxRate: import("@prisma/client-runtime-utils").Decimal | null;
         effectiveDate: Date | null;
@@ -127,16 +127,16 @@ export declare class FeeTypesService {
     getActiveFeeTypes(): Promise<{
         id: string;
         description: string | null;
-        isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
+        isActive: boolean;
+        isTaxable: boolean;
         feeCode: string;
         feeName: string;
         feeCategory: string;
         isRecurring: boolean;
         recurrencePeriod: string | null;
-        isTaxable: boolean;
         defaultAmount: import("@prisma/client-runtime-utils").Decimal | null;
         taxRate: import("@prisma/client-runtime-utils").Decimal | null;
         effectiveDate: Date | null;
@@ -145,16 +145,16 @@ export declare class FeeTypesService {
     getByCategory(category: string): Promise<{
         id: string;
         description: string | null;
-        isActive: boolean;
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
+        isActive: boolean;
+        isTaxable: boolean;
         feeCode: string;
         feeName: string;
         feeCategory: string;
         isRecurring: boolean;
         recurrencePeriod: string | null;
-        isTaxable: boolean;
         defaultAmount: import("@prisma/client-runtime-utils").Decimal | null;
         taxRate: import("@prisma/client-runtime-utils").Decimal | null;
         effectiveDate: Date | null;

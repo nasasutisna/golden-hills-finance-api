@@ -30,7 +30,7 @@ export class CommunityEventsService {
     }
 
     if (location) {
-      where.location = { contains: location, mode: 'insensitive' };
+      where.location = { contains: location };
     }
 
     if (dateFrom || dateTo) {
@@ -45,8 +45,8 @@ export class CommunityEventsService {
 
     if (search) {
       where.OR = [
-        { title: { contains: search, mode: 'insensitive' } },
-        { description: { contains: search, mode: 'insensitive' } },
+        { title: { contains: search } },
+        { description: { contains: search } },
       ];
     }
 

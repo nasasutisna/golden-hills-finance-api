@@ -11,6 +11,7 @@ export declare class InventoriesController {
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
+        location: string | null;
         notes: string | null;
         itemCode: string;
         itemName: string;
@@ -21,7 +22,6 @@ export declare class InventoriesController {
         maxStockLevel: number | null;
         reorderQuantity: number | null;
         unitCost: import("@prisma/client-runtime-utils").Decimal | null;
-        location: string | null;
         supplier: string | null;
         supplierContact: string | null;
     }>;
@@ -35,6 +35,7 @@ export declare class InventoriesController {
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
+        location: string | null;
         notes: string | null;
         itemCode: string;
         itemName: string;
@@ -45,7 +46,6 @@ export declare class InventoriesController {
         maxStockLevel: number | null;
         reorderQuantity: number | null;
         unitCost: import("@prisma/client-runtime-utils").Decimal | null;
-        location: string | null;
         supplier: string | null;
         supplierContact: string | null;
     }[]>;
@@ -55,6 +55,7 @@ export declare class InventoriesController {
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
+        location: string | null;
         notes: string | null;
         itemCode: string;
         itemName: string;
@@ -65,7 +66,6 @@ export declare class InventoriesController {
         maxStockLevel: number | null;
         reorderQuantity: number | null;
         unitCost: import("@prisma/client-runtime-utils").Decimal | null;
-        location: string | null;
         supplier: string | null;
         supplierContact: string | null;
     }>;
@@ -75,6 +75,7 @@ export declare class InventoriesController {
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
+        location: string | null;
         notes: string | null;
         itemCode: string;
         itemName: string;
@@ -85,7 +86,6 @@ export declare class InventoriesController {
         maxStockLevel: number | null;
         reorderQuantity: number | null;
         unitCost: import("@prisma/client-runtime-utils").Decimal | null;
-        location: string | null;
         supplier: string | null;
         supplierContact: string | null;
     }>;
@@ -95,6 +95,7 @@ export declare class InventoriesController {
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
+        location: string | null;
         notes: string | null;
         itemCode: string;
         itemName: string;
@@ -105,7 +106,6 @@ export declare class InventoriesController {
         maxStockLevel: number | null;
         reorderQuantity: number | null;
         unitCost: import("@prisma/client-runtime-utils").Decimal | null;
-        location: string | null;
         supplier: string | null;
         supplierContact: string | null;
     }>;

@@ -15,7 +15,7 @@ export declare class UsersRepository {
         total: number;
     }>;
     findById(id: string, include?: any): Promise<User>;
-    findByUsername(username: string): Promise<User | null>;
+    findByUsername(username: string, include?: any): Promise<User | null>;
     findByEmail(email: string): Promise<User | null>;
     create(data: any): Promise<User>;
     update(id: string, data: any): Promise<User>;

@@ -11,10 +11,10 @@ export declare class TransactionCategoriesController {
         data: {
             id: string;
             description: string | null;
-            isActive: boolean;
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
+            isActive: boolean;
             categoryCode: string;
             categoryName: string;
             categoryType: string;
@@ -26,10 +26,10 @@ export declare class TransactionCategoriesController {
         data: {
             id: string;
             description: string | null;
-            isActive: boolean;
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
+            isActive: boolean;
             categoryCode: string;
             categoryName: string;
             categoryType: string;
@@ -49,10 +49,10 @@ export declare class TransactionCategoriesController {
         data: {
             id: string;
             description: string | null;
-            isActive: boolean;
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
+            isActive: boolean;
             categoryCode: string;
             categoryName: string;
             categoryType: string;
@@ -64,10 +64,10 @@ export declare class TransactionCategoriesController {
         data: {
             id: string;
             description: string | null;
-            isActive: boolean;
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
+            isActive: boolean;
             categoryCode: string;
             categoryName: string;
             categoryType: string;
@@ -79,10 +79,10 @@ export declare class TransactionCategoriesController {
         data: {
             id: string;
             description: string | null;
-            isActive: boolean;
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
+            isActive: boolean;
             categoryCode: string;
             categoryName: string;
             categoryType: string;
@@ -94,10 +94,10 @@ export declare class TransactionCategoriesController {
         data: {
             id: string;
             description: string | null;
-            isActive: boolean;
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
+            isActive: boolean;
             categoryCode: string;
             categoryName: string;
             categoryType: string;
@@ -109,10 +109,10 @@ export declare class TransactionCategoriesController {
         data: {
             id: string;
             description: string | null;
-            isActive: boolean;
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
+            isActive: boolean;
             categoryCode: string;
             categoryName: string;
             categoryType: string;
@@ -124,10 +124,10 @@ export declare class TransactionCategoriesController {
         data: {
             id: string;
             description: string | null;
-            isActive: boolean;
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
+            isActive: boolean;
             categoryCode: string;
             categoryName: string;
             categoryType: string;
@@ -139,10 +139,10 @@ export declare class TransactionCategoriesController {
         data: {
             id: string;
             description: string | null;
-            isActive: boolean;
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
+            isActive: boolean;
             categoryCode: string;
             categoryName: string;
             categoryType: string;

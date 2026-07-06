@@ -56,8 +56,8 @@ let EmployeeCashAdvancesService = class EmployeeCashAdvancesService {
         }
         if (search) {
             where.OR = [
-                { advanceNumber: { contains: search, mode: 'insensitive' } },
-                { purpose: { contains: search, mode: 'insensitive' } },
+                { advanceNumber: { contains: search } },
+                { purpose: { contains: search } },
             ];
         }
         const orderBy = sortBy ? { [sortBy]: sortOrder || 'asc' } : { requestDate: 'desc' };

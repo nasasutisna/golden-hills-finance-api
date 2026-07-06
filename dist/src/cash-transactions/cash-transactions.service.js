@@ -30,7 +30,7 @@ let CashTransactionsService = CashTransactionsService_1 = class CashTransactions
         if (search && searchFields) {
             const fields = searchFields.split(',');
             where.OR = fields.map((field) => ({
-                [field]: { contains: search, mode: 'insensitive' },
+                [field]: { contains: search },
             }));
         }
         if (filters) {

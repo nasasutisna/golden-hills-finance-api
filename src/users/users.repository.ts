@@ -60,9 +60,24 @@ export class UsersRepository {
   }
 
   async findById(id: string, include?: any): Promise<User> {
+    // Use Prisma client if include is specified (for role relations)
+    if (include) {
+      const user = await this.prisma.user.findFirst({
+        where: { id, deletedAt: null },
+        include,
+      });
+
+      if (!user) {
+        throw new NotFoundException('User not found');
+      }
+
+      return user;
+    }
+
+    // Otherwise use legacy raw query
     const rows = await this.prisma.$queryRawUnsafe<any[]>(
       'SELECT id, username, email, password, first_name, last_name, is_active, role_id, last_login_at, refresh_token, refresh_token_expiry, created_at, updated_at FROM users WHERE id = ? LIMIT 1',
-      Number(id),
+      String(id),
     );
 
     const user = this.mapLegacyUser(rows[0]);
@@ -74,7 +89,16 @@ export class UsersRepository {
     return user as User;
   }
 
-  async findByUsername(username: string): Promise<User | null> {
+  async findByUsername(username: string, include?: any): Promise<User | null> {
+    // Use Prisma client if include is specified (for role relations)
+    if (include) {
+      return await this.prisma.user.findFirst({
+        where: { username, deletedAt: null },
+        include,
+      });
+    }
+
+    // Otherwise use legacy raw query
     const rows = await this.prisma.$queryRawUnsafe<any[]>(
       'SELECT id, username, email, password, first_name, last_name, is_active, role_id, last_login_at, refresh_token, refresh_token_expiry, created_at, updated_at FROM users WHERE username = ? LIMIT 1',
       username,
@@ -138,7 +162,7 @@ export class UsersRepository {
       return this.findById(id);
     }
 
-    values.push(Number(id));
+    values.push(String(id));
     await this.prisma.$executeRawUnsafe(
       `UPDATE users SET ${updates.join(', ')} WHERE id = ?`,
       ...values,

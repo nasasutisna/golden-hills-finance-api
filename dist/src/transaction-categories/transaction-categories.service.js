@@ -25,7 +25,7 @@ let TransactionCategoriesService = TransactionCategoriesService_1 = class Transa
         if (search && searchFields) {
             const fields = searchFields.split(',');
             where.OR = fields.map((field) => ({
-                [field]: { contains: search, mode: 'insensitive' },
+                [field]: { contains: search },
             }));
         }
         if (filters) {
