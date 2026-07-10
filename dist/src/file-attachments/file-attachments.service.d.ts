@@ -12,7 +12,7 @@ export declare class FileAttachmentsService {
         updatedAt: Date;
         deletedAt: Date | null;
         entityType: string;
-        entityId: string;
+        entityId: string | null;
         fileName: string;
         filePath: string;
         fileSize: number;
@@ -31,7 +31,7 @@ export declare class FileAttachmentsService {
         updatedAt: Date;
         deletedAt: Date | null;
         entityType: string;
-        entityId: string;
+        entityId: string | null;
         fileName: string;
         filePath: string;
         fileSize: number;
@@ -46,7 +46,7 @@ export declare class FileAttachmentsService {
         updatedAt: Date;
         deletedAt: Date | null;
         entityType: string;
-        entityId: string;
+        entityId: string | null;
         fileName: string;
         filePath: string;
         fileSize: number;
@@ -61,7 +61,7 @@ export declare class FileAttachmentsService {
         updatedAt: Date;
         deletedAt: Date | null;
         entityType: string;
-        entityId: string;
+        entityId: string | null;
         fileName: string;
         filePath: string;
         fileSize: number;
@@ -76,7 +76,7 @@ export declare class FileAttachmentsService {
         updatedAt: Date;
         deletedAt: Date | null;
         entityType: string;
-        entityId: string;
+        entityId: string | null;
         fileName: string;
         filePath: string;
         fileSize: number;
@@ -91,7 +91,7 @@ export declare class FileAttachmentsService {
         updatedAt: Date;
         deletedAt: Date | null;
         entityType: string;
-        entityId: string;
+        entityId: string | null;
         fileName: string;
         filePath: string;
         fileSize: number;

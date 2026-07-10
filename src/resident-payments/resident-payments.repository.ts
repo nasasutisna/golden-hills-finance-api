@@ -149,4 +149,47 @@ export class ResidentPaymentsRepository {
     const count = await this.prisma.residentPayment.count({ where: { id, deletedAt: null } });
     return count > 0;
   }
+
+  async bulkCreate(
+    payments: any[],
+    tx?: PrismaTransactionalClient,
+  ): Promise<{ successful: ResidentPayment[]; failed: Array<{ payment: any; error: string }> }> {
+    const prisma = tx || this.prisma;
+    const successful: ResidentPayment[] = [];
+    const failed: Array<{ payment: any; error: string }> = [];
+
+    for (const payment of payments) {
+      try {
+        const created = await prisma.residentPayment.create({
+          data: payment,
+          include: { resident: true, invoice: true },
+        });
+        successful.push(created);
+      } catch (error) {
+        failed.push({
+          payment,
+          error: error.message || 'Unknown error',
+        });
+      }
+    }
+
+    return { successful, failed };
+  }
+
+  async createManyInTransaction(
+    payments: any[],
+    tx: PrismaTransactionalClient,
+  ): Promise<ResidentPayment[]> {
+    const createdPayments: ResidentPayment[] = [];
+
+    for (const payment of payments) {
+      const created = await tx.residentPayment.create({
+        data: payment,
+        include: { resident: true, invoice: true },
+      });
+      createdPayments.push(created);
+    }
+
+    return createdPayments;
+  }
 }

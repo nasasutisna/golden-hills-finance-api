@@ -35,18 +35,6 @@ export class EmployeeCashAdvancesRepository {
               },
             },
           },
-          approvals: {
-            include: {
-              approverUser: {
-                select: {
-                  id: true,
-                  username: true,
-                  firstName: true,
-                  lastName: true,
-                },
-              },
-            },
-          },
           repayments: true,
         },
       }),
@@ -63,11 +51,6 @@ export class EmployeeCashAdvancesRepository {
         employee: {
           include: {
             position: true,
-          },
-        },
-        approvals: {
-          include: {
-            approverUser: true,
           },
         },
         repayments: true,
@@ -124,11 +107,6 @@ export class EmployeeCashAdvancesRepository {
         employee: {
           include: {
             position: true,
-          },
-        },
-        approvals: {
-          include: {
-            approverUser: true,
           },
         },
         repayments: true,

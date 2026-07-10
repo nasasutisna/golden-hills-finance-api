@@ -2,6 +2,7 @@ import { Injectable, Logger, ConflictException, BadRequestException } from '@nes
 import { QueryOptionsDto } from '../common/dto/query-options.dto';
 import { CreateResidentPaymentDto } from './dto/create-resident-payment.dto';
 import { UpdateResidentPaymentDto } from './dto/update-resident-payment.dto';
+import { CreateBulkResidentPaymentDto, BulkPaymentResultDto } from './dto/create-bulk-resident-payment.dto';
 import { ResidentPaymentsRepository } from './resident-payments.repository';
 import { ResidentInvoicesRepository } from '../resident-invoices/resident-invoices.repository';
 import { PrismaService } from '../prisma/prisma.service';
@@ -161,5 +162,67 @@ export class ResidentPaymentsService {
 
   async exists(id: string): Promise<boolean> {
     return await this.residentPaymentsRepository.exists(id);
+  }
+
+  async createBulk(createBulkDto: CreateBulkResidentPaymentDto): Promise<BulkPaymentResultDto> {
+    return await this.prisma.executeInTransaction(async (tx) => {
+      const successful = [];
+      const failed = [];
+
+      // Process each payment
+      for (const paymentDto of createBulkDto.payments) {
+        try {
+          // Check if invoice exists
+          const invoice = await this.residentInvoicesRepository.findById(
+            paymentDto.invoiceId,
+          );
+
+          if (invoice.status === 'PAID' || invoice.status === 'CANCELLED') {
+            failed.push({
+              payment: paymentDto,
+              error: `Cannot create payment for invoice with status: ${invoice.status}`,
+            });
+            continue;
+          }
+
+          // Generate payment number
+          const paymentNumber = await this.residentPaymentsRepository.generatePaymentNumber();
+
+          // Create payment
+          const payment = await this.residentPaymentsRepository.create(
+            {
+              ...paymentDto,
+              paymentNumber,
+              status: 'PENDING',
+            },
+            tx as any,
+          );
+
+          // Update invoice
+          await this.residentInvoicesRepository.updatePaymentAmount(
+            paymentDto.invoiceId,
+            Number(paymentDto.amount),
+            tx as any,
+          );
+
+          successful.push(payment);
+          this.logger.log(`Bulk payment created: ${payment.paymentNumber}`);
+        } catch (error) {
+          failed.push({
+            payment: paymentDto,
+            error: error.message || 'Unknown error',
+          });
+          this.logger.error(`Error in bulk payment creation: ${error.message}`);
+        }
+      }
+
+      return {
+        successful,
+        failed,
+        total: createBulkDto.payments.length,
+        successCount: successful.length,
+        failureCount: failed.length,
+      };
+    });
   }
 }

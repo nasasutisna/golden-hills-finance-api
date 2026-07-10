@@ -18,6 +18,7 @@ const swagger_1 = require("@nestjs/swagger");
 const resident_payments_service_1 = require("./resident-payments.service");
 const create_resident_payment_dto_1 = require("./dto/create-resident-payment.dto");
 const update_resident_payment_dto_1 = require("./dto/update-resident-payment.dto");
+const create_bulk_resident_payment_dto_1 = require("./dto/create-bulk-resident-payment.dto");
 const query_options_dto_1 = require("../common/dto/query-options.dto");
 const jwt_auth_guard_1 = require("../common/guards/jwt-auth.guard");
 const roles_guard_1 = require("../common/guards/roles.guard");
@@ -35,6 +36,21 @@ let ResidentPaymentsController = class ResidentPaymentsController {
             statusCode: 201,
             message: 'Payment created successfully',
             data: payment,
+        };
+    }
+    async createBulk(createBulkDto) {
+        const result = await this.residentPaymentsService.createBulk(createBulkDto);
+        if (result.failureCount > 0) {
+            return {
+                statusCode: 207,
+                message: `Bulk payment processed: ${result.successCount} successful, ${result.failureCount} failed`,
+                data: result,
+            };
+        }
+        return {
+            statusCode: 201,
+            message: 'All payments created successfully',
+            data: result,
         };
     }
     async findAll(queryOptions) {
@@ -118,6 +134,20 @@ __decorate([
     __metadata("design:paramtypes", [create_resident_payment_dto_1.CreateResidentPaymentDto]),
     __metadata("design:returntype", Promise)
 ], ResidentPaymentsController.prototype, "create", null);
+__decorate([
+    (0, common_1.Post)('bulk'),
+    (0, roles_decorator_1.Roles)('ADMIN', 'ACCOUNTANT'),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Create bulk payments',
+        description: 'Create multiple resident payments in a single transaction',
+    }),
+    http_response_decorator_1.ApiResponseDecorators.created(),
+    http_response_decorator_1.ApiResponseDecorators.standard(),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [create_bulk_resident_payment_dto_1.CreateBulkResidentPaymentDto]),
+    __metadata("design:returntype", Promise)
+], ResidentPaymentsController.prototype, "createBulk", null);
 __decorate([
     (0, common_1.Get)(),
     (0, swagger_1.ApiOperation)({

@@ -15,7 +15,7 @@ export declare class CreateFeeTypeDto {
     description?: string;
     feeCategory: FeeCategory;
     isRecurring?: boolean;
-    recurringPeriod?: RecurringPeriod;
+    recurrencePeriod?: RecurringPeriod;
     isTaxable?: boolean;
     taxRate?: number;
     defaultAmount?: number;

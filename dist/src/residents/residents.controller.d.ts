@@ -10,11 +10,17 @@ export declare class ResidentsController {
         message: string;
         data: {
             id: string;
-            residentCode: string;
+            isActive: boolean;
+            createdAt: Date;
+            updatedAt: Date;
+            deletedAt: Date | null;
+            email: string | null;
             firstName: string;
             lastName: string;
-            email: string | null;
             phoneNumber: string | null;
+            unitNumber: string | null;
+            houseBlockId: string | null;
+            residentCode: string;
             alternatePhone: string | null;
             identityNumber: string | null;
             dateOfBirth: Date | null;
@@ -23,15 +29,10 @@ export declare class ResidentsController {
             maritalStatus: string | null;
             emergencyContact: string | null;
             emergencyPhone: string | null;
-            houseBlockId: string | null;
-            unitNumber: string | null;
+            houseUnitId: string | null;
             moveInDate: Date | null;
             moveOutDate: Date | null;
             ownershipType: string | null;
-            isActive: boolean;
-            createdAt: Date;
-            updatedAt: Date;
-            deletedAt: Date | null;
         };
     }>;
     findAll(queryOptions: QueryOptionsDto): Promise<{
@@ -39,11 +40,17 @@ export declare class ResidentsController {
         message: string;
         data: {
             id: string;
-            residentCode: string;
+            isActive: boolean;
+            createdAt: Date;
+            updatedAt: Date;
+            deletedAt: Date | null;
+            email: string | null;
             firstName: string;
             lastName: string;
-            email: string | null;
             phoneNumber: string | null;
+            unitNumber: string | null;
+            houseBlockId: string | null;
+            residentCode: string;
             alternatePhone: string | null;
             identityNumber: string | null;
             dateOfBirth: Date | null;
@@ -52,15 +59,10 @@ export declare class ResidentsController {
             maritalStatus: string | null;
             emergencyContact: string | null;
             emergencyPhone: string | null;
-            houseBlockId: string | null;
-            unitNumber: string | null;
+            houseUnitId: string | null;
             moveInDate: Date | null;
             moveOutDate: Date | null;
             ownershipType: string | null;
-            isActive: boolean;
-            createdAt: Date;
-            updatedAt: Date;
-            deletedAt: Date | null;
         }[];
         meta: {
             page: number;
@@ -83,11 +85,17 @@ export declare class ResidentsController {
         message: string;
         data: {
             id: string;
-            residentCode: string;
+            isActive: boolean;
+            createdAt: Date;
+            updatedAt: Date;
+            deletedAt: Date | null;
+            email: string | null;
             firstName: string;
             lastName: string;
-            email: string | null;
             phoneNumber: string | null;
+            unitNumber: string | null;
+            houseBlockId: string | null;
+            residentCode: string;
             alternatePhone: string | null;
             identityNumber: string | null;
             dateOfBirth: Date | null;
@@ -96,15 +104,10 @@ export declare class ResidentsController {
             maritalStatus: string | null;
             emergencyContact: string | null;
             emergencyPhone: string | null;
-            houseBlockId: string | null;
-            unitNumber: string | null;
+            houseUnitId: string | null;
             moveInDate: Date | null;
             moveOutDate: Date | null;
             ownershipType: string | null;
-            isActive: boolean;
-            createdAt: Date;
-            updatedAt: Date;
-            deletedAt: Date | null;
         }[];
     }>;
     getStats(): Promise<{
@@ -136,11 +139,17 @@ export declare class ResidentsController {
         message: string;
         data: {
             id: string;
-            residentCode: string;
+            isActive: boolean;
+            createdAt: Date;
+            updatedAt: Date;
+            deletedAt: Date | null;
+            email: string | null;
             firstName: string;
             lastName: string;
-            email: string | null;
             phoneNumber: string | null;
+            unitNumber: string | null;
+            houseBlockId: string | null;
+            residentCode: string;
             alternatePhone: string | null;
             identityNumber: string | null;
             dateOfBirth: Date | null;
@@ -149,15 +158,10 @@ export declare class ResidentsController {
             maritalStatus: string | null;
             emergencyContact: string | null;
             emergencyPhone: string | null;
-            houseBlockId: string | null;
-            unitNumber: string | null;
+            houseUnitId: string | null;
             moveInDate: Date | null;
             moveOutDate: Date | null;
             ownershipType: string | null;
-            isActive: boolean;
-            createdAt: Date;
-            updatedAt: Date;
-            deletedAt: Date | null;
         };
     }>;
     update(id: string, updateResidentDto: UpdateResidentDto): Promise<{
@@ -165,11 +169,17 @@ export declare class ResidentsController {
         message: string;
         data: {
             id: string;
-            residentCode: string;
+            isActive: boolean;
+            createdAt: Date;
+            updatedAt: Date;
+            deletedAt: Date | null;
+            email: string | null;
             firstName: string;
             lastName: string;
-            email: string | null;
             phoneNumber: string | null;
+            unitNumber: string | null;
+            houseBlockId: string | null;
+            residentCode: string;
             alternatePhone: string | null;
             identityNumber: string | null;
             dateOfBirth: Date | null;
@@ -178,15 +188,10 @@ export declare class ResidentsController {
             maritalStatus: string | null;
             emergencyContact: string | null;
             emergencyPhone: string | null;
-            houseBlockId: string | null;
-            unitNumber: string | null;
+            houseUnitId: string | null;
             moveInDate: Date | null;
             moveOutDate: Date | null;
             ownershipType: string | null;
-            isActive: boolean;
-            createdAt: Date;
-            updatedAt: Date;
-            deletedAt: Date | null;
         };
     }>;
     remove(id: string): Promise<{
@@ -194,11 +199,17 @@ export declare class ResidentsController {
         message: string;
         data: {
             id: string;
-            residentCode: string;
+            isActive: boolean;
+            createdAt: Date;
+            updatedAt: Date;
+            deletedAt: Date | null;
+            email: string | null;
             firstName: string;
             lastName: string;
-            email: string | null;
             phoneNumber: string | null;
+            unitNumber: string | null;
+            houseBlockId: string | null;
+            residentCode: string;
             alternatePhone: string | null;
             identityNumber: string | null;
             dateOfBirth: Date | null;
@@ -207,15 +218,10 @@ export declare class ResidentsController {
             maritalStatus: string | null;
             emergencyContact: string | null;
             emergencyPhone: string | null;
-            houseBlockId: string | null;
-            unitNumber: string | null;
+            houseUnitId: string | null;
             moveInDate: Date | null;
             moveOutDate: Date | null;
             ownershipType: string | null;
-            isActive: boolean;
-            createdAt: Date;
-            updatedAt: Date;
-            deletedAt: Date | null;
         };
     }>;
     restore(id: string): Promise<{
@@ -223,11 +229,17 @@ export declare class ResidentsController {
         message: string;
         data: {
             id: string;
-            residentCode: string;
+            isActive: boolean;
+            createdAt: Date;
+            updatedAt: Date;
+            deletedAt: Date | null;
+            email: string | null;
             firstName: string;
             lastName: string;
-            email: string | null;
             phoneNumber: string | null;
+            unitNumber: string | null;
+            houseBlockId: string | null;
+            residentCode: string;
             alternatePhone: string | null;
             identityNumber: string | null;
             dateOfBirth: Date | null;
@@ -236,15 +248,10 @@ export declare class ResidentsController {
             maritalStatus: string | null;
             emergencyContact: string | null;
             emergencyPhone: string | null;
-            houseBlockId: string | null;
-            unitNumber: string | null;
+            houseUnitId: string | null;
             moveInDate: Date | null;
             moveOutDate: Date | null;
             ownershipType: string | null;
-            isActive: boolean;
-            createdAt: Date;
-            updatedAt: Date;
-            deletedAt: Date | null;
         };
     }>;
 }

@@ -24,4 +24,12 @@ export declare class ResidentPaymentsRepository {
     getPaymentStatistics(residentId?: string): Promise<any>;
     count(where?: any): Promise<number>;
     exists(id: string): Promise<boolean>;
+    bulkCreate(payments: any[], tx?: PrismaTransactionalClient): Promise<{
+        successful: ResidentPayment[];
+        failed: Array<{
+            payment: any;
+            error: string;
+        }>;
+    }>;
+    createManyInTransaction(payments: any[], tx: PrismaTransactionalClient): Promise<ResidentPayment[]>;
 }

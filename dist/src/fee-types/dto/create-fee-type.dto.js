@@ -93,7 +93,7 @@ __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsEnum)(RecurringPeriod, { message: 'Invalid recurring period' }),
     __metadata("design:type", String)
-], CreateFeeTypeDto.prototype, "recurringPeriod", void 0);
+], CreateFeeTypeDto.prototype, "recurrencePeriod", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({
         description: 'Is taxable',

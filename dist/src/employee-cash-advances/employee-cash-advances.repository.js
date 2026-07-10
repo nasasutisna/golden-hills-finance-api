@@ -39,18 +39,6 @@ let EmployeeCashAdvancesRepository = class EmployeeCashAdvancesRepository {
                             },
                         },
                     },
-                    approvals: {
-                        include: {
-                            approverUser: {
-                                select: {
-                                    id: true,
-                                    username: true,
-                                    firstName: true,
-                                    lastName: true,
-                                },
-                            },
-                        },
-                    },
                     repayments: true,
                 },
             }),
@@ -65,11 +53,6 @@ let EmployeeCashAdvancesRepository = class EmployeeCashAdvancesRepository {
                 employee: {
                     include: {
                         position: true,
-                    },
-                },
-                approvals: {
-                    include: {
-                        approverUser: true,
                     },
                 },
                 repayments: true,
@@ -120,11 +103,6 @@ let EmployeeCashAdvancesRepository = class EmployeeCashAdvancesRepository {
                 employee: {
                     include: {
                         position: true,
-                    },
-                },
-                approvals: {
-                    include: {
-                        approverUser: true,
                     },
                 },
                 repayments: true,

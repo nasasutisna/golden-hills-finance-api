@@ -75,9 +75,6 @@ let FileAttachmentsRepository = class FileAttachmentsRepository {
     async create(data) {
         return this.prisma.fileAttachment.create({
             data,
-            include: {
-                uploader: true,
-            },
         });
     }
     async update(id, data) {

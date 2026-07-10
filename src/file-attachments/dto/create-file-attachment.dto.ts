@@ -13,10 +13,11 @@ export class CreateFileAttachmentDto {
   @ApiProperty({
     description: 'Entity ID',
     example: 'uuid-of-entity',
+    required: false,
   })
-  @IsNotEmpty({ message: 'Entity ID is required' })
+  @IsOptional()
   @IsString()
-  entityId: string;
+  entityId?: string;
 
   @ApiProperty({
     description: 'File name',
@@ -43,7 +44,7 @@ export class CreateFileAttachmentDto {
     example: 1024000,
   })
   @IsNotEmpty({ message: 'File size is required' })
-  file_size: number;
+  fileSize: number;
 
   @ApiProperty({
     description: 'MIME type',

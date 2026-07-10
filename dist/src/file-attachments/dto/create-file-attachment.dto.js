@@ -28,8 +28,9 @@ __decorate([
     (0, swagger_1.ApiProperty)({
         description: 'Entity ID',
         example: 'uuid-of-entity',
+        required: false,
     }),
-    (0, class_validator_1.IsNotEmpty)({ message: 'Entity ID is required' }),
+    (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], CreateFileAttachmentDto.prototype, "entityId", void 0);
@@ -62,7 +63,7 @@ __decorate([
     }),
     (0, class_validator_1.IsNotEmpty)({ message: 'File size is required' }),
     __metadata("design:type", Number)
-], CreateFileAttachmentDto.prototype, "file_size", void 0);
+], CreateFileAttachmentDto.prototype, "fileSize", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({
         description: 'MIME type',

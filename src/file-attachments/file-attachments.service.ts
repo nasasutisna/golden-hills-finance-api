@@ -11,10 +11,18 @@ export class FileAttachmentsService {
   constructor(private readonly repository: FileAttachmentsRepository) {}
 
   async create(createFileAttachmentDto: CreateFileAttachmentDto, userId: string) {
-    return this.repository.create({
-      ...createFileAttachmentDto,
-      uploadedBy: userId,
-    });
+    console.log('FileAttachmentService.create called with:', { dto: createFileAttachmentDto, userId });
+    try {
+      const result = await this.repository.create({
+        ...createFileAttachmentDto,
+        uploadedBy: userId,
+      });
+      console.log('FileAttachmentService.create result:', result);
+      return result;
+    } catch (error) {
+      console.error('FileAttachmentService.create error:', error);
+      throw error;
+    }
   }
 
   async findAll(queryDto: QueryFileAttachmentsDto) {
@@ -81,7 +89,7 @@ export class FileAttachmentsService {
         fs.unlinkSync(filePath);
       }
     } catch (error) {
-      console.warn(`Failed to delete file at ${filePath}:`, error.message);
+      console.warn(`Failed to delete file at ${filePath}:`, error);
     }
 
     return this.repository.softDelete(id);

@@ -41,7 +41,6 @@ let CashTransactionsRepository = class CashTransactionsRepository {
                             lastName: true,
                         },
                     },
-                    approvals: true,
                 },
             }),
             this.prisma.cashTransaction.count({ where: { ...where, deletedAt: null } }),
@@ -54,9 +53,6 @@ let CashTransactionsRepository = class CashTransactionsRepository {
             include: {
                 category: true,
                 creator: true,
-                approvals: {
-                    orderBy: { createdAt: 'desc' },
-                },
             },
         });
         if (!transaction) {

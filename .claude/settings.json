@@ -1,7 +1,21 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npx ts-node *)"
+      "Bash(npx ts-node *)",
+      "Bash(curl -s http://localhost:3000/api/v1/fee-types -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJlOTUyMmRkMS1jMTVlLTRkM2YtYjU1ZS1kNDI1ZDdjZGIxOGEiLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBnb2xkZW5oaWxscy5jb20iLCJyb2xlSWQiOiJhM2Q0NzI4Ni05YzU2LTQzZWQtODg5Ny03NWJlODdjYmNkZWUiLCJ0eXBlIjoiYWNjZXNzIiwiaWF0IjoxNzgzNDQ5NzQ4LCJleHAiOjE4MTQ5ODU3NDh9.mHk0Q80Be0-HZxj_v1PSB8HB5IPdPU0SFdu51C3fHdc' -H 'Content-Type: application/json' --data-raw '{\"feeCode\":\"IPL001\",\"feeName\":\"IPL Bulanan\",\"description\":\"iuran bulanan\",\"feeCategory\":\"MAINTENANCE\",\"isRecurring\":true,\"recurrencePeriod\":\"MONTHLY\",\"isTaxable\":false,\"taxRate\":0,\"defaultAmount\":0,\"isActive\":true}')",
+      "Bash(find /Users/nasutisutisna/project/nestjs/golden-hills-finance/src -type d -name \"modules\" -o -type d -name \"*module*\" 2>/dev/null | head -20)",
+      "Read(//Users/nasutisutisna/project/nestjs/golden-hills-finance/**)",
+      "Bash(find /Users/nasutisna/project/nestjs/golden-hills-finance -type d -name \"*module*\" | head -20)",
+      "Read(//Users/nasutisna/project/nestjs/**)",
+      "Bash(ls /Users/nasutisna/project/ionic/)",
+      "Read(//Users/nasutisna/project/**)",
+      "Read(//Users/nasutisna/project/nestjs/golden-hills-finance/src/**)",
+      "Bash(ls -la /Users/nasutisna/project/nestjs/golden-hills-finance/src/ipl-periods/)",
+      "Bash(curl 'http://localhost:3000/api/v1/ipl-periods/with-stats?page=1&limit=10' -H 'Accept: application/json, text/plain, */*' -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJlOTUyMmRkMS1jMTVlLTRkM2YtYjU1ZS1kNDI1ZDdjZGIxOGEiLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBnb2xkZW5oaWxscy5jb20iLCJyb2xlSWQiOiJhM2Q0NzI4Ni05YzU2LTQzZWQtODg5Ny03NWJlODdjYmNkZWUiLCJ0eXBlIjoiYWNjZXNzIiwiaWF0IjoxNzgzNjA1NDQ3LCJleHAiOjE4MTUxNDE0NDd9.RU0Dxs-FLbScdnqKJ100sGUVKcdt11N5PfFIuWQGCEQ' -s)",
+      "Bash(pkill -f \"nest start\")"
+    ],
+    "additionalDirectories": [
+      "/Users/nasutisnaisna/project/nestjs/golden-hills-finance/src/ipl-periods/dto"
     ]
   }
 }

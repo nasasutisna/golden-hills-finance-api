@@ -1,0 +1,73 @@
+import { ApiProperty } from '@nestjs/swagger';
+import {
+  IsNotEmpty,
+  IsString,
+  IsDateString,
+  IsEnum,
+  MaxLength,
+  IsOptional,
+} from 'class-validator';
+import { PaymentMethod } from './enums';
+
+export class CreateIplPaymentDto {
+  @ApiProperty({
+    description: 'Period ID (bulan tahun pembayaran)',
+    example: 'uuid-of-period',
+  })
+  @IsNotEmpty({ message: 'Period is required' })
+  @IsString()
+  periodId: string;
+
+  @ApiProperty({
+    description: 'Resident ID (warga yang membayar)',
+    example: 'uuid-of-resident',
+  })
+  @IsNotEmpty({ message: 'Resident is required' })
+  @IsString()
+  residentId: string;
+
+  @ApiProperty({
+    description: 'Payment date (tanggal pembayaran)',
+    example: '2026-07-09',
+  })
+  @IsNotEmpty({ message: 'Payment date is required' })
+  @IsDateString()
+  paymentDate: string;
+
+  @ApiProperty({
+    description: 'Payment method',
+    enum: PaymentMethod,
+  })
+  @IsNotEmpty({ message: 'Payment method is required' })
+  @IsEnum(PaymentMethod, { message: 'Invalid payment method' })
+  paymentMethod: PaymentMethod;
+
+  @ApiProperty({
+    description: 'Reference number (nomor referensi transfer)',
+    example: 'REF123456789',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  referenceNumber?: string;
+
+  @ApiProperty({
+    description: 'Additional notes (catatan tambahan)',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  notes?: string;
+
+  // File ID from FileAttachment (optional, can be linked separately)
+  @ApiProperty({
+    description: 'Proof file ID from file attachments',
+    example: 'uuid-of-file',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  proofFileId?: string;
+}

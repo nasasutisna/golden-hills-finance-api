@@ -7,7 +7,6 @@ class ValidationPipe extends common_1.ValidationPipe {
         super({
             whitelist: true,
             forbidNonWhitelisted: true,
-            forbidUnknownValues: true,
             transform: true,
             transformOptions: {
                 enableImplicitConversion: true,

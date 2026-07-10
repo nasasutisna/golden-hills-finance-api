@@ -76,9 +76,6 @@ export class FileAttachmentsRepository {
   async create(data: any): Promise<FileAttachment> {
     return this.prisma.fileAttachment.create({
       data,
-      include: {
-        uploader: true,
-      },
     });
   }
 

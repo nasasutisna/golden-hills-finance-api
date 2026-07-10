@@ -19,10 +19,19 @@ let FileAttachmentsService = class FileAttachmentsService {
         this.repository = repository;
     }
     async create(createFileAttachmentDto, userId) {
-        return this.repository.create({
-            ...createFileAttachmentDto,
-            uploadedBy: userId,
-        });
+        console.log('FileAttachmentService.create called with:', { dto: createFileAttachmentDto, userId });
+        try {
+            const result = await this.repository.create({
+                ...createFileAttachmentDto,
+                uploadedBy: userId,
+            });
+            console.log('FileAttachmentService.create result:', result);
+            return result;
+        }
+        catch (error) {
+            console.error('FileAttachmentService.create error:', error);
+            throw error;
+        }
     }
     async findAll(queryDto) {
         const { page = 1, limit = 10, sortBy, sortOrder, entityType, entityId, category, mimeType, search } = queryDto;
@@ -74,7 +83,7 @@ let FileAttachmentsService = class FileAttachmentsService {
             }
         }
         catch (error) {
-            console.warn(`Failed to delete file at ${filePath}:`, error.message);
+            console.warn(`Failed to delete file at ${filePath}:`, error);
         }
         return this.repository.softDelete(id);
     }

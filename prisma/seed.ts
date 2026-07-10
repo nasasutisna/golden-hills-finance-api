@@ -196,8 +196,6 @@ async function main() {
         totalUnits: 24,
         totalFloors: 4,
         constructionYear: 2020,
-        landArea: 2000,
-        buildingArea: 1500,
         facilities: JSON.stringify({
           parking: true,
           gym: true,
@@ -218,8 +216,6 @@ async function main() {
         totalUnits: 30,
         totalFloors: 5,
         constructionYear: 2021,
-        landArea: 2500,
-        buildingArea: 2000,
         facilities: JSON.stringify({
           parking: true,
           gym: false,
@@ -240,8 +236,6 @@ async function main() {
         totalUnits: 15,
         totalFloors: 3,
         constructionYear: 2019,
-        landArea: 1500,
-        buildingArea: 1200,
         facilities: JSON.stringify({
           parking: true,
           gym: false,
@@ -254,6 +248,118 @@ async function main() {
   ]);
 
   console.log(`✓ Created ${houseBlocks.length} house blocks`);
+
+  // ============================================================
+  // 4.5 CREATE HOUSE UNITS
+  // ============================================================
+  console.log('Creating house units...');
+
+  const houseUnits = await Promise.all([
+    // Block A units
+    prisma.houseUnit.upsert({
+      where: { unitCode: 'A-101' },
+      update: {},
+      create: {
+        unitCode: 'A-101',
+        unitNumber: '101',
+        houseBlockId: houseBlocks[0].id,
+        landArea: 72.00,
+        buildingArea: 45.00,
+        floorNumber: 1,
+        unitType: 'Tipe 36',
+        occupancyStatus: 'FULLY_OCCUPIED',
+        iplPercentage: 100,
+        isActive: true,
+      },
+    }),
+    prisma.houseUnit.upsert({
+      where: { unitCode: 'A-102' },
+      update: {},
+      create: {
+        unitCode: 'A-102',
+        unitNumber: '102',
+        houseBlockId: houseBlocks[0].id,
+        landArea: 72.00,
+        buildingArea: 45.00,
+        floorNumber: 1,
+        unitType: 'Tipe 36',
+        occupancyStatus: 'FULLY_OCCUPIED',
+        iplPercentage: 100,
+        isActive: true,
+      },
+    }),
+    prisma.houseUnit.upsert({
+      where: { unitCode: 'A-103' },
+      update: {},
+      create: {
+        unitCode: 'A-103',
+        unitNumber: '103',
+        houseBlockId: houseBlocks[0].id,
+        landArea: 72.00,
+        buildingArea: 45.00,
+        floorNumber: 1,
+        unitType: 'Tipe 36',
+        occupancyStatus: 'OCCASIONALLY',
+        occupancyNotes: 'Ditinggali seminggu sekali',
+        iplPercentage: 50,
+        isActive: true,
+      },
+    }),
+    // Block B units
+    prisma.houseUnit.upsert({
+      where: { unitCode: 'B-201' },
+      update: {},
+      create: {
+        unitCode: 'B-201',
+        unitNumber: '201',
+        houseBlockId: houseBlocks[1].id,
+        landArea: 90.00,
+        buildingArea: 60.00,
+        floorNumber: 2,
+        unitType: 'Tipe 45',
+        occupancyStatus: 'FULLY_OCCUPIED',
+        iplPercentage: 100,
+        isActive: true,
+      },
+    }),
+    prisma.houseUnit.upsert({
+      where: { unitCode: 'B-202' },
+      update: {},
+      create: {
+        unitCode: 'B-202',
+        unitNumber: '202',
+        houseBlockId: houseBlocks[1].id,
+        landArea: 90.00,
+        buildingArea: 60.00,
+        floorNumber: 2,
+        unitType: 'Tipe 45',
+        occupancyStatus: 'VACANT',
+        iplPercentage: 0,
+        isActive: true,
+      },
+    }),
+    // Block C commercial unit - bank buyback example
+    prisma.houseUnit.upsert({
+      where: { unitCode: 'C-301' },
+      update: {},
+      create: {
+        unitCode: 'C-301',
+        unitNumber: '301',
+        houseBlockId: houseBlocks[2].id,
+        landArea: 120.00,
+        buildingArea: 80.00,
+        floorNumber: 3,
+        unitType: 'Commercial',
+        occupancyStatus: 'VACANT',
+        isBankBuyback: true,
+        buybackDate: new Date('2024-01-15'),
+        iplPercentage: 0,
+        isActive: true,
+      },
+    }),
+  ]);
+
+  console.log(`✓ Created ${houseUnits.length} house units`);
 
   // ============================================================
   // 5. CREATE SAMPLE RESIDENTS
@@ -278,6 +384,7 @@ async function main() {
         emergencyContact: 'Jane Doe',
         emergencyPhone: '+628111234568',
         houseBlockId: houseBlocks[0].id,
+        houseUnitId: houseUnits[0].id,
         unitNumber: 'A-101',
         moveInDate: new Date('2022-01-01'),
         ownershipType: 'OWNER',
@@ -301,6 +408,7 @@ async function main() {
         emergencyContact: 'Robert Smith',
         emergencyPhone: '+628112234568',
         houseBlockId: houseBlocks[0].id,
+        houseUnitId: houseUnits[1].id,
         unitNumber: 'A-102',
         moveInDate: new Date('2022-03-15'),
         ownershipType: 'RENTER',
@@ -324,6 +432,7 @@ async function main() {
         emergencyContact: 'Mary Johnson',
         emergencyPhone: '+628113345679',
         houseBlockId: houseBlocks[1].id,
+        houseUnitId: houseUnits[3].id,
         unitNumber: 'B-201',
         moveInDate: new Date('2021-06-01'),
         ownershipType: 'OWNER',

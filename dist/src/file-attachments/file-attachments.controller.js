@@ -29,18 +29,12 @@ let FileAttachmentsController = class FileAttachmentsController {
     constructor(fileAttachmentsService) {
         this.fileAttachmentsService = fileAttachmentsService;
     }
-    async uploadFile(file, userId, entityType, entityId, category, description) {
-        const createFileAttachmentDto = {
-            entityType,
-            entityId,
-            fileName: file.originalname,
-            filePath: `/uploads/${file.filename}`,
-            file_size: file.size,
-            mimeType: file.mimetype,
-            category,
-            description,
+    async uploadFile() {
+        return {
+            statusCode: 200,
+            message: 'Controller reached',
+            data: {},
         };
-        return this.fileAttachmentsService.create(createFileAttachmentDto, userId);
     }
     async uploadFiles(files, userId, entityType, entityId, category, description) {
         const uploadPromises = files.map(file => {
@@ -49,7 +43,7 @@ let FileAttachmentsController = class FileAttachmentsController {
                 entityId,
                 fileName: file.originalname,
                 filePath: `/uploads/${file.filename}`,
-                file_size: file.size,
+                fileSize: file.size,
                 mimeType: file.mimetype,
                 category,
                 description,
@@ -112,17 +106,8 @@ __decorate([
     (0, common_1.Post)('upload'),
     (0, roles_decorator_1.Roles)('ADMIN', 'MANAGER', 'STAFF'),
     (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('file')),
-    (0, swagger_1.ApiConsumes)('multipart/form-data'),
-    (0, swagger_1.ApiOperation)({ summary: 'Upload a file' }),
-    (0, swagger_1.ApiResponse)({ status: 201, description: 'File uploaded successfully' }),
-    __param(0, (0, common_1.UploadedFile)()),
-    __param(1, (0, current_user_decorator_1.CurrentUser)('id')),
-    __param(2, (0, common_1.Body)('entityType')),
-    __param(3, (0, common_1.Body)('entityId')),
-    __param(4, (0, common_1.Body)('category')),
-    __param(5, (0, common_1.Body)('description')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [Object, String, String, String, String, String]),
+    __metadata("design:paramtypes", []),
     __metadata("design:returntype", Promise)
 ], FileAttachmentsController.prototype, "uploadFile", null);
 __decorate([

@@ -32,24 +32,6 @@ exports.FileAttachmentsModule = FileAttachmentsModule = __decorate([
                 limits: {
                     fileSize: 5 * 1024 * 1024,
                 },
-                fileFilter: (req, file, cb) => {
-                    const allowedMimes = [
-                        'image/jpeg',
-                        'image/png',
-                        'image/gif',
-                        'application/pdf',
-                        'application/msword',
-                        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-                        'application/vnd.ms-excel',
-                        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-                    ];
-                    if (allowedMimes.includes(file.mimetype)) {
-                        cb(null, true);
-                    }
-                    else {
-                        cb(new Error('Invalid file type'), false);
-                    }
-                },
             }),
         ],
         controllers: [file_attachments_controller_1.FileAttachmentsController],

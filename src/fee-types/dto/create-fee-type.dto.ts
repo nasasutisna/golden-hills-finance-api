@@ -77,7 +77,7 @@ export class CreateFeeTypeDto {
   })
   @IsOptional()
   @IsEnum(RecurringPeriod, { message: 'Invalid recurring period' })
-  recurringPeriod?: RecurringPeriod;
+  recurrencePeriod?: RecurringPeriod;
 
   @ApiProperty({
     description: 'Is taxable',

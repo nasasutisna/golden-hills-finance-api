@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { ServeStaticModule } from '@nestjs/serve-static';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AppConfigModule } from './config/config.module';
@@ -10,6 +11,7 @@ import { UsersModule } from './users/users.module';
 import { RolesModule } from './roles/roles.module';
 import { ResidentsModule } from './residents/residents.module';
 import { HouseBlocksModule } from './house-blocks/house-blocks.module';
+import { HouseUnitsModule } from './house-units/house-units.module';
 import { FeeTypesModule } from './fee-types/fee-types.module';
 import { ResidentInvoicesModule } from './resident-invoices/resident-invoices.module';
 import { ResidentPaymentsModule } from './resident-payments/resident-payments.module';
@@ -27,9 +29,16 @@ import { EmployeeCashAdvancesModule } from './employee-cash-advances/employee-ca
 import { CommunityEventsModule } from './community-events/community-events.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { FileAttachmentsModule } from './file-attachments/file-attachments.module';
+import { IplPeriodsModule } from './ipl-periods/ipl-periods.module';
+import { IplPaymentsModule } from './ipl-payments/ipl-payments.module';
 
 @Module({
   imports: [
+    // Static file serving
+    ServeStaticModule.forRoot({
+      rootPath: process.cwd() + '/uploads',
+      serveRoot: '/uploads',
+    }),
     // Configuration
     ConfigModule.forRoot({
       isGlobal: true,
@@ -49,6 +58,7 @@ import { FileAttachmentsModule } from './file-attachments/file-attachments.modul
 
     // Resident Management
     HouseBlocksModule,
+    HouseUnitsModule,
     ResidentsModule,
 
     // Employee Management
@@ -61,6 +71,8 @@ import { FileAttachmentsModule } from './file-attachments/file-attachments.modul
     CashTransactionsModule,
     ResidentInvoicesModule,
     ResidentPaymentsModule,
+    IplPeriodsModule,
+    IplPaymentsModule,
 
     // Audit & Approval
     ApprovalHistoriesModule,

@@ -24,8 +24,8 @@ async function bootstrap() {
         credentials: true,
     });
     app.useGlobalPipes(new validation_pipe_1.ValidationPipe({
-        whitelist: true,
-        forbidNonWhitelisted: true,
+        whitelist: false,
+        forbidNonWhitelisted: false,
         transform: true,
     }));
     app.useGlobalInterceptors(new logging_interceptor_1.LoggingInterceptor(), new transform_interceptor_1.TransformInterceptor(), new timeout_interceptor_1.TimeoutInterceptor(30000));

@@ -120,6 +120,47 @@ let ResidentPaymentsService = ResidentPaymentsService_1 = class ResidentPayments
     async exists(id) {
         return await this.residentPaymentsRepository.exists(id);
     }
+    async createBulk(createBulkDto) {
+        return await this.prisma.executeInTransaction(async (tx) => {
+            const successful = [];
+            const failed = [];
+            for (const paymentDto of createBulkDto.payments) {
+                try {
+                    const invoice = await this.residentInvoicesRepository.findById(paymentDto.invoiceId);
+                    if (invoice.status === 'PAID' || invoice.status === 'CANCELLED') {
+                        failed.push({
+                            payment: paymentDto,
+                            error: `Cannot create payment for invoice with status: ${invoice.status}`,
+                        });
+                        continue;
+                    }
+                    const paymentNumber = await this.residentPaymentsRepository.generatePaymentNumber();
+                    const payment = await this.residentPaymentsRepository.create({
+                        ...paymentDto,
+                        paymentNumber,
+                        status: 'PENDING',
+                    }, tx);
+                    await this.residentInvoicesRepository.updatePaymentAmount(paymentDto.invoiceId, Number(paymentDto.amount), tx);
+                    successful.push(payment);
+                    this.logger.log(`Bulk payment created: ${payment.paymentNumber}`);
+                }
+                catch (error) {
+                    failed.push({
+                        payment: paymentDto,
+                        error: error.message || 'Unknown error',
+                    });
+                    this.logger.error(`Error in bulk payment creation: ${error.message}`);
+                }
+            }
+            return {
+                successful,
+                failed,
+                total: createBulkDto.payments.length,
+                successCount: successful.length,
+                failureCount: failed.length,
+            };
+        });
+    }
 };
 exports.ResidentPaymentsService = ResidentPaymentsService;
 exports.ResidentPaymentsService = ResidentPaymentsService = ResidentPaymentsService_1 = __decorate([

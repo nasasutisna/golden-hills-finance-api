@@ -18,6 +18,7 @@ import {
 import { ResidentPaymentsService } from './resident-payments.service';
 import { CreateResidentPaymentDto } from './dto/create-resident-payment.dto';
 import { UpdateResidentPaymentDto } from './dto/update-resident-payment.dto';
+import { CreateBulkResidentPaymentDto } from './dto/create-bulk-resident-payment.dto';
 import { QueryOptionsDto } from '../common/dto/query-options.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
@@ -48,6 +49,32 @@ export class ResidentPaymentsController {
       statusCode: 201,
       message: 'Payment created successfully',
       data: payment,
+    };
+  }
+
+  @Post('bulk')
+  @Roles('ADMIN', 'ACCOUNTANT')
+  @ApiOperation({
+    summary: 'Create bulk payments',
+    description: 'Create multiple resident payments in a single transaction',
+  })
+  @ApiResponseDecorators.created()
+  @ApiResponseDecorators.standard()
+  async createBulk(@Body() createBulkDto: CreateBulkResidentPaymentDto) {
+    const result = await this.residentPaymentsService.createBulk(createBulkDto);
+
+    if (result.failureCount > 0) {
+      return {
+        statusCode: 207, // Multi-status
+        message: `Bulk payment processed: ${result.successCount} successful, ${result.failureCount} failed`,
+        data: result,
+      };
+    }
+
+    return {
+      statusCode: 201,
+      message: 'All payments created successfully',
+      data: result,
     };
   }
 

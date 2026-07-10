@@ -1,6 +1,7 @@
 import { ResidentPaymentsService } from './resident-payments.service';
 import { CreateResidentPaymentDto } from './dto/create-resident-payment.dto';
 import { UpdateResidentPaymentDto } from './dto/update-resident-payment.dto';
+import { CreateBulkResidentPaymentDto } from './dto/create-bulk-resident-payment.dto';
 import { QueryOptionsDto } from '../common/dto/query-options.dto';
 import { CurrentUserData } from '../common/decorators/current-user.decorator';
 export declare class ResidentPaymentsController {
@@ -19,13 +20,18 @@ export declare class ResidentPaymentsController {
             createdBy: string;
             amount: import("@prisma/client-runtime-utils").Decimal;
             paymentDate: Date;
-            residentId: string;
             paymentNumber: string;
-            invoiceId: string | null;
+            residentId: string;
             paymentMethod: string;
             referenceNumber: string | null;
+            invoiceId: string | null;
             transactionId: string | null;
         };
+    }>;
+    createBulk(createBulkDto: CreateBulkResidentPaymentDto): Promise<{
+        statusCode: number;
+        message: string;
+        data: import("./dto/create-bulk-resident-payment.dto").BulkPaymentResultDto;
     }>;
     findAll(queryOptions: QueryOptionsDto): Promise<{
         statusCode: number;
@@ -40,11 +46,11 @@ export declare class ResidentPaymentsController {
             createdBy: string;
             amount: import("@prisma/client-runtime-utils").Decimal;
             paymentDate: Date;
-            residentId: string;
             paymentNumber: string;
-            invoiceId: string | null;
+            residentId: string;
             paymentMethod: string;
             referenceNumber: string | null;
+            invoiceId: string | null;
             transactionId: string | null;
         }[];
         meta: {
@@ -74,11 +80,11 @@ export declare class ResidentPaymentsController {
             createdBy: string;
             amount: import("@prisma/client-runtime-utils").Decimal;
             paymentDate: Date;
-            residentId: string;
             paymentNumber: string;
-            invoiceId: string | null;
+            residentId: string;
             paymentMethod: string;
             referenceNumber: string | null;
+            invoiceId: string | null;
             transactionId: string | null;
         }[];
     }>;
@@ -95,11 +101,11 @@ export declare class ResidentPaymentsController {
             createdBy: string;
             amount: import("@prisma/client-runtime-utils").Decimal;
             paymentDate: Date;
-            residentId: string;
             paymentNumber: string;
-            invoiceId: string | null;
+            residentId: string;
             paymentMethod: string;
             referenceNumber: string | null;
+            invoiceId: string | null;
             transactionId: string | null;
         }[];
     }>;
@@ -116,11 +122,11 @@ export declare class ResidentPaymentsController {
             createdBy: string;
             amount: import("@prisma/client-runtime-utils").Decimal;
             paymentDate: Date;
-            residentId: string;
             paymentNumber: string;
-            invoiceId: string | null;
+            residentId: string;
             paymentMethod: string;
             referenceNumber: string | null;
+            invoiceId: string | null;
             transactionId: string | null;
         };
     }>;
@@ -137,11 +143,11 @@ export declare class ResidentPaymentsController {
             createdBy: string;
             amount: import("@prisma/client-runtime-utils").Decimal;
             paymentDate: Date;
-            residentId: string;
             paymentNumber: string;
-            invoiceId: string | null;
+            residentId: string;
             paymentMethod: string;
             referenceNumber: string | null;
+            invoiceId: string | null;
             transactionId: string | null;
         };
     }>;
@@ -158,11 +164,11 @@ export declare class ResidentPaymentsController {
             createdBy: string;
             amount: import("@prisma/client-runtime-utils").Decimal;
             paymentDate: Date;
-            residentId: string;
             paymentNumber: string;
-            invoiceId: string | null;
+            residentId: string;
             paymentMethod: string;
             referenceNumber: string | null;
+            invoiceId: string | null;
             transactionId: string | null;
         };
     }>;
@@ -179,11 +185,11 @@ export declare class ResidentPaymentsController {
             createdBy: string;
             amount: import("@prisma/client-runtime-utils").Decimal;
             paymentDate: Date;
-            residentId: string;
             paymentNumber: string;
-            invoiceId: string | null;
+            residentId: string;
             paymentMethod: string;
             referenceNumber: string | null;
+            invoiceId: string | null;
             transactionId: string | null;
         };
     }>;

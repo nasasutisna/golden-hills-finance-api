@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { HouseBlock } from '@prisma/client';
 
@@ -36,10 +36,10 @@ export class HouseBlocksRepository {
           coordinator: {
             select: {
               id: true,
-              username: true,
-              email: true,
+              residentCode: true,
               firstName: true,
               lastName: true,
+              email: true,
               phoneNumber: true,
               isActive: true,
             },
@@ -72,10 +72,10 @@ export class HouseBlocksRepository {
         coordinator: {
           select: {
             id: true,
-            username: true,
-            email: true,
+            residentCode: true,
             firstName: true,
             lastName: true,
+            email: true,
             phoneNumber: true,
             isActive: true,
           },
@@ -98,10 +98,10 @@ export class HouseBlocksRepository {
         coordinator: {
           select: {
             id: true,
-            username: true,
-            email: true,
+            residentCode: true,
             firstName: true,
             lastName: true,
+            email: true,
             phoneNumber: true,
             isActive: true,
           },
@@ -111,22 +111,119 @@ export class HouseBlocksRepository {
   }
 
   async create(data: any): Promise<HouseBlock> {
-    return this.prisma.houseBlock.create({
-      data,
-      include: { residents: true },
-    });
+    try {
+      // Check if coordinatorId is provided and if the resident exists
+      if (data.coordinatorId) {
+        const coordinator = await this.prisma.resident.findFirst({
+          where: {
+            id: data.coordinatorId,
+            deletedAt: null, // Only check active residents
+          },
+        });
+
+        if (!coordinator) {
+          throw new NotFoundException(`Coordinator (Resident) with ID "${data.coordinatorId}" not found or inactive`);
+        }
+      }
+
+      return this.prisma.houseBlock.create({
+        data,
+        include: {
+          residents: true,
+          coordinator: {
+            select: {
+              id: true,
+              residentCode: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              phoneNumber: true,
+              isActive: true,
+            },
+          },
+        },
+      });
+    } catch (error) {
+      // Handle unique constraint violations
+      if (error.code === 'P2002' && error.meta?.target?.includes('block_code')) {
+        throw new ConflictException(`Block code "${data.blockCode}" already exists`);
+      }
+      // Handle foreign key constraint violations
+      if (error.code === 'P2003' && error.meta?.field_name?.includes('coordinator_id')) {
+        throw new NotFoundException(`Coordinator (Resident) with ID "${data.coordinatorId}" not found`);
+      }
+      // Re-throw NotFoundException
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw error;
+    }
   }
 
   async update(id: string, data: any): Promise<HouseBlock> {
     try {
+      // Check if blockCode is being updated and if it already exists
+      if (data.blockCode) {
+        const existingBlock = await this.prisma.houseBlock.findFirst({
+          where: {
+            blockCode: data.blockCode,
+            id: { not: id }, // Exclude the current block
+            deletedAt: null, // Only check active blocks
+          },
+        });
+
+        if (existingBlock) {
+          throw new ConflictException(`Block code "${data.blockCode}" already exists`);
+        }
+      }
+
+      // Check if coordinatorId is being updated and if the resident exists
+      if (data.coordinatorId !== undefined && data.coordinatorId !== null) {
+        const coordinator = await this.prisma.resident.findFirst({
+          where: {
+            id: data.coordinatorId,
+            deletedAt: null, // Only check active residents
+          },
+        });
+
+        if (!coordinator) {
+          throw new NotFoundException(`Coordinator (Resident) with ID "${data.coordinatorId}" not found or inactive`);
+        }
+      }
+
       return await this.prisma.houseBlock.update({
         where: { id },
         data,
-        include: { residents: true },
+        include: {
+          residents: true,
+          coordinator: {
+            select: {
+              id: true,
+              residentCode: true,
+              firstName: true,
+              lastName: true,
+              email: true,
+              phoneNumber: true,
+              isActive: true,
+            },
+          },
+        },
       });
     } catch (error) {
       if (error.code === 'P2025') {
         throw new NotFoundException('House block not found');
+      }
+      // Handle unique constraint violations
+      if (error.code === 'P2002' && error.meta?.target?.includes('block_code')) {
+        throw new ConflictException(`Block code "${data.blockCode}" already exists`);
+      }
+      // Handle foreign key constraint violations
+      if (error.code === 'P2003' && error.meta?.field_name?.includes('coordinator_id')) {
+        throw new NotFoundException(`Coordinator (Resident) with ID "${data.coordinatorId}" not found`);
+      }
+      // Re-throw our custom exceptions
+      if (error instanceof ConflictException || error instanceof NotFoundException) {
+        throw error;
       }
       throw error;
     }
@@ -143,7 +240,20 @@ export class HouseBlocksRepository {
     return this.prisma.houseBlock.update({
       where: { id },
       data: { deletedAt: null, isActive: true },
-      include: { residents: true },
+      include: {
+        residents: true,
+        coordinator: {
+          select: {
+            id: true,
+            residentCode: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            phoneNumber: true,
+            isActive: true,
+          },
+        },
+      },
     });
   }
 

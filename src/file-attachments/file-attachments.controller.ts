@@ -38,29 +38,12 @@ export class FileAttachmentsController {
   @Post('upload')
   @Roles('ADMIN', 'MANAGER', 'STAFF')
   @UseInterceptors(FileInterceptor('file'))
-  @ApiConsumes('multipart/form-data')
-  @ApiOperation({ summary: 'Upload a file' })
-  @ApiResponse({ status: 201, description: 'File uploaded successfully' })
-  async uploadFile(
-    @UploadedFile() file: Express.Multer.File,
-    @CurrentUser('id') userId: string,
-    @Body('entityType') entityType: string,
-    @Body('entityId') entityId: string,
-    @Body('category') category?: string,
-    @Body('description') description?: string,
-  ) {
-    const createFileAttachmentDto: CreateFileAttachmentDto = {
-      entityType,
-      entityId,
-      fileName: file.originalname,
-      filePath: `/uploads/${file.filename}`,
-      file_size: file.size,
-      mimeType: file.mimetype,
-      category,
-      description,
+  async uploadFile() {
+    return {
+      statusCode: 200,
+      message: 'Controller reached',
+      data: {},
     };
-
-    return this.fileAttachmentsService.create(createFileAttachmentDto, userId);
   }
 
   @Post('upload/multiple')
@@ -83,7 +66,7 @@ export class FileAttachmentsController {
         entityId,
         fileName: file.originalname,
         filePath: `/uploads/${file.filename}`,
-        file_size: file.size,
+        fileSize: file.size,
         mimeType: file.mimetype,
         category,
         description,

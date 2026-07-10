@@ -20,8 +20,6 @@ export declare class HouseBlocksService {
             totalUnits: number;
             totalFloors: number | null;
             constructionYear: number | null;
-            landArea: import("@prisma/client-runtime-utils").Decimal | null;
-            buildingArea: import("@prisma/client-runtime-utils").Decimal | null;
             facilities: string | null;
             coordinatorId: string | null;
         }[];
@@ -47,8 +45,6 @@ export declare class HouseBlocksService {
         totalUnits: number;
         totalFloors: number | null;
         constructionYear: number | null;
-        landArea: import("@prisma/client-runtime-utils").Decimal | null;
-        buildingArea: import("@prisma/client-runtime-utils").Decimal | null;
         facilities: string | null;
         coordinatorId: string | null;
     }>;
@@ -65,8 +61,6 @@ export declare class HouseBlocksService {
         totalUnits: number;
         totalFloors: number | null;
         constructionYear: number | null;
-        landArea: import("@prisma/client-runtime-utils").Decimal | null;
-        buildingArea: import("@prisma/client-runtime-utils").Decimal | null;
         facilities: string | null;
         coordinatorId: string | null;
     }>;
@@ -83,8 +77,6 @@ export declare class HouseBlocksService {
         totalUnits: number;
         totalFloors: number | null;
         constructionYear: number | null;
-        landArea: import("@prisma/client-runtime-utils").Decimal | null;
-        buildingArea: import("@prisma/client-runtime-utils").Decimal | null;
         facilities: string | null;
         coordinatorId: string | null;
     }>;
@@ -101,8 +93,6 @@ export declare class HouseBlocksService {
         totalUnits: number;
         totalFloors: number | null;
         constructionYear: number | null;
-        landArea: import("@prisma/client-runtime-utils").Decimal | null;
-        buildingArea: import("@prisma/client-runtime-utils").Decimal | null;
         facilities: string | null;
         coordinatorId: string | null;
     }>;
@@ -119,8 +109,6 @@ export declare class HouseBlocksService {
         totalUnits: number;
         totalFloors: number | null;
         constructionYear: number | null;
-        landArea: import("@prisma/client-runtime-utils").Decimal | null;
-        buildingArea: import("@prisma/client-runtime-utils").Decimal | null;
         facilities: string | null;
         coordinatorId: string | null;
     }>;
@@ -137,8 +125,6 @@ export declare class HouseBlocksService {
         totalUnits: number;
         totalFloors: number | null;
         constructionYear: number | null;
-        landArea: import("@prisma/client-runtime-utils").Decimal | null;
-        buildingArea: import("@prisma/client-runtime-utils").Decimal | null;
         facilities: string | null;
         coordinatorId: string | null;
     }>;

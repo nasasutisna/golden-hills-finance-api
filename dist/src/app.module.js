@@ -9,6 +9,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.AppModule = void 0;
 const common_1 = require("@nestjs/common");
 const config_1 = require("@nestjs/config");
+const serve_static_1 = require("@nestjs/serve-static");
 const app_controller_1 = require("./app.controller");
 const app_service_1 = require("./app.service");
 const config_module_1 = require("./config/config.module");
@@ -19,6 +20,7 @@ const users_module_1 = require("./users/users.module");
 const roles_module_1 = require("./roles/roles.module");
 const residents_module_1 = require("./residents/residents.module");
 const house_blocks_module_1 = require("./house-blocks/house-blocks.module");
+const house_units_module_1 = require("./house-units/house-units.module");
 const fee_types_module_1 = require("./fee-types/fee-types.module");
 const resident_invoices_module_1 = require("./resident-invoices/resident-invoices.module");
 const resident_payments_module_1 = require("./resident-payments/resident-payments.module");
@@ -36,12 +38,18 @@ const employee_cash_advances_module_1 = require("./employee-cash-advances/employ
 const community_events_module_1 = require("./community-events/community-events.module");
 const notifications_module_1 = require("./notifications/notifications.module");
 const file_attachments_module_1 = require("./file-attachments/file-attachments.module");
+const ipl_periods_module_1 = require("./ipl-periods/ipl-periods.module");
+const ipl_payments_module_1 = require("./ipl-payments/ipl-payments.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
 exports.AppModule = AppModule = __decorate([
     (0, common_1.Module)({
         imports: [
+            serve_static_1.ServeStaticModule.forRoot({
+                rootPath: process.cwd() + '/uploads',
+                serveRoot: '/uploads',
+            }),
             config_1.ConfigModule.forRoot({
                 isGlobal: true,
                 envFilePath: ['.env', '.env.development', '.env.production'],
@@ -54,6 +62,7 @@ exports.AppModule = AppModule = __decorate([
             users_module_1.UsersModule,
             roles_module_1.RolesModule,
             house_blocks_module_1.HouseBlocksModule,
+            house_units_module_1.HouseUnitsModule,
             residents_module_1.ResidentsModule,
             employee_positions_module_1.EmployeePositionsModule,
             employees_module_1.EmployeesModule,
@@ -62,6 +71,8 @@ exports.AppModule = AppModule = __decorate([
             cash_transactions_module_1.CashTransactionsModule,
             resident_invoices_module_1.ResidentInvoicesModule,
             resident_payments_module_1.ResidentPaymentsModule,
+            ipl_periods_module_1.IplPeriodsModule,
+            ipl_payments_module_1.IplPaymentsModule,
             approval_histories_module_1.ApprovalHistoriesModule,
             inventories_module_1.InventoriesModule,
             inventory_requests_module_1.InventoryRequestsModule,

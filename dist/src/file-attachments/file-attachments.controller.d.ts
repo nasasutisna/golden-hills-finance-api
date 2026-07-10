@@ -5,20 +5,10 @@ import { Response } from 'express';
 export declare class FileAttachmentsController {
     private readonly fileAttachmentsService;
     constructor(fileAttachmentsService: FileAttachmentsService);
-    uploadFile(file: Express.Multer.File, userId: string, entityType: string, entityId: string, category?: string, description?: string): Promise<{
-        id: string;
-        description: string | null;
-        createdAt: Date;
-        updatedAt: Date;
-        deletedAt: Date | null;
-        entityType: string;
-        entityId: string;
-        fileName: string;
-        filePath: string;
-        fileSize: number;
-        mimeType: string;
-        category: string | null;
-        uploadedBy: string;
+    uploadFile(): Promise<{
+        statusCode: number;
+        message: string;
+        data: {};
     }>;
     uploadFiles(files: Express.Multer.File[], userId: string, entityType: string, entityId: string, category?: string, description?: string): Promise<{
         id: string;
@@ -27,7 +17,7 @@ export declare class FileAttachmentsController {
         updatedAt: Date;
         deletedAt: Date | null;
         entityType: string;
-        entityId: string;
+        entityId: string | null;
         fileName: string;
         filePath: string;
         fileSize: number;
@@ -50,7 +40,7 @@ export declare class FileAttachmentsController {
         updatedAt: Date;
         deletedAt: Date | null;
         entityType: string;
-        entityId: string;
+        entityId: string | null;
         fileName: string;
         filePath: string;
         fileSize: number;
@@ -65,7 +55,7 @@ export declare class FileAttachmentsController {
         updatedAt: Date;
         deletedAt: Date | null;
         entityType: string;
-        entityId: string;
+        entityId: string | null;
         fileName: string;
         filePath: string;
         fileSize: number;
@@ -80,7 +70,7 @@ export declare class FileAttachmentsController {
         updatedAt: Date;
         deletedAt: Date | null;
         entityType: string;
-        entityId: string;
+        entityId: string | null;
         fileName: string;
         filePath: string;
         fileSize: number;
@@ -97,7 +87,7 @@ export declare class FileAttachmentsController {
         updatedAt: Date;
         deletedAt: Date | null;
         entityType: string;
-        entityId: string;
+        entityId: string | null;
         fileName: string;
         filePath: string;
         fileSize: number;
@@ -112,7 +102,7 @@ export declare class FileAttachmentsController {
         updatedAt: Date;
         deletedAt: Date | null;
         entityType: string;
-        entityId: string;
+        entityId: string | null;
         fileName: string;
         filePath: string;
         fileSize: number;
