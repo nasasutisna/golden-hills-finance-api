@@ -1,0 +1,196 @@
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
+
+/**
+ * Migration: Merge IPL Bulk Payments into Regular Payments
+ *
+ * This script migrates existing bulk payments to the new unified payment system:
+ * 1. Uses bulk payment ID as paymentGroupId for all linked payments
+ * 2. Migrates file attachments from IplBulkPayment to first IplPayment
+ * 3. Migrates approval histories from IplBulkPayment to first IplPayment
+ * 4. Sets paymentGroupId for all payments in a group
+ * 5. Logs what would be deleted (ipl_bulk_payments table)
+ */
+
+async function mergeBulkPayments() {
+  console.log('Starting IPL Bulk Payment migration...\n');
+
+  try {
+    // Step 1: Get all bulk payments
+    const bulkPayments = await prisma.iplBulkPayment.findMany({
+      include: {
+        payments: {
+          where: { deletedAt: null },
+          orderBy: { paymentDate: 'asc' },
+        },
+      },
+    });
+
+    console.log(`Found ${bulkPayments.length} bulk payments to migrate\n`);
+
+    let migratedCount = 0;
+    let skippedCount = 0;
+    let errorCount = 0;
+
+    for (const bulkPayment of bulkPayments) {
+      try {
+        if (bulkPayment.payments.length === 0) {
+          console.log(`⚠️  Skipping ${bulkPayment.bulkNumber} - no linked payments found`);
+          skippedCount++;
+          continue;
+        }
+
+        // Use bulk payment ID as the payment group ID
+        const paymentGroupId = bulkPayment.id;
+
+        console.log(`\n📦 Migrating ${bulkPayment.bulkNumber} (${bulkPayment.payments.length} payments)`);
+
+        // Get the first payment (will hold the file attachment)
+        const firstPayment = bulkPayment.payments[0];
+
+        // Step 2: Update all payments with paymentGroupId
+        const paymentIds = bulkPayment.payments.map((p) => p.id);
+        await prisma.iplPayment.updateMany({
+          where: { id: { in: paymentIds } },
+          data: { paymentGroupId },
+        });
+        console.log(`  ✅ Set paymentGroupId for ${paymentIds.length} payments`);
+
+        // Step 3: Migrate file attachment from bulk payment to first payment
+        if (bulkPayment.proofFileId) {
+          const existingAttachment = await prisma.fileAttachment.findFirst({
+            where: {
+              entityType: 'IplBulkPayment',
+              entityId: bulkPayment.id,
+              deletedAt: null,
+            },
+          });
+
+          if (existingAttachment) {
+            // Update attachment to link to first payment instead
+            await prisma.fileAttachment.update({
+              where: { id: existingAttachment.id },
+              data: {
+                entityType: 'IplPayment',
+                entityId: firstPayment.id,
+              },
+            });
+            console.log(`  ✅ Migrated file attachment: ${existingAttachment.fileName}`);
+          } else {
+            // If attachment not found with entityType, try direct ID lookup
+            const attachmentById = await prisma.fileAttachment.findUnique({
+              where: { id: bulkPayment.proofFileId },
+            });
+
+            if (attachmentById) {
+              await prisma.fileAttachment.update({
+                where: { id: attachmentById.id },
+                data: {
+                  entityType: 'IplPayment',
+                  entityId: firstPayment.id,
+                },
+              });
+              console.log(`  ✅ Migrated file attachment (by ID): ${attachmentById.fileName}`);
+            } else {
+              console.log(`  ⚠️  File attachment not found: ${bulkPayment.proofFileId}`);
+            }
+          }
+        }
+
+        // Step 4: Migrate approval history from bulk payment to first payment
+        const bulkHistories = await prisma.approvalHistory.findMany({
+          where: {
+            entityType: 'IplBulkPayment',
+            entityId: bulkPayment.id,
+            deletedAt: null,
+          },
+        });
+
+        if (bulkHistories.length > 0) {
+          await prisma.approvalHistory.updateMany({
+            where: {
+              entityType: 'IplBulkPayment',
+              entityId: bulkPayment.id,
+            },
+            data: {
+              entityType: 'IplPayment',
+              entityId: firstPayment.id,
+            },
+          });
+          console.log(`  ✅ Migrated ${bulkHistories.length} approval history records`);
+        }
+
+        // Step 5: Sync approval status for all payments in the group
+        if (bulkPayment.status === 'APPROVED') {
+          // Approve all individual payments that are still pending
+          await prisma.iplPayment.updateMany({
+            where: {
+              id: { in: paymentIds },
+              status: 'PENDING',
+            },
+            data: {
+              status: 'APPROVED',
+              approvedBy: bulkPayment.approvedBy,
+              approvedAt: bulkPayment.approvedAt,
+            },
+          });
+          console.log(`  ✅ Synced APPROVED status for payments`);
+        } else if (bulkPayment.status === 'REJECTED') {
+          // Reject all individual payments that are still pending
+          await prisma.iplPayment.updateMany({
+            where: {
+              id: { in: paymentIds },
+              status: 'PENDING',
+            },
+            data: {
+              status: 'REJECTED',
+              approvedBy: bulkPayment.approvedBy,
+              approvedAt: bulkPayment.approvedAt,
+              rejectionReason: bulkPayment.rejectionReason,
+            },
+          });
+          console.log(`  ✅ Synced REJECTED status for payments`);
+        }
+
+        migratedCount++;
+        console.log(`  ✅ Migration complete for ${bulkPayment.bulkNumber}`);
+      } catch (error) {
+        console.error(`  ❌ Error migrating ${bulkPayment.bulkNumber}:`, error);
+        errorCount++;
+      }
+    }
+
+    // Summary
+    console.log('\n' + '='.repeat(60));
+    console.log('MIGRATION SUMMARY');
+    console.log('='.repeat(60));
+    console.log(`Total bulk payments: ${bulkPayments.length}`);
+    console.log(`✅ Successfully migrated: ${migratedCount}`);
+    console.log(`⚠️  Skipped: ${skippedCount}`);
+    console.log(`❌ Errors: ${errorCount}`);
+    console.log('\n' + '='.repeat(60));
+    console.log('NEXT STEPS:');
+    console.log('='.repeat(60));
+    console.log('1. Verify the migration results');
+    console.log('2. Run: npx prisma migrate dev --name remove_ipl_bulk_payment');
+    console.log('3. This will create a migration that drops ipl_bulk_payments table');
+    console.log('='.repeat(60) + '\n');
+  } catch (error) {
+    console.error('Migration failed:', error);
+    throw error;
+  } finally {
+    await prisma.$disconnect();
+  }
+}
+
+// Run migration
+mergeBulkPayments()
+  .then(() => {
+    console.log('Migration script completed');
+    process.exit(0);
+  })
+  .catch((error) => {
+    console.error('Migration script failed:', error);
+    process.exit(1);
+  });

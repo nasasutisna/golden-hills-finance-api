@@ -1,7 +1,9 @@
 import { NestFactory, Reflector } from '@nestjs/core';
 import { Logger } from '@nestjs/common';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
+import { join } from 'path';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
 import { LoggingInterceptor } from './common/logging/logging.interceptor';
 import { TimeoutInterceptor } from './common/interceptors/timeout.interceptor';
@@ -11,13 +13,18 @@ import { ValidationPipe as CustomValidationPipe } from './common/pipes/validatio
 
 async function bootstrap() {
   const logger = new Logger('Bootstrap');
-  const app = await NestFactory.create(AppModule, {
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     logger: ['error', 'warn', 'log', 'debug', 'verbose'],
   });
 
   // Get app config
   const appConfig = app.get('AppConfig');
   const { port, apiPrefix, appName } = appConfig;
+
+  // Enable static file serving for uploads folder
+  app.useStaticAssets(join(__dirname, '..', 'uploads'), {
+    prefix: '/uploads/',
+  });
 
   // Set global prefix
   app.setGlobalPrefix(apiPrefix);

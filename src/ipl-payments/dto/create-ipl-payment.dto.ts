@@ -6,17 +6,33 @@ import {
   IsEnum,
   MaxLength,
   IsOptional,
+  IsInt,
+  Min,
+  Max,
 } from 'class-validator';
 import { PaymentMethod } from './enums';
 
 export class CreateIplPaymentDto {
   @ApiProperty({
-    description: 'Period ID (bulan tahun pembayaran)',
+    description: 'Period ID (bulan tahun pembayaran - start period if monthCount > 1)',
     example: 'uuid-of-period',
   })
   @IsNotEmpty({ message: 'Period is required' })
   @IsString()
   periodId: string;
+
+  @ApiProperty({
+    description: 'Number of months to pay (1-24, default: 1)',
+    example: 6,
+    minimum: 1,
+    maximum: 24,
+    required: false,
+  })
+  @IsOptional()
+  @IsInt({ message: 'Month count must be an integer' })
+  @Min(1, { message: 'Minimum 1 month' })
+  @Max(24, { message: 'Maximum 24 months' })
+  monthCount?: number;
 
   @ApiProperty({
     description: 'Resident ID (warga yang membayar)',

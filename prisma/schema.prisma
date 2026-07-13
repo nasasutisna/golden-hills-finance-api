@@ -41,10 +41,8 @@ model User {
   createdFileAttachments    FileAttachment[]       @relation("FileUploadBy")
   cashTransactions          CashTransaction[]
   employeeSalaryHeaders     EmployeeSalaryHeader[]
-  iplPaymentsSubmitted      IplPayment[]            @relation("IplPaymentSubmitter")
-  iplPaymentsApproved       IplPayment[]            @relation("IplPaymentApprover")
-  iplBulkPaymentsSubmitted  IplBulkPayment[]        @relation("IplBulkPaymentSubmitter")
-  iplBulkPaymentsApproved   IplBulkPayment[]        @relation("IplBulkPaymentApprover")
+  iplPaymentsSubmitted IplPayment[] @relation("IplPaymentSubmitter")
+  iplPaymentsApproved  IplPayment[] @relation("IplPaymentApprover")
 
   @@index([email])
   @@index([username])
@@ -134,7 +132,6 @@ model HouseUnit {
   houseBlock  HouseBlock  @relation("BlockUnits", fields: [houseBlockId], references: [id], onDelete: Restrict)
   residents   Resident[]
   iplPayments IplPayment[] @relation("IplPaymentUnit")
-  iplBulkPayments IplBulkPayment[] @relation("IplBulkPaymentUnit")
 
   @@index([unitCode])
   @@index([houseBlockId])
@@ -177,7 +174,6 @@ model Resident {
   invoices           ResidentInvoice[]
   payments           ResidentPayment[]
   iplPayments        IplPayment[]   @relation("IplPaymentResident")
-  iplBulkPayments    IplBulkPayment[] @relation("IplBulkPaymentResident")
 
   @@index([residentCode])
   @@index([email])
@@ -445,7 +441,6 @@ model IplPeriod {
 
   // Relations
   payments IplPayment[]
-  bulkPaymentsStarting IplBulkPayment[] @relation("IplBulkPaymentStartPeriod")
 
   @@index([periodCode])
   @@index([month, year])
@@ -484,70 +479,24 @@ model IplPayment {
   updatedAt        DateTime  @updatedAt @map("updated_at")
   deletedAt        DateTime? @map("deleted_at")
 
-  // Bulk payment reference
-  bulkPaymentId    String?   @map("bulk_payment_id")
+  // Payment group reference (links multi-month payments together)
+  paymentGroupId   String?   @map("payment_group_id")
 
   // Relations
-  period           IplPeriod        @relation(fields: [periodId], references: [id], onDelete: Restrict)
-  resident         Resident         @relation("IplPaymentResident", fields: [residentId], references: [id], onDelete: Restrict)
-  houseUnit        HouseUnit        @relation("IplPaymentUnit", fields: [houseUnitId], references: [id], onDelete: Restrict)
-  submitter        User             @relation("IplPaymentSubmitter", fields: [submittedBy], references: [id], onDelete: Restrict)
-  approver         User?            @relation("IplPaymentApprover", fields: [approvedBy], references: [id], onDelete: SetNull)
-  bulkPayment      IplBulkPayment? @relation("IplBulkPaymentPayments", fields: [bulkPaymentId], references: [id], onDelete: SetNull)
-  // approvalHistories ApprovalHistory[] - Removed: no corresponding relation on ApprovalHistory
+  period        IplPeriod @relation(fields: [periodId], references: [id], onDelete: Restrict)
+  resident      Resident  @relation("IplPaymentResident", fields: [residentId], references: [id], onDelete: Restrict)
+  houseUnit     HouseUnit @relation("IplPaymentUnit", fields: [houseUnitId], references: [id], onDelete: Restrict)
+  submitter     User      @relation("IplPaymentSubmitter", fields: [submittedBy], references: [id], onDelete: Restrict)
+  approver      User?     @relation("IplPaymentApprover", fields: [approvedBy], references: [id], onDelete: SetNull)
 
   @@index([paymentNumber])
   @@index([periodId])
   @@index([residentId])
   @@index([houseUnitId])
   @@index([status])
-  @@index([bulkPaymentId])
+  @@index([paymentGroupId])
   @@index([deletedAt])
   @@map("ipl_payments")
-}
-
-model IplBulkPayment {
-  id               String    @id @default(uuid())
-  bulkNumber       String    @unique @map("bulk_number") @db.VarChar(50)
-  residentId       String    @map("resident_id")
-  houseUnitId      String    @map("house_unit_id")
-  startPeriodId    String    @map("start_period_id")
-  monthCount       Int       @map("month_count")
-
-  // Common payment details (shared across all payments)
-  paymentDate      DateTime  @map("payment_date")
-  paymentMethod    String    @map("payment_method") @db.VarChar(20)
-  referenceNumber  String?   @map("reference_number") @db.VarChar(100)
-  notes            String?   @db.Text
-  proofFileId      String?   @map("proof_file_id")
-
-  // Calculated totals
-  totalAmount      Decimal   @map("total_amount") @db.Decimal(15, 2)
-
-  // Approval flow
-  status           String    @default("PENDING") @db.VarChar(20)
-  approvedBy       String?   @map("approved_by")
-  approvedAt       DateTime? @map("approved_at")
-  rejectionReason  String?   @map("rejection_reason") @db.Text
-
-  submittedBy      String    @map("submitted_by")
-  createdAt        DateTime  @default(now()) @map("created_at")
-  updatedAt        DateTime  @updatedAt @map("updated_at")
-  deletedAt        DateTime? @map("deleted_at")
-
-  // Relations
-  resident         Resident         @relation("IplBulkPaymentResident", fields: [residentId], references: [id], onDelete: Restrict)
-  houseUnit        HouseUnit        @relation("IplBulkPaymentUnit", fields: [houseUnitId], references: [id], onDelete: Restrict)
-  startPeriod      IplPeriod        @relation("IplBulkPaymentStartPeriod", fields: [startPeriodId], references: [id], onDelete: Restrict)
-  submitter        User             @relation("IplBulkPaymentSubmitter", fields: [submittedBy], references: [id], onDelete: Restrict)
-  approver         User?            @relation("IplBulkPaymentApprover", fields: [approvedBy], references: [id], onDelete: SetNull)
-  payments         IplPayment[]    @relation("IplBulkPaymentPayments")
-
-  @@index([bulkNumber])
-  @@index([residentId])
-  @@index([status])
-  @@index([deletedAt])
-  @@map("ipl_bulk_payments")
 }
 
 // ============================================================

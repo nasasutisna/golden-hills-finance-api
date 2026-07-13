@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { IplPaymentsService } from './ipl-payments.service';
 import { IplPaymentsController } from './ipl-payments.controller';
 import { IplPaymentsRepository } from './ipl-payments.repository';
+import { IplReceiptsService } from './ipl-receipts.service';
 import { PrismaModule } from '../prisma/prisma.module';
 import { IplPeriodsModule } from '../ipl-periods/ipl-periods.module';
 import { ApprovalHistoriesModule } from '../approval-histories/approval-histories.module';
@@ -10,6 +11,20 @@ import { MulterModule } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
 import { v4 as uuidv4 } from 'uuid';
+import * as fs from 'fs';
+import * as path from 'path';
+
+/**
+ * Sanitize filename by removing special characters and replacing spaces with underscores
+ */
+function sanitizeFilename(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, '') // Remove special characters
+    .replace(/\s+/g, '_') // Replace spaces with underscores
+    .replace(/-+/g, '_') // Replace hyphens with underscores
+    .trim();
+}
 
 @Module({
   imports: [
@@ -19,9 +34,22 @@ import { v4 as uuidv4 } from 'uuid';
     FileAttachmentsModule,
     MulterModule.register({
       storage: diskStorage({
-        destination: './uploads',
+        destination: (req, file, cb) => {
+          // Create uploads folder if it doesn't exist
+          const uploadPath = './uploads';
+          if (!fs.existsSync(uploadPath)) {
+            fs.mkdirSync(uploadPath, { recursive: true });
+          }
+          // Store in temp folder initially, will be moved after payment creation
+          const tempPath = path.join(uploadPath, 'temp');
+          if (!fs.existsSync(tempPath)) {
+            fs.mkdirSync(tempPath, { recursive: true });
+          }
+          cb(null, tempPath);
+        },
         filename: (req, file, cb) => {
-          const uniqueName = `${uuidv4()}${extname(file.originalname)}`;
+          // Use UUID as temporary filename, will be renamed after payment creation
+          const uniqueName = `temp_${uuidv4()}${extname(file.originalname)}`;
           cb(null, uniqueName);
         },
       }),
@@ -45,7 +73,7 @@ import { v4 as uuidv4 } from 'uuid';
     }),
   ],
   controllers: [IplPaymentsController],
-  providers: [IplPaymentsService, IplPaymentsRepository],
-  exports: [IplPaymentsService, IplPaymentsRepository],
+  providers: [IplPaymentsService, IplPaymentsRepository, IplReceiptsService],
+  exports: [IplPaymentsService, IplPaymentsRepository, IplReceiptsService],
 })
 export class IplPaymentsModule {}

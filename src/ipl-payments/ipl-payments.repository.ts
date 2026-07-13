@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService, PrismaTransactionalClient } from '../prisma/prisma.service';
-import { IplPayment, IplBulkPayment } from '@prisma/client';
+import { IplPayment } from '@prisma/client';
 
 export interface IplPaymentWithFiles extends IplPayment {
   files?: Array<{
@@ -12,24 +12,50 @@ export interface IplPaymentWithFiles extends IplPayment {
     category: string | null;
     createdAt: Date;
   }>;
-}
-
-export interface IplBulkPaymentWithFiles extends IplBulkPayment {
-  files?: Array<{
+  period?: {
     id: string;
-    fileName: string;
-    filePath: string;
-    fileSize: number;
-    mimeType: string;
-    category: string | null;
-    createdAt: Date;
-  }>;
-  payments?: IplPaymentWithFiles[];
-  startPeriod?: any;
-  resident?: any;
-  houseUnit?: any;
-  submitter?: any;
-  approver?: any;
+    periodCode: string;
+    periodName: string;
+    month: number;
+    year: number;
+    status: string;
+    baseRate?: any;
+  };
+  resident?: {
+    id: string;
+    residentCode: string;
+    firstName: string;
+    lastName: string;
+    email?: string | null;
+    phoneNumber?: string | null;
+    houseUnitId?: string | null;
+  };
+  houseUnit?: {
+    id: string;
+    unitCode: string;
+    unitNumber: string;
+    landArea: any;
+    iplPercentage: any;
+    houseBlockId: string;
+    houseBlock?: {
+      id: string;
+      blockCode: string;
+      blockName: string;
+      coordinatorId?: string | null;
+    };
+  };
+  submitter?: {
+    id: string;
+    username: string;
+    firstName: string;
+    lastName: string;
+  } | null;
+  approver?: {
+    id: string;
+    username: string;
+    firstName: string;
+    lastName: string;
+  } | null;
 }
 
 @Injectable()
@@ -122,7 +148,7 @@ export class IplPaymentsRepository {
           approvedAt: true,
           rejectionReason: true,
           submittedBy: true,
-          bulkPaymentId: true,
+          paymentGroupId: true,
           createdAt: true,
           updatedAt: true,
           deletedAt: true,
@@ -213,7 +239,7 @@ export class IplPaymentsRepository {
         approvedAt: true,
         rejectionReason: true,
         submittedBy: true,
-        bulkPaymentId: true,
+        paymentGroupId: true,
         createdAt: true,
         updatedAt: true,
         deletedAt: true,
@@ -297,6 +323,109 @@ export class IplPaymentsRepository {
     });
   }
 
+  async findByPaymentGroupId(groupId: string): Promise<IplPaymentWithFiles[]> {
+    const payments = await this.prisma.iplPayment.findMany({
+      where: { paymentGroupId: groupId, deletedAt: null },
+      select: {
+        id: true,
+        paymentNumber: true,
+        periodId: true,
+        residentId: true,
+        houseUnitId: true,
+        paymentDate: true,
+        landArea: true,
+        iplPercentage: true,
+        baseRate: true,
+        calculatedAmount: true,
+        paymentMethod: true,
+        referenceNumber: true,
+        notes: true,
+        status: true,
+        approvedBy: true,
+        approvedAt: true,
+        rejectionReason: true,
+        submittedBy: true,
+        paymentGroupId: true,
+        createdAt: true,
+        updatedAt: true,
+        deletedAt: true,
+        period: {
+          select: {
+            id: true,
+            periodCode: true,
+            periodName: true,
+            month: true,
+            year: true,
+            status: true,
+            baseRate: true,
+          },
+        },
+        resident: {
+          select: {
+            id: true,
+            residentCode: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            phoneNumber: true,
+            houseUnitId: true,
+          },
+        },
+        houseUnit: {
+          select: {
+            id: true,
+            unitCode: true,
+            unitNumber: true,
+            landArea: true,
+            iplPercentage: true,
+            houseBlockId: true,
+            houseBlock: {
+              select: {
+                id: true,
+                blockCode: true,
+                blockName: true,
+                coordinatorId: true,
+              },
+            },
+          },
+        },
+        submitter: {
+          select: {
+            id: true,
+            username: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+        approver: {
+          select: {
+            id: true,
+            username: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+      },
+      orderBy: { paymentDate: 'asc' },
+    });
+
+    if (!payments || payments.length === 0) {
+      throw new NotFoundException('Payment group not found');
+    }
+
+    // Fetch files for all payments in the group
+    const paymentIds = payments.map((p) => p.id);
+    const filesByPaymentId = await this.getFilesForPayments(paymentIds, this.prisma);
+
+    // Attach files to each payment
+    const paymentsWithFiles = payments.map((payment) => ({
+      ...payment,
+      files: filesByPaymentId.get(payment.id) || [],
+    }));
+
+    return paymentsWithFiles;
+  }
+
   async getByResident(residentId: string): Promise<IplPayment[]> {
     return this.prisma.iplPayment.findMany({
       where: { residentId, deletedAt: null },
@@ -357,7 +486,7 @@ export class IplPaymentsRepository {
         approvedAt: true,
         rejectionReason: true,
         submittedBy: true,
-        bulkPaymentId: true,
+        paymentGroupId: true,
         createdAt: true,
         updatedAt: true,
         deletedAt: true,
@@ -481,205 +610,7 @@ export class IplPaymentsRepository {
     return `IPL${timestamp}${random}`;
   }
 
-  // ============================================================
-  // BULK PAYMENT METHODS
-  // ============================================================
-
-  async createBulkPayment(data: any, tx?: PrismaTransactionalClient): Promise<IplBulkPaymentWithFiles> {
-    const prisma = tx || this.prisma;
-    const bulkPayment = await prisma.iplBulkPayment.create({
-      data,
-      include: {
-        startPeriod: true,
-        resident: true,
-        houseUnit: true,
-        submitter: {
-          select: {
-            id: true,
-            username: true,
-            firstName: true,
-            lastName: true,
-          },
-        },
-        approver: {
-          select: {
-            id: true,
-            username: true,
-            firstName: true,
-            lastName: true,
-          },
-        },
-      },
-    });
-
-    const files = await prisma.fileAttachment.findMany({
-      where: {
-        entityType: 'IplBulkPayment',
-        entityId: bulkPayment.id,
-        deletedAt: null,
-      },
-      select: {
-        id: true,
-        fileName: true,
-        filePath: true,
-        fileSize: true,
-        mimeType: true,
-        category: true,
-        createdAt: true,
-      },
-    });
-
-    return { ...bulkPayment, files };
-  }
-
-  async findBulkPaymentById(id: string): Promise<IplBulkPaymentWithFiles> {
-    const bulkPayment = await this.prisma.iplBulkPayment.findFirst({
-      where: { id, deletedAt: null },
-      include: {
-        startPeriod: true,
-        resident: true,
-        houseUnit: {
-          include: {
-            houseBlock: true,
-          },
-        },
-        payments: {
-          where: { deletedAt: null },
-          include: {
-            period: true,
-          },
-          orderBy: { paymentDate: 'asc' },
-        },
-        submitter: {
-          select: {
-            id: true,
-            username: true,
-            firstName: true,
-            lastName: true,
-          },
-        },
-        approver: {
-          select: {
-            id: true,
-            username: true,
-            firstName: true,
-            lastName: true,
-          },
-        },
-      },
-    });
-
-    if (!bulkPayment) {
-      throw new NotFoundException('Bulk payment not found');
-    }
-
-    const files = await this.prisma.fileAttachment.findMany({
-      where: {
-        entityType: 'IplBulkPayment',
-        entityId: bulkPayment.id,
-        deletedAt: null,
-      },
-      select: {
-        id: true,
-        fileName: true,
-        filePath: true,
-        fileSize: true,
-        mimeType: true,
-        category: true,
-        createdAt: true,
-      },
-    });
-
-    return { ...bulkPayment, files };
-  }
-
-  async findAllBulkPayments(params: {
-    skip?: number;
-    take?: number;
-    where?: any;
-    orderBy?: any;
-  }): Promise<{ bulkPayments: IplBulkPaymentWithFiles[]; total: number }> {
-    const { skip, take, where, orderBy } = params;
-
-    const [bulkPayments, total] = await Promise.all([
-      this.prisma.iplBulkPayment.findMany({
-        where: { ...where, deletedAt: null },
-        skip,
-        take,
-        orderBy,
-        include: {
-          startPeriod: true,
-          resident: true,
-          houseUnit: true,
-          submitter: {
-            select: {
-              id: true,
-              username: true,
-              firstName: true,
-              lastName: true,
-            },
-          },
-          approver: {
-            select: {
-              id: true,
-              username: true,
-              firstName: true,
-              lastName: true,
-            },
-          },
-          _count: {
-            select: { payments: true },
-          },
-        },
-      }),
-      this.prisma.iplBulkPayment.count({ where: { ...where, deletedAt: null } }),
-    ]);
-
-    return { bulkPayments, total };
-  }
-
-  async updateBulkPayment(id: string, data: any, tx?: PrismaTransactionalClient): Promise<IplBulkPayment> {
-    const prisma = tx || this.prisma;
-    try {
-      return await prisma.iplBulkPayment.update({
-        where: { id },
-        data,
-        include: {
-          startPeriod: true,
-          resident: true,
-          houseUnit: true,
-          approver: {
-            select: {
-              id: true,
-              username: true,
-              firstName: true,
-              lastName: true,
-            },
-          },
-        },
-      });
-    } catch (error) {
-      if (error.code === 'P2025') {
-        throw new NotFoundException('Bulk payment not found');
-      }
-      throw error;
-    }
-  }
-
-  async softDeleteBulkPayment(id: string): Promise<IplBulkPayment> {
-    return this.updateBulkPayment(id, {
-      deletedAt: new Date(),
-    });
-  }
-
-  generateBulkPaymentNumber(): string {
-    const timestamp = Date.now().toString().slice(-8);
-    const random = Math.floor(Math.random() * 1000)
-      .toString()
-      .padStart(3, '0');
-    return `BULK${timestamp}${random}`;
-  }
-
+  // Check for existing payments (used for multi-month validation)
   async checkExistingPayments(residentId: string, periodIds: string[]): Promise<string[]> {
     const existing = await this.prisma.iplPayment.findMany({
       where: {

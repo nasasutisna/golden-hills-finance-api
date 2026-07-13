@@ -4,6 +4,7 @@ const core_1 = require("@nestjs/core");
 const common_1 = require("@nestjs/common");
 const swagger_1 = require("@nestjs/swagger");
 const app_module_1 = require("./app.module");
+const path_1 = require("path");
 const transform_interceptor_1 = require("./common/interceptors/transform.interceptor");
 const logging_interceptor_1 = require("./common/logging/logging.interceptor");
 const timeout_interceptor_1 = require("./common/interceptors/timeout.interceptor");
@@ -17,6 +18,9 @@ async function bootstrap() {
     });
     const appConfig = app.get('AppConfig');
     const { port, apiPrefix, appName } = appConfig;
+    app.useStaticAssets((0, path_1.join)(__dirname, '..', 'uploads'), {
+        prefix: '/uploads/',
+    });
     app.setGlobalPrefix(apiPrefix);
     app.enableCors({
         origin: process.env.CORS_ORIGIN || '*',

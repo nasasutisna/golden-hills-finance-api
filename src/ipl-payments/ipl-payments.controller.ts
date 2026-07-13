@@ -22,16 +22,13 @@ import {
 } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { IplPaymentsService } from './ipl-payments.service';
+import { IplReceiptsService } from './ipl-receipts.service';
 import { FileAttachmentsService } from '../file-attachments/file-attachments.service';
 import { CreateIplPaymentDto } from './dto/create-ipl-payment.dto';
 import { UpdateIplPaymentDto } from './dto/update-ipl-payment.dto';
 import { ApproveIplPaymentDto } from './dto/approve-ipl-payment.dto';
 import { RejectIplPaymentDto } from './dto/reject-ipl-payment.dto';
 import { QueryIplPaymentsDto } from './dto/query-ipl-payments.dto';
-import { CreateIplBulkPaymentDto } from './dto/create-ipl-bulk-payment.dto';
-import { ApproveIplBulkPaymentDto } from './dto/approve-ipl-bulk-payment.dto';
-import { RejectIplBulkPaymentDto } from './dto/reject-ipl-bulk-payment.dto';
-import { QueryIplBulkPaymentsDto } from './dto/query-ipl-bulk-payments.dto';
 import { PaymentMethod } from './dto/enums';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
@@ -39,6 +36,13 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { ParseUuidPipe } from '../common/pipes/parse-uuid.pipe';
 import { ApiResponseDecorators } from '../common/decorators/http-response.decorator';
+import * as fs from 'fs';
+import * as path from 'path';
+import {
+  generateBuktiTransferFilename,
+  moveFile,
+  sanitizeFilename,
+} from './helpers/file-naming.helper';
 
 @ApiTags('IPL Payments')
 @ApiBearerAuth('JWT-auth')
@@ -48,6 +52,7 @@ export class IplPaymentsController {
   constructor(
     private readonly iplPaymentsService: IplPaymentsService,
     private readonly fileAttachmentsService: FileAttachmentsService,
+    private readonly iplReceiptsService: IplReceiptsService,
   ) {}
 
   @Post()
@@ -56,18 +61,19 @@ export class IplPaymentsController {
   @ApiConsumes('multipart/form-data')
   @ApiOperation({
     summary: 'Create new IPL payment (Coordinator, Admin, Accountant)',
-    description: 'Submit IPL payment. For coordinators, payment requires approval. For admin/accountant, payment is auto-approved.',
+    description: 'Submit IPL payment (single or multi-month). For coordinators, payment requires approval. For admin/accountant, payment is auto-approved.',
   })
   @ApiBody({
     schema: {
       type: 'object',
       properties: {
-        periodId: { type: 'string', example: 'uuid-of-period', description: 'Period ID (bulan tahun pembayaran)' },
+        periodId: { type: 'string', example: 'uuid-of-period', description: 'Period ID (starting period for multi-month payment)' },
         residentId: { type: 'string', example: 'uuid-of-resident', description: 'Resident ID (warga yang membayar)' },
+        monthCount: { type: 'number', example: 6, description: 'Number of months to pay (1-24, default: 1)' },
         paymentDate: { type: 'string', example: '2026-07-09', description: 'Payment date (tanggal pembayaran)' },
         paymentMethod: { type: 'string', enum: ['CASH', 'TRANSFER', 'CARD', 'E_WALLET'], description: 'Payment method' },
         referenceNumber: { type: 'string', example: 'REF123456789', description: 'Reference number (nomor referensi transfer)' },
-        notes: { type: 'string', example: 'Pembayaran IPL bulan Juli', description: 'Additional notes' },
+        notes: { type: 'string', example: 'Pembayaran IPL', description: 'Additional notes' },
         proofFile: { type: 'string', format: 'binary', description: 'Proof of payment file' },
       },
       required: ['periodId', 'residentId', 'paymentDate', 'paymentMethod'],
@@ -82,19 +88,24 @@ export class IplPaymentsController {
     @Body('residentId') residentId: string,
     @Body('paymentDate') paymentDate: string,
     @Body('paymentMethod') paymentMethod: string,
+    @Body('monthCount') monthCount?: string,
     @Body('referenceNumber') referenceNumber?: string,
     @Body('notes') notes?: string,
   ) {
     let fileAttachmentId: string | undefined;
+    let tempFilePath: string | undefined;
 
     // If file was uploaded, create a file attachment record
     if (proofFile) {
+      // Store temp file path for later renaming
+      tempFilePath = proofFile.path || proofFile.filename;
+
       const fileAttachment = await this.fileAttachmentsService.create(
         {
           entityType: 'IplPayment',
           // entityId will be set by the service after payment creation
           fileName: proofFile.originalname,
-          filePath: `/uploads/${proofFile.filename}`,
+          filePath: `/uploads/temp/${proofFile.filename}`,
           fileSize: proofFile.size,
           mimeType: proofFile.mimetype,
           category: 'PAYMENT_PROOF',
@@ -109,6 +120,7 @@ export class IplPaymentsController {
     const createIplPaymentDto: CreateIplPaymentDto = {
       periodId,
       residentId,
+      monthCount: monthCount ? parseInt(monthCount, 10) : undefined,
       paymentDate,
       paymentMethod: paymentMethod as PaymentMethod,
       referenceNumber,
@@ -119,6 +131,52 @@ export class IplPaymentsController {
     // Create payment with file attachment
     // Note: The service will handle linking the file attachment to the payment
     const payment = await this.iplPaymentsService.create(userId, createIplPaymentDto);
+
+    // Rename and move file after payment creation with proper naming
+    if (fileAttachmentId && tempFilePath && payment) {
+      try {
+        // Get full payment details with period and house unit
+        const fullPayment = await this.iplPaymentsService.findById((payment as any).id);
+
+        if (fullPayment && fullPayment.period && fullPayment.houseUnit) {
+          const month = fullPayment.period.month;
+          const year = fullPayment.period.year;
+          const unitNumber = fullPayment.houseUnit.unitNumber;
+          const timestamp = new Date(fullPayment.paymentDate).getTime();
+
+          // Get file extension
+          const ext = path.extname(proofFile.originalname);
+
+          // Generate new filename
+          const newFilename = generateBuktiTransferFilename(
+            month,
+            year,
+            unitNumber,
+            timestamp,
+            ext,
+          );
+
+          // Create new path: /uploads/{unitNumber}/{newFilename}
+          const sanitizedUnit = sanitizeFilename(unitNumber);
+          const newDir = path.join(process.cwd(), 'uploads', sanitizedUnit);
+          const newPath = path.join(newDir, newFilename);
+
+          // Move file from temp to new location
+          const oldPath = path.join(process.cwd(), 'uploads', 'temp', proofFile.filename);
+          moveFile(oldPath, newPath);
+
+          // Update file attachment record with new path
+          await this.fileAttachmentsService.update(fileAttachmentId, {
+            filePath: `/uploads/${sanitizedUnit}/${newFilename}`,
+            fileName: newFilename,
+            entityId: (payment as any).id,
+          });
+        }
+      } catch (error) {
+        console.error('Error renaming file after payment creation:', error);
+        // Continue even if renaming fails, the file is still accessible in temp
+      }
+    }
 
     const message = payment?.status === 'APPROVED'
       ? 'IPL payment created and auto-approved successfully'
@@ -304,206 +362,24 @@ export class IplPaymentsController {
     };
   }
 
-  // ============================================================
-  // BULK PAYMENT ENDPOINTS
-  // ============================================================
-
-  @Post('bulk')
-  @Roles('COORDINATOR', 'ADMIN', 'ACCOUNTANT')
-  @UseInterceptors(FileInterceptor('proofFile'))
-  @ApiConsumes('multipart/form-data')
+  @Get(':id/receipt')
   @ApiOperation({
-    summary: 'Create bulk IPL payment (Coordinator, Admin, Accountant)',
-    description: 'Submit IPL payment for multiple months. For coordinators, payment requires approval. For admin/accountant, payment is auto-approved.',
+    summary: 'Get IPL payment receipt (PDF)',
+    description: 'Generate or retrieve the receipt for an approved IPL payment. Returns file info with URL for viewing/downloading.',
   })
-  @ApiBody({
-    schema: {
-      type: 'object',
-      properties: {
-        startPeriodId: { type: 'string', example: 'uuid-of-start-period', description: 'Starting period ID' },
-        residentId: { type: 'string', example: 'uuid-of-resident', description: 'Resident ID (warga yang membayar)' },
-        monthCount: { type: 'number', example: 6, description: 'Number of months (2-24)' },
-        paymentDate: { type: 'string', example: '2026-07-09', description: 'Payment date (tanggal pembayaran)' },
-        paymentMethod: { type: 'string', enum: ['CASH', 'TRANSFER', 'CARD', 'E_WALLET'], description: 'Payment method' },
-        referenceNumber: { type: 'string', example: 'REF123456789', description: 'Reference number (nomor referensi transfer)' },
-        notes: { type: 'string', example: 'Pembayaran IPL 6 bulan', description: 'Additional notes' },
-        proofFile: { type: 'string', format: 'binary', description: 'Proof of payment file' },
+  @ApiParam({ name: 'id', description: 'Payment ID' })
+  @ApiResponseDecorators.ok()
+  @ApiResponseDecorators.standard()
+  async getReceipt(@Param('id', ParseUuidPipe) id: string) {
+    const receipt = await this.iplReceiptsService.getReceiptInfo(id);
+
+    return {
+      statusCode: 200,
+      message: 'Receipt retrieved successfully',
+      data: {
+        ...receipt,
+        url: `${receipt.filePath}`, // URL for accessing the file
       },
-      required: ['startPeriodId', 'residentId', 'monthCount', 'paymentDate', 'paymentMethod'],
-    },
-  })
-  @ApiResponseDecorators.created()
-  @ApiResponseDecorators.standard()
-  async createBulk(
-    @UploadedFile() proofFile: Express.Multer.File,
-    @CurrentUser('id') userId: string,
-    @Body('startPeriodId') startPeriodId: string,
-    @Body('residentId') residentId: string,
-    @Body('monthCount') monthCount: string,
-    @Body('paymentDate') paymentDate: string,
-    @Body('paymentMethod') paymentMethod: string,
-    @Body('referenceNumber') referenceNumber?: string,
-    @Body('notes') notes?: string,
-  ) {
-    let fileAttachmentId: string | undefined;
-
-    // If file was uploaded, create a file attachment record
-    if (proofFile) {
-      const fileAttachment = await this.fileAttachmentsService.create(
-        {
-          entityType: 'IplBulkPayment',
-          fileName: proofFile.originalname,
-          filePath: `/uploads/${proofFile.filename}`,
-          fileSize: proofFile.size,
-          mimeType: proofFile.mimetype,
-          category: 'PAYMENT_PROOF',
-          description: 'Bukti pembayaran IPL bulk',
-        },
-        userId,
-      );
-      fileAttachmentId = fileAttachment.id;
-    }
-
-    // Build DTO from individual fields
-    const createIplBulkPaymentDto: CreateIplBulkPaymentDto = {
-      startPeriodId,
-      residentId,
-      monthCount: parseInt(String(monthCount)),
-      paymentDate,
-      paymentMethod: paymentMethod as PaymentMethod,
-      referenceNumber,
-      notes,
-      proofFileId: fileAttachmentId,
-    };
-
-    // Create bulk payment with file attachment
-    const bulkPayment = await this.iplPaymentsService.createBulkPayment(userId, createIplBulkPaymentDto);
-
-    const message = bulkPayment?.status === 'APPROVED'
-      ? 'Bulk IPL payment created and auto-approved successfully'
-      : 'Bulk IPL payment created successfully and awaiting approval';
-
-    return {
-      statusCode: 201,
-      message,
-      data: bulkPayment,
-    };
-  }
-
-  @Get('bulk')
-  @ApiOperation({
-    summary: 'Get all bulk IPL payments',
-    description: 'Get paginated list of bulk IPL payments with filtering options',
-  })
-  @ApiResponseDecorators.ok()
-  @ApiResponseDecorators.standard()
-  async getBulkPayments(@Query() queryOptions: QueryIplBulkPaymentsDto) {
-    const result = await this.iplPaymentsService.getBulkPayments(queryOptions);
-    return {
-      statusCode: 200,
-      message: 'Bulk IPL payments retrieved successfully',
-      data: result.data,
-      meta: result.meta,
-    };
-  }
-
-  @Get('bulk/:id')
-  @ApiOperation({
-    summary: 'Get bulk IPL payment by ID',
-    description: 'Get a specific bulk IPL payment with full details and all associated payments',
-  })
-  @ApiParam({ name: 'id', description: 'Bulk Payment ID' })
-  @ApiResponseDecorators.ok()
-  @ApiResponseDecorators.standard()
-  async getBulkPaymentById(@Param('id', ParseUuidPipe) id: string) {
-    const bulkPayment = await this.iplPaymentsService.getBulkPaymentById(id);
-    return {
-      statusCode: 200,
-      message: 'Bulk IPL payment retrieved successfully',
-      data: bulkPayment,
-    };
-  }
-
-  @Get('bulk/pending')
-  @Roles('ADMIN', 'ACCOUNTANT')
-  @ApiOperation({
-    summary: 'Get pending bulk payments (Admin/Accountant only)',
-    description: 'Get all pending bulk IPL payments that need approval',
-  })
-  @ApiResponseDecorators.ok()
-  @ApiResponseDecorators.standard()
-  async getPendingBulkPayments(@Query() queryOptions: QueryIplBulkPaymentsDto) {
-    const result = await this.iplPaymentsService.getBulkPayments({
-      ...queryOptions,
-      status: 'PENDING',
-    });
-    return {
-      statusCode: 200,
-      message: 'Pending bulk IPL payments retrieved successfully',
-      data: result.data,
-      meta: result.meta,
-    };
-  }
-
-  @Patch('bulk/:id/approve')
-  @Roles('ADMIN', 'ACCOUNTANT')
-  @ApiOperation({
-    summary: 'Approve bulk IPL payment (Admin/Accountant only)',
-    description: 'Approve a pending bulk IPL payment and all its associated payments',
-  })
-  @ApiParam({ name: 'id', description: 'Bulk Payment ID' })
-  @ApiResponseDecorators.ok()
-  @ApiResponseDecorators.standard()
-  async approveBulk(
-    @Param('id', ParseUuidPipe) id: string,
-    @CurrentUser('id') approverId: string,
-    @Body() dto: ApproveIplBulkPaymentDto,
-  ) {
-    const bulkPayment = await this.iplPaymentsService.approveBulkPayment(id, approverId, dto);
-    return {
-      statusCode: 200,
-      message: 'Bulk IPL payment approved successfully',
-      data: bulkPayment,
-    };
-  }
-
-  @Patch('bulk/:id/reject')
-  @Roles('ADMIN', 'ACCOUNTANT')
-  @ApiOperation({
-    summary: 'Reject bulk IPL payment (Admin/Accountant only)',
-    description: 'Reject a pending bulk IPL payment and all its associated payments',
-  })
-  @ApiParam({ name: 'id', description: 'Bulk Payment ID' })
-  @ApiResponseDecorators.ok()
-  @ApiResponseDecorators.standard()
-  async rejectBulk(
-    @Param('id', ParseUuidPipe) id: string,
-    @CurrentUser('id') approverId: string,
-    @Body() dto: RejectIplBulkPaymentDto,
-  ) {
-    const bulkPayment = await this.iplPaymentsService.rejectBulkPayment(id, approverId, dto);
-    return {
-      statusCode: 200,
-      message: 'Bulk IPL payment rejected successfully',
-      data: bulkPayment,
-    };
-  }
-
-  @Delete('bulk/:id')
-  @Roles('ADMIN', 'ACCOUNTANT')
-  @ApiOperation({
-    summary: 'Delete bulk IPL payment (Admin/Accountant only)',
-    description: 'Soft delete a bulk IPL payment and all its associated payments',
-  })
-  @ApiParam({ name: 'id', description: 'Bulk Payment ID' })
-  @ApiResponseDecorators.ok()
-  @ApiResponseDecorators.standard()
-  async removeBulk(@Param('id', ParseUuidPipe) id: string) {
-    const bulkPayment = await this.iplPaymentsService.softDeleteBulkPayment(id);
-    return {
-      statusCode: 200,
-      message: 'Bulk IPL payment deleted successfully',
-      data: bulkPayment,
     };
   }
 }
