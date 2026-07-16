@@ -1,3 +1,4 @@
+import { Response } from 'express';
 import { CashTransactionsService } from './cash-transactions.service';
 import { CreateCashTransactionDto } from './dto/create-cash-transaction.dto';
 import { UpdateCashTransactionDto } from './dto/update-cash-transaction.dto';
@@ -28,7 +29,7 @@ export declare class CashTransactionsController {
             referenceId: string | null;
         };
     }>;
-    findAll(queryOptions: QueryOptionsDto): Promise<{
+    findAll(queryOptions: QueryOptionsDto, startDate?: string, endDate?: string): Promise<{
         statusCode: number;
         message: string;
         data: {
@@ -56,6 +57,17 @@ export declare class CashTransactionsController {
             totalPages: number;
             hasNext: boolean;
             hasPrevious: boolean;
+        };
+    }>;
+    getSummary(startDate?: string, endDate?: string): Promise<{
+        statusCode: number;
+        message: string;
+        data: {
+            totalTransactions: number;
+            totalIncome: number;
+            totalExpense: number;
+            netAmount: number;
+            pendingApproval: number;
         };
     }>;
     getStatistics(startDate?: string, endDate?: string): Promise<{
@@ -266,5 +278,49 @@ export declare class CashTransactionsController {
             referenceType: string | null;
             referenceId: string | null;
         };
+    }>;
+    getIplReport(startDate?: string, endDate?: string): Promise<{
+        statusCode: number;
+        message: string;
+        data: {
+            totalIncome: number;
+            totalExpense: number;
+            balance: number;
+            breakdownByCategory: Record<string, number>;
+        };
+    }>;
+    getKegiatanReport(startDate?: string, endDate?: string): Promise<{
+        statusCode: number;
+        message: string;
+        data: {
+            totalIncome: number;
+            totalExpense: number;
+            balance: number;
+            breakdownByCategory: Record<string, number>;
+        };
+    }>;
+    exportIplReport(res: Response, startDate?: string, endDate?: string): Promise<void>;
+    exportKegiatanReport(res: Response, startDate?: string, endDate?: string): Promise<void>;
+    getByReferenceType(referenceType: string, startDate?: string, endDate?: string): Promise<{
+        statusCode: number;
+        message: string;
+        data: {
+            id: string;
+            description: string | null;
+            createdAt: Date;
+            updatedAt: Date;
+            deletedAt: Date | null;
+            status: string;
+            approvedBy: string | null;
+            approvedAt: Date | null;
+            createdBy: string;
+            transactionNumber: string;
+            transactionDate: Date;
+            transactionType: string;
+            amount: import("@prisma/client-runtime-utils").Decimal;
+            categoryId: string | null;
+            referenceType: string | null;
+            referenceId: string | null;
+        }[];
     }>;
 }

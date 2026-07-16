@@ -37,13 +37,21 @@ let CashTransactionsController = class CashTransactionsController {
             data: transaction,
         };
     }
-    async findAll(queryOptions) {
-        const result = await this.cashTransactionsService.findAll(queryOptions);
+    async findAll(queryOptions, startDate, endDate) {
+        const result = await this.cashTransactionsService.findAll(queryOptions, startDate, endDate);
         return {
             statusCode: 200,
             message: 'Cash transactions retrieved successfully',
             data: result.data,
             meta: result.meta,
+        };
+    }
+    async getSummary(startDate, endDate) {
+        const stats = await this.cashTransactionsService.getTransactionStatistics(startDate, endDate);
+        return {
+            statusCode: 200,
+            message: 'Cash transactions summary retrieved successfully',
+            data: stats,
         };
     }
     async getStatistics(startDate, endDate) {
@@ -126,6 +134,46 @@ let CashTransactionsController = class CashTransactionsController {
             data: transaction,
         };
     }
+    async getIplReport(startDate, endDate) {
+        const data = await this.cashTransactionsService.getIplReport(startDate, endDate);
+        return {
+            statusCode: 200,
+            message: 'IPL report retrieved successfully',
+            data,
+        };
+    }
+    async getKegiatanReport(startDate, endDate) {
+        const data = await this.cashTransactionsService.getKegiatanReport(startDate, endDate);
+        return {
+            statusCode: 200,
+            message: 'Kegiatan report retrieved successfully',
+            data,
+        };
+    }
+    async exportIplReport(res, startDate, endDate) {
+        const { buffer, filename } = await this.cashTransactionsService.exportIplReport(startDate, endDate);
+        res.header({
+            'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition': `attachment; filename="${filename}"`,
+        });
+        res.send(buffer);
+    }
+    async exportKegiatanReport(res, startDate, endDate) {
+        const { buffer, filename } = await this.cashTransactionsService.exportKegiatanReport(startDate, endDate);
+        res.header({
+            'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+            'Content-Disposition': `attachment; filename="${filename}"`,
+        });
+        res.send(buffer);
+    }
+    async getByReferenceType(referenceType, startDate, endDate) {
+        const transactions = await this.cashTransactionsService.getByReferenceType(referenceType, startDate, endDate);
+        return {
+            statusCode: 200,
+            message: 'Transactions retrieved successfully',
+            data: transactions,
+        };
+    }
 };
 exports.CashTransactionsController = CashTransactionsController;
 __decorate([
@@ -147,15 +195,31 @@ __decorate([
     (0, common_1.Get)(),
     (0, swagger_1.ApiOperation)({
         summary: 'Get all cash transactions',
-        description: 'Get paginated list of cash transactions',
+        description: 'Get paginated list of cash transactions with optional date range filter',
     }),
     http_response_decorator_1.ApiResponseDecorators.ok(),
     http_response_decorator_1.ApiResponseDecorators.standard(),
     __param(0, (0, common_1.Query)()),
+    __param(1, (0, common_1.Query)('startDate')),
+    __param(2, (0, common_1.Query)('endDate')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [query_options_dto_1.QueryOptionsDto]),
+    __metadata("design:paramtypes", [query_options_dto_1.QueryOptionsDto, String, String]),
     __metadata("design:returntype", Promise)
 ], CashTransactionsController.prototype, "findAll", null);
+__decorate([
+    (0, common_1.Get)('summary'),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Get cash transactions summary',
+        description: 'Get cash transactions summary including income, expenses, and pending approvals',
+    }),
+    http_response_decorator_1.ApiResponseDecorators.ok(),
+    http_response_decorator_1.ApiResponseDecorators.standard(),
+    __param(0, (0, common_1.Query)('startDate')),
+    __param(1, (0, common_1.Query)('endDate')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", Promise)
+], CashTransactionsController.prototype, "getSummary", null);
 __decorate([
     (0, common_1.Get)('statistics'),
     (0, swagger_1.ApiOperation)({
@@ -304,6 +368,81 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], CashTransactionsController.prototype, "remove", null);
+__decorate([
+    (0, common_1.Get)('reports/ipl'),
+    (0, roles_decorator_1.Roles)('ADMIN', 'ACCOUNTANT'),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Get IPL financial report',
+        description: 'Get IPL-specific income, expenses, and balance',
+    }),
+    http_response_decorator_1.ApiResponseDecorators.ok(),
+    http_response_decorator_1.ApiResponseDecorators.standard(),
+    __param(0, (0, common_1.Query)('startDate')),
+    __param(1, (0, common_1.Query)('endDate')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", Promise)
+], CashTransactionsController.prototype, "getIplReport", null);
+__decorate([
+    (0, common_1.Get)('reports/kegiatan'),
+    (0, roles_decorator_1.Roles)('ADMIN', 'ACCOUNTANT'),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Get Kegiatan financial report',
+        description: 'Get Kegiatan-specific income, expenses, and balance',
+    }),
+    http_response_decorator_1.ApiResponseDecorators.ok(),
+    http_response_decorator_1.ApiResponseDecorators.standard(),
+    __param(0, (0, common_1.Query)('startDate')),
+    __param(1, (0, common_1.Query)('endDate')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", Promise)
+], CashTransactionsController.prototype, "getKegiatanReport", null);
+__decorate([
+    (0, common_1.Get)('reports/ipl/export'),
+    (0, roles_decorator_1.Roles)('ADMIN', 'ACCOUNTANT'),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Export IPL report to Excel',
+        description: 'Download the IPL financial report as an .xlsx file',
+    }),
+    __param(0, (0, common_1.Res)()),
+    __param(1, (0, common_1.Query)('startDate')),
+    __param(2, (0, common_1.Query)('endDate')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, String]),
+    __metadata("design:returntype", Promise)
+], CashTransactionsController.prototype, "exportIplReport", null);
+__decorate([
+    (0, common_1.Get)('reports/kegiatan/export'),
+    (0, roles_decorator_1.Roles)('ADMIN', 'ACCOUNTANT'),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Export Kegiatan report to Excel',
+        description: 'Download the Kegiatan financial report as an .xlsx file',
+    }),
+    __param(0, (0, common_1.Res)()),
+    __param(1, (0, common_1.Query)('startDate')),
+    __param(2, (0, common_1.Query)('endDate')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, String, String]),
+    __metadata("design:returntype", Promise)
+], CashTransactionsController.prototype, "exportKegiatanReport", null);
+__decorate([
+    (0, common_1.Get)('reference/:referenceType'),
+    (0, roles_decorator_1.Roles)('ADMIN', 'ACCOUNTANT'),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Get transactions by reference type',
+        description: 'Get transactions filtered by reference type (e.g., IPL_PAYMENT, KEGIATAN_EXPENSE)',
+    }),
+    (0, swagger_1.ApiParam)({ name: 'referenceType', description: 'Reference type filter' }),
+    http_response_decorator_1.ApiResponseDecorators.ok(),
+    http_response_decorator_1.ApiResponseDecorators.standard(),
+    __param(0, (0, common_1.Param)('referenceType')),
+    __param(1, (0, common_1.Query)('startDate')),
+    __param(2, (0, common_1.Query)('endDate')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, String]),
+    __metadata("design:returntype", Promise)
+], CashTransactionsController.prototype, "getByReferenceType", null);
 exports.CashTransactionsController = CashTransactionsController = __decorate([
     (0, swagger_1.ApiTags)('Cash Transactions'),
     (0, swagger_1.ApiBearerAuth)('JWT-auth'),

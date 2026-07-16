@@ -2,16 +2,18 @@ import { QueryOptionsDto } from '../common/dto/query-options.dto';
 import { CreateCashTransactionDto } from './dto/create-cash-transaction.dto';
 import { UpdateCashTransactionDto } from './dto/update-cash-transaction.dto';
 import { CashTransactionsRepository } from './cash-transactions.repository';
+import { TransactionCategoriesRepository } from '../transaction-categories/transaction-categories.repository';
 import { ApprovalHistoriesService } from '../approval-histories/approval-histories.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CurrentUserData } from '../common/decorators/current-user.decorator';
 export declare class CashTransactionsService {
     private readonly cashTransactionsRepository;
+    private readonly transactionCategoriesRepository;
     private readonly approvalHistoriesService;
     private readonly prisma;
     private readonly logger;
-    constructor(cashTransactionsRepository: CashTransactionsRepository, approvalHistoriesService: ApprovalHistoriesService, prisma: PrismaService);
-    findAll(queryOptions: QueryOptionsDto): Promise<{
+    constructor(cashTransactionsRepository: CashTransactionsRepository, transactionCategoriesRepository: TransactionCategoriesRepository, approvalHistoriesService: ApprovalHistoriesService, prisma: PrismaService);
+    findAll(queryOptions: QueryOptionsDto, startDate?: string, endDate?: string): Promise<{
         data: {
             id: string;
             description: string | null;
@@ -228,4 +230,46 @@ export declare class CashTransactionsService {
     }>;
     count(where?: any): Promise<number>;
     exists(id: string): Promise<boolean>;
+    createFromIplPayment(iplPayment: any, approvedBy: string): Promise<any>;
+    createFromKegiatanPayment(residentPayment: any, approvedBy: string): Promise<any>;
+    createFromResidentPayment(residentPayment: any, verifiedBy: string): Promise<any>;
+    getIplReport(startDate?: string, endDate?: string): Promise<{
+        totalIncome: number;
+        totalExpense: number;
+        balance: number;
+        breakdownByCategory: Record<string, number>;
+    }>;
+    getKegiatanReport(startDate?: string, endDate?: string): Promise<{
+        totalIncome: number;
+        totalExpense: number;
+        balance: number;
+        breakdownByCategory: Record<string, number>;
+    }>;
+    private buildReportExport;
+    exportIplReport(startDate?: string, endDate?: string): Promise<{
+        buffer: Buffer;
+        filename: string;
+    }>;
+    exportKegiatanReport(startDate?: string, endDate?: string): Promise<{
+        buffer: Buffer;
+        filename: string;
+    }>;
+    getByReferenceType(referenceType: string, startDate?: string, endDate?: string): Promise<{
+        id: string;
+        description: string | null;
+        createdAt: Date;
+        updatedAt: Date;
+        deletedAt: Date | null;
+        status: string;
+        approvedBy: string | null;
+        approvedAt: Date | null;
+        createdBy: string;
+        transactionNumber: string;
+        transactionDate: Date;
+        transactionType: string;
+        amount: import("@prisma/client-runtime-utils").Decimal;
+        categoryId: string | null;
+        referenceType: string | null;
+        referenceId: string | null;
+    }[]>;
 }

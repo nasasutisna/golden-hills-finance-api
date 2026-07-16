@@ -289,7 +289,10 @@ export class IplReceiptsService {
         // Footer
         this.drawFooter(doc);
 
-        doc.on('end', () => resolve());
+        // Resolve only once the file is fully flushed to disk
+        // (doc 'end' fires before the write stream finishes — racing fs.statSync)
+        stream.on('finish', () => resolve());
+        stream.on('error', reject);
         doc.on('error', reject);
 
         doc.end();

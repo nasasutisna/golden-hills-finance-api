@@ -182,6 +182,206 @@ let CashTransactionsRepository = class CashTransactionsRepository {
         const timestamp = Date.now().toString().slice(-6);
         return `${prefix}${timestamp}${String(count + 1).padStart(4, '0')}`;
     }
+    async getByReferenceType(referenceType, startDate, endDate) {
+        const where = { referenceType, deletedAt: null };
+        if (startDate && endDate) {
+            where.transactionDate = { gte: startDate, lte: endDate };
+        }
+        return this.prisma.cashTransaction.findMany({
+            where,
+            include: {
+                category: {
+                    select: {
+                        id: true,
+                        categoryCode: true,
+                        categoryName: true,
+                        categoryType: true,
+                    },
+                },
+                creator: {
+                    select: {
+                        id: true,
+                        username: true,
+                        firstName: true,
+                        lastName: true,
+                    },
+                },
+            },
+            orderBy: { transactionDate: 'desc' },
+        });
+    }
+    async getIplStatistics(startDate, endDate) {
+        const where = {
+            deletedAt: null,
+            OR: [
+                { referenceType: 'IPL_PAYMENT' },
+                { referenceType: 'IPL_EXPENSE' },
+            ],
+        };
+        if (startDate && endDate) {
+            where.transactionDate = { gte: startDate, lte: endDate };
+        }
+        const transactions = await this.prisma.cashTransaction.findMany({
+            where,
+            include: {
+                category: {
+                    select: {
+                        id: true,
+                        categoryCode: true,
+                        categoryName: true,
+                    },
+                },
+            },
+        });
+        const income = transactions
+            .filter((t) => t.transactionType === 'INCOME')
+            .reduce((sum, t) => sum + Number(t.amount), 0);
+        const expense = transactions
+            .filter((t) => t.transactionType === 'EXPENSE')
+            .reduce((sum, t) => sum + Number(t.amount), 0);
+        const breakdownByCategory = {};
+        for (const t of transactions) {
+            if (t.transactionType === 'EXPENSE' && t.category) {
+                const categoryName = t.category.categoryName;
+                breakdownByCategory[categoryName] = (breakdownByCategory[categoryName] || 0) + Number(t.amount);
+            }
+        }
+        return {
+            totalIncome: income,
+            totalExpense: expense,
+            balance: income - expense,
+            breakdownByCategory,
+        };
+    }
+    async getKegiatanStatistics(startDate, endDate) {
+        const where = {
+            deletedAt: null,
+            OR: [
+                { referenceType: 'KEGIATAN_PAYMENT' },
+                { referenceType: 'KEGIATAN_EXPENSE' },
+            ],
+        };
+        if (startDate && endDate) {
+            where.transactionDate = { gte: startDate, lte: endDate };
+        }
+        const transactions = await this.prisma.cashTransaction.findMany({
+            where,
+            include: {
+                category: {
+                    select: {
+                        id: true,
+                        categoryCode: true,
+                        categoryName: true,
+                    },
+                },
+            },
+        });
+        const income = transactions
+            .filter((t) => t.transactionType === 'INCOME')
+            .reduce((sum, t) => sum + Number(t.amount), 0);
+        const expense = transactions
+            .filter((t) => t.transactionType === 'EXPENSE')
+            .reduce((sum, t) => sum + Number(t.amount), 0);
+        const breakdownByCategory = {};
+        for (const t of transactions) {
+            if (t.transactionType === 'EXPENSE' && t.category) {
+                const categoryName = t.category.categoryName;
+                breakdownByCategory[categoryName] = (breakdownByCategory[categoryName] || 0) + Number(t.amount);
+            }
+        }
+        return {
+            totalIncome: income,
+            totalExpense: expense,
+            balance: income - expense,
+            breakdownByCategory,
+        };
+    }
+    async getReportData(referenceTypes, startDate, endDate) {
+        const where = {
+            deletedAt: null,
+            referenceType: { in: referenceTypes },
+        };
+        if (startDate && endDate) {
+            where.transactionDate = { gte: startDate, lte: endDate };
+        }
+        const rows = await this.prisma.cashTransaction.findMany({
+            where,
+            include: {
+                category: {
+                    select: {
+                        id: true,
+                        categoryCode: true,
+                        categoryName: true,
+                    },
+                },
+                creator: {
+                    select: {
+                        id: true,
+                        username: true,
+                        firstName: true,
+                        lastName: true,
+                    },
+                },
+            },
+            orderBy: { transactionDate: 'desc' },
+        });
+        const totalIncome = rows
+            .filter((t) => t.transactionType === 'INCOME')
+            .reduce((sum, t) => sum + Number(t.amount), 0);
+        const totalExpense = rows
+            .filter((t) => t.transactionType === 'EXPENSE')
+            .reduce((sum, t) => sum + Number(t.amount), 0);
+        const breakdownMap = new Map();
+        for (const t of rows) {
+            if (!t.category)
+                continue;
+            const key = t.category.id;
+            const existing = breakdownMap.get(key);
+            if (existing) {
+                existing.transactionCount += 1;
+                existing.totalAmount += Number(t.amount);
+            }
+            else {
+                breakdownMap.set(key, {
+                    categoryName: t.category.categoryName,
+                    categoryCode: t.category.categoryCode,
+                    transactionCount: 1,
+                    totalAmount: Number(t.amount),
+                });
+            }
+        }
+        const transactions = rows.map((t) => ({
+            transactionNumber: t.transactionNumber,
+            transactionDate: t.transactionDate,
+            transactionType: t.transactionType,
+            amount: Number(t.amount),
+            description: t.description,
+            referenceType: t.referenceType,
+            status: t.status,
+            category: t.category
+                ? {
+                    categoryName: t.category.categoryName,
+                    categoryCode: t.category.categoryCode,
+                }
+                : null,
+            creator: t.creator
+                ? {
+                    firstName: t.creator.firstName,
+                    lastName: t.creator.lastName,
+                    username: t.creator.username,
+                }
+                : null,
+        }));
+        return {
+            transactions,
+            summary: {
+                totalIncome,
+                totalExpense,
+                balance: totalIncome - totalExpense,
+            },
+            breakdown: Array.from(breakdownMap.values()),
+        };
+    }
 };
 exports.CashTransactionsRepository = CashTransactionsRepository;
 exports.CashTransactionsRepository = CashTransactionsRepository = __decorate([

@@ -780,6 +780,40 @@ async function main() {
         isActive: true,
       },
     }),
+    // IPL and Kegiatan income categories for auto cash transaction creation
+    prisma.transactionCategory.upsert({
+      where: { categoryCode: 'IPL-MASUK' },
+      update: {},
+      create: {
+        categoryCode: 'IPL-MASUK',
+        categoryName: 'IPL Payment Income',
+        description: 'Income from IPL (Iuran Pemeliharaan Lingkungan) payments',
+        categoryType: 'INCOME',
+        isActive: true,
+      },
+    }),
+    prisma.transactionCategory.upsert({
+      where: { categoryCode: 'KEGIATAN-MASUK' },
+      update: {},
+      create: {
+        categoryCode: 'KEGIATAN-MASUK',
+        categoryName: 'Kegiatan Payment Income',
+        description: 'Income from community activity (Iuran Kegiatan Warga) payments',
+        categoryType: 'INCOME',
+        isActive: true,
+      },
+    }),
+    prisma.transactionCategory.upsert({
+      where: { categoryCode: 'RESIDENT-MASUK' },
+      update: {},
+      create: {
+        categoryCode: 'RESIDENT-MASUK',
+        categoryName: 'Resident Payment Income',
+        description: 'Income from manual resident payments (tagihan warga)',
+        categoryType: 'INCOME',
+        isActive: true,
+      },
+    }),
   ]);
 
   console.log(`✓ Created ${categories.length} transaction categories`);

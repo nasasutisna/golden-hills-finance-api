@@ -12,7 +12,7 @@ export declare enum PaymentStatus {
 }
 export declare class CreateResidentPaymentDto {
     residentId: string;
-    invoiceId: string;
+    invoiceId?: string;
     paymentDate: string;
     paymentMethod: PaymentMethod;
     paymentChannel?: string;

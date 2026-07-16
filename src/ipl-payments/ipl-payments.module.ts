@@ -7,6 +7,8 @@ import { PrismaModule } from '../prisma/prisma.module';
 import { IplPeriodsModule } from '../ipl-periods/ipl-periods.module';
 import { ApprovalHistoriesModule } from '../approval-histories/approval-histories.module';
 import { FileAttachmentsModule } from '../file-attachments/file-attachments.module';
+import { CashTransactionsModule } from '../cash-transactions/cash-transactions.module';
+import { ResidentPaymentsModule } from '../resident-payments/resident-payments.module';
 import { MulterModule } from '@nestjs/platform-express';
 import { diskStorage } from 'multer';
 import { extname } from 'path';
@@ -32,6 +34,8 @@ function sanitizeFilename(name: string): string {
     IplPeriodsModule,
     ApprovalHistoriesModule,
     FileAttachmentsModule,
+    CashTransactionsModule,
+    ResidentPaymentsModule,
     MulterModule.register({
       storage: diskStorage({
         destination: (req, file, cb) => {

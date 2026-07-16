@@ -15,8 +15,12 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.ResidentPaymentsController = void 0;
 const common_1 = require("@nestjs/common");
 const swagger_1 = require("@nestjs/swagger");
+const platform_express_1 = require("@nestjs/platform-express");
 const resident_payments_service_1 = require("./resident-payments.service");
+const resident_payment_receipts_service_1 = require("./resident-payment-receipts.service");
+const file_attachments_service_1 = require("../file-attachments/file-attachments.service");
 const create_resident_payment_dto_1 = require("./dto/create-resident-payment.dto");
+const create_resident_payment_dto_2 = require("./dto/create-resident-payment.dto");
 const update_resident_payment_dto_1 = require("./dto/update-resident-payment.dto");
 const create_bulk_resident_payment_dto_1 = require("./dto/create-bulk-resident-payment.dto");
 const query_options_dto_1 = require("../common/dto/query-options.dto");
@@ -26,12 +30,35 @@ const roles_decorator_1 = require("../common/decorators/roles.decorator");
 const parse_uuid_pipe_1 = require("../common/pipes/parse-uuid.pipe");
 const current_user_decorator_1 = require("../common/decorators/current-user.decorator");
 const http_response_decorator_1 = require("../common/decorators/http-response.decorator");
+const PROOF_REQUIRED_METHODS = [
+    create_resident_payment_dto_2.PaymentMethod.TRANSFER,
+    create_resident_payment_dto_2.PaymentMethod.E_WALLET,
+    create_resident_payment_dto_2.PaymentMethod.CARD,
+];
 let ResidentPaymentsController = class ResidentPaymentsController {
-    constructor(residentPaymentsService) {
+    constructor(residentPaymentsService, fileAttachmentsService, residentPaymentReceiptsService) {
         this.residentPaymentsService = residentPaymentsService;
+        this.fileAttachmentsService = fileAttachmentsService;
+        this.residentPaymentReceiptsService = residentPaymentReceiptsService;
     }
-    async create(createResidentPaymentDto) {
-        const payment = await this.residentPaymentsService.create(createResidentPaymentDto);
+    async create(proofFile, userId, createResidentPaymentDto) {
+        if (PROOF_REQUIRED_METHODS.includes(createResidentPaymentDto.paymentMethod) && !proofFile) {
+            throw new common_1.BadRequestException(`Bukti transfer wajib diupload untuk metode pembayaran ${createResidentPaymentDto.paymentMethod}`);
+        }
+        let proofFileId;
+        if (proofFile) {
+            const fileAttachment = await this.fileAttachmentsService.create({
+                entityType: 'ResidentPayment',
+                fileName: proofFile.originalname,
+                filePath: `/uploads/temp/${proofFile.filename}`,
+                fileSize: proofFile.size,
+                mimeType: proofFile.mimetype,
+                category: 'PAYMENT_PROOF',
+                description: 'Bukti pembayaran warga',
+            }, userId);
+            proofFileId = fileAttachment.id;
+        }
+        const payment = await this.residentPaymentsService.create(userId, createResidentPaymentDto, proofFileId);
         return {
             statusCode: 201,
             message: 'Payment created successfully',
@@ -94,6 +121,14 @@ let ResidentPaymentsController = class ResidentPaymentsController {
             data: payment,
         };
     }
+    async getReceipt(id) {
+        const receipt = await this.residentPaymentReceiptsService.getReceiptInfo(id);
+        return {
+            statusCode: 200,
+            message: 'Receipt retrieved successfully',
+            data: { ...receipt, url: receipt.filePath },
+        };
+    }
     async update(id, updateResidentPaymentDto) {
         const payment = await this.residentPaymentsService.update(id, updateResidentPaymentDto);
         return {
@@ -123,15 +158,38 @@ exports.ResidentPaymentsController = ResidentPaymentsController;
 __decorate([
     (0, common_1.Post)(),
     (0, roles_decorator_1.Roles)('ADMIN', 'ACCOUNTANT'),
+    (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('proofFile')),
+    (0, swagger_1.ApiConsumes)('multipart/form-data'),
     (0, swagger_1.ApiOperation)({
         summary: 'Create new payment',
-        description: 'Create a new resident payment',
+        description: 'Create a new resident payment. Bukti transfer wajib untuk metode TRANSFER/E_WALLET/CARD (opsional untuk CASH). invoiceId opsional.',
+    }),
+    (0, swagger_1.ApiBody)({
+        schema: {
+            type: 'object',
+            properties: {
+                residentId: { type: 'string', example: 'uuid-of-resident' },
+                invoiceId: { type: 'string', example: 'uuid-of-invoice', description: 'Opsional' },
+                paymentDate: { type: 'string', example: '2026-07-16' },
+                paymentMethod: { type: 'string', enum: ['CASH', 'TRANSFER', 'CARD', 'E_WALLET'] },
+                paymentChannel: { type: 'string', example: 'BCA' },
+                referenceNumber: { type: 'string', example: 'REF123456789' },
+                amount: { type: 'number', example: 500000 },
+                bankName: { type: 'string', example: 'BCA' },
+                accountNumber: { type: 'string', example: '1234567890' },
+                notes: { type: 'string' },
+                proofFile: { type: 'string', format: 'binary', description: 'Bukti transfer (wajib untuk non-tunai)' },
+            },
+            required: ['residentId', 'paymentDate', 'paymentMethod', 'amount'],
+        },
     }),
     http_response_decorator_1.ApiResponseDecorators.created(),
     http_response_decorator_1.ApiResponseDecorators.standard(),
-    __param(0, (0, common_1.Body)()),
+    __param(0, (0, common_1.UploadedFile)()),
+    __param(1, (0, current_user_decorator_1.CurrentUser)('id')),
+    __param(2, (0, common_1.Body)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [create_resident_payment_dto_1.CreateResidentPaymentDto]),
+    __metadata("design:paramtypes", [Object, String, create_resident_payment_dto_1.CreateResidentPaymentDto]),
     __metadata("design:returntype", Promise)
 ], ResidentPaymentsController.prototype, "create", null);
 __decorate([
@@ -217,6 +275,20 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], ResidentPaymentsController.prototype, "findOne", null);
 __decorate([
+    (0, common_1.Get)(':id/receipt'),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Get resident payment receipt (PDF)',
+        description: 'Generate or retrieve the receipt for a verified resident payment. Returns file info with URL.',
+    }),
+    (0, swagger_1.ApiParam)({ name: 'id', description: 'Payment ID' }),
+    http_response_decorator_1.ApiResponseDecorators.ok(),
+    http_response_decorator_1.ApiResponseDecorators.standard(),
+    __param(0, (0, common_1.Param)('id', parse_uuid_pipe_1.ParseUuidPipe)),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], ResidentPaymentsController.prototype, "getReceipt", null);
+__decorate([
     (0, common_1.Patch)(':id'),
     (0, roles_decorator_1.Roles)('ADMIN', 'ACCOUNTANT'),
     (0, swagger_1.ApiOperation)({
@@ -268,6 +340,8 @@ exports.ResidentPaymentsController = ResidentPaymentsController = __decorate([
     (0, swagger_1.ApiBearerAuth)('JWT-auth'),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard, roles_guard_1.RolesGuard),
     (0, common_1.Controller)('resident-payments'),
-    __metadata("design:paramtypes", [resident_payments_service_1.ResidentPaymentsService])
+    __metadata("design:paramtypes", [resident_payments_service_1.ResidentPaymentsService,
+        file_attachments_service_1.FileAttachmentsService,
+        resident_payment_receipts_service_1.ResidentPaymentReceiptsService])
 ], ResidentPaymentsController);
 //# sourceMappingURL=resident-payments.controller.js.map

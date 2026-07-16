@@ -12,7 +12,27 @@
       "Read(//Users/nasutisna/project/nestjs/golden-hills-finance/src/**)",
       "Bash(ls -la /Users/nasutisna/project/nestjs/golden-hills-finance/src/ipl-periods/)",
       "Bash(curl 'http://localhost:3000/api/v1/ipl-periods/with-stats?page=1&limit=10' -H 'Accept: application/json, text/plain, */*' -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJlOTUyMmRkMS1jMTVlLTRkM2YtYjU1ZS1kNDI1ZDdjZGIxOGEiLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBnb2xkZW5oaWxscy5jb20iLCJyb2xlSWQiOiJhM2Q0NzI4Ni05YzU2LTQzZWQtODg5Ny03NWJlODdjYmNkZWUiLCJ0eXBlIjoiYWNjZXNzIiwiaWF0IjoxNzgzNjA1NDQ3LCJleHAiOjE4MTUxNDE0NDd9.RU0Dxs-FLbScdnqKJ100sGUVKcdt11N5PfFIuWQGCEQ' -s)",
-      "Bash(pkill -f \"nest start\")"
+      "Bash(pkill -f \"nest start\")",
+      "Bash(curl -s -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJiOWYzZmUyMy00OTJmLTQxYjAtODE0Yy03NzVkYzJkOTY4ZDMiLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBnb2xkZW5oaWxscy5jb20iLCJyb2xlSWQiOiI0MmJhMDY4Yi0zMDdkLTRhNDUtYTBiMy01NzE4ODA3Yjc1MGYiLCJ0eXBlIjoiYWNjZXNzIiwiaWF0IjoxNzg0MDY1MDU3LCJleHAiOjE4MTU2MDEwNTd9.kGTOH8eDNj7K66neAYBZ3ysV7bNY5sJ-W0HKs4mVuO4' http://localhost:3000/api/v1/cash-transactions?limit=10)",
+      "Bash(curl -s -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJiOWYzZmUyMy00OTJmLTQxYjAtODE0Yy03NzVkYzJkOTY4ZDMiLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBnb2xkZW5oaWxscy5jb20iLCJyb2xlSWQiOiI0MmJhMDY4Yi0zMDdkLTRhNDUtYTBiMy01NzE4ODA3Yjc1MGYiLCJ0eXBlIjoiYWNjZXNzIiwiaWF0IjoxNzg0MDY1MDU3LCJleHAiOjE4MTU2MDEwNTd9.kGTOH8eDNj7K66neAYBZ3ysV7bNY5sJ-W0HKs4mVuO4' 'http://localhost:3000/api/v1/ipl-payments?status=PENDING&limit=5')",
+      "Bash(curl -s -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJiOWYzZmUyMy00OTJmLTQxYjAtODE0Yy03NzVkYzJkOTY4ZDMiLCJ1c2VybmFtZSI6ImFkbWluIiwiZW1haWwiOiJhZG1pbkBnb2xkZW5oaWxscy5jb20iLCJyb2xlSWQiOiI0MmJhMDY4Yi0zMDdkLTRhNDUtYTBiMy01NzE4ODA3Yjc1MGYiLCJ0eXBlIjoiYWNjZXNzIiwiaWF0IjoxNzg0MDY1MDU3LCJleHAiOjE4MTU2MDEwNTd9.kGTOH8eDNj7K66neAYBZ3ysV7bNY5sJ-W0HKs4mVuO4' 'http://localhost:3000/api/v1/ipl-payments?status=APPROVED&limit=3&sortBy=createdAt&sortOrder=desc')",
+      "Bash(echo \"EXIT_CODE=$?\")",
+      "Bash(echo \"started, pid=$!\")",
+      "Bash(python3 -c ' *)",
+      "Bash(curl -s http://localhost:3000/api/v1/residents?limit=5 -H 'Authorization: Bearer __CMDSUB_OUTPUT__')",
+      "Bash(curl -s http://localhost:3000/api/v1/ipl-periods?limit=5 -H 'Authorization: Bearer __CMDSUB_OUTPUT__')",
+      "Bash(python3 -c 'import sys,json; d=json.load\\(sys.stdin\\); print\\(\"statusCode:\", d.get\\(\"statusCode\"\\), \"| message:\", d.get\\(\"message\"\\)\\)')",
+      "Bash(curl -s 'http://localhost:3000/api/v1/file-attachments?entityType=ResidentPayment&entityId=__TRACKED_VAR__' -H 'Authorization: Bearer __TRACKED_VAR__')",
+      "Bash(curl -s -X PATCH http://localhost:3000/api/v1/resident-payments/__TRACKED_VAR__/verify -H 'Authorization: Bearer __TRACKED_VAR__')",
+      "Bash(curl -s 'http://localhost:3000/api/v1/cash-transactions?referenceType=RESIDENT_PAYMENT&referenceId=__TRACKED_VAR__' -H 'Authorization: Bearer __TRACKED_VAR__')",
+      "Bash(grep -iB2 -A8 \"generateReceipt\\\\|createReceiptPdf\\\\|pdfkit\\\\|Cannot read\" /tmp/ghf-e2e.log)",
+      "Bash(echo \"EXIT=$?\")",
+      "Bash(grep -nA 15 \"KegiatanPaymentInfo\" ipl-payments/ipl-payments.model.ts)",
+      "Bash(grep -nA 20 \"async findByEntity\" src/file-attachments/file-attachments.service.ts)",
+      "Bash(node -e \"const s=require\\('./package.json'\\).scripts; console.log\\(JSON.stringify\\(s,null,2\\)\\)\")",
+      "Bash(awk 'NR>=690 && NR<=730' src/ipl-payments/ipl-payments.service.ts)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:8100/)",
+      "Bash(curl -s http://localhost:8100/)"
     ],
     "additionalDirectories": [
       "/Users/nasutisnaisna/project/nestjs/golden-hills-finance/src/ipl-periods/dto"

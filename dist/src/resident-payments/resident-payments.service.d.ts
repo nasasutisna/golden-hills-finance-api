@@ -5,12 +5,18 @@ import { CreateBulkResidentPaymentDto, BulkPaymentResultDto } from './dto/create
 import { ResidentPaymentsRepository } from './resident-payments.repository';
 import { ResidentInvoicesRepository } from '../resident-invoices/resident-invoices.repository';
 import { PrismaService } from '../prisma/prisma.service';
+import { FileAttachmentsService } from '../file-attachments/file-attachments.service';
+import { CashTransactionsService } from '../cash-transactions/cash-transactions.service';
+import { ResidentPaymentReceiptsService } from './resident-payment-receipts.service';
 export declare class ResidentPaymentsService {
     private readonly residentPaymentsRepository;
     private readonly residentInvoicesRepository;
     private readonly prisma;
+    private readonly fileAttachmentsService;
+    private readonly cashTransactionsService;
+    private readonly residentPaymentReceiptsService;
     private readonly logger;
-    constructor(residentPaymentsRepository: ResidentPaymentsRepository, residentInvoicesRepository: ResidentInvoicesRepository, prisma: PrismaService);
+    constructor(residentPaymentsRepository: ResidentPaymentsRepository, residentInvoicesRepository: ResidentInvoicesRepository, prisma: PrismaService, fileAttachmentsService: FileAttachmentsService, cashTransactionsService: CashTransactionsService, residentPaymentReceiptsService: ResidentPaymentReceiptsService);
     findAll(queryOptions: QueryOptionsDto): Promise<{
         data: {
             id: string;
@@ -19,6 +25,7 @@ export declare class ResidentPaymentsService {
             deletedAt: Date | null;
             bankName: string | null;
             notes: string | null;
+            status: string;
             createdBy: string;
             amount: import("@prisma/client-runtime-utils").Decimal;
             paymentDate: Date;
@@ -28,6 +35,8 @@ export declare class ResidentPaymentsService {
             referenceNumber: string | null;
             invoiceId: string | null;
             transactionId: string | null;
+            verifiedBy: string | null;
+            verifiedAt: Date | null;
         }[];
         meta: {
             page: number;
@@ -45,6 +54,7 @@ export declare class ResidentPaymentsService {
         deletedAt: Date | null;
         bankName: string | null;
         notes: string | null;
+        status: string;
         createdBy: string;
         amount: import("@prisma/client-runtime-utils").Decimal;
         paymentDate: Date;
@@ -54,14 +64,17 @@ export declare class ResidentPaymentsService {
         referenceNumber: string | null;
         invoiceId: string | null;
         transactionId: string | null;
+        verifiedBy: string | null;
+        verifiedAt: Date | null;
     }>;
-    create(createResidentPaymentDto: CreateResidentPaymentDto): Promise<{
+    create(userId: string, createResidentPaymentDto: CreateResidentPaymentDto, proofFileId?: string): Promise<{
         id: string;
         createdAt: Date;
         updatedAt: Date;
         deletedAt: Date | null;
         bankName: string | null;
         notes: string | null;
+        status: string;
         createdBy: string;
         amount: import("@prisma/client-runtime-utils").Decimal;
         paymentDate: Date;
@@ -71,7 +84,10 @@ export declare class ResidentPaymentsService {
         referenceNumber: string | null;
         invoiceId: string | null;
         transactionId: string | null;
+        verifiedBy: string | null;
+        verifiedAt: Date | null;
     }>;
+    private linkProofFile;
     verifyPayment(id: string, verifiedBy: string): Promise<{
         id: string;
         createdAt: Date;
@@ -79,6 +95,7 @@ export declare class ResidentPaymentsService {
         deletedAt: Date | null;
         bankName: string | null;
         notes: string | null;
+        status: string;
         createdBy: string;
         amount: import("@prisma/client-runtime-utils").Decimal;
         paymentDate: Date;
@@ -88,6 +105,8 @@ export declare class ResidentPaymentsService {
         referenceNumber: string | null;
         invoiceId: string | null;
         transactionId: string | null;
+        verifiedBy: string | null;
+        verifiedAt: Date | null;
     }>;
     update(id: string, updateResidentPaymentDto: UpdateResidentPaymentDto): Promise<{
         id: string;
@@ -96,6 +115,7 @@ export declare class ResidentPaymentsService {
         deletedAt: Date | null;
         bankName: string | null;
         notes: string | null;
+        status: string;
         createdBy: string;
         amount: import("@prisma/client-runtime-utils").Decimal;
         paymentDate: Date;
@@ -105,6 +125,8 @@ export declare class ResidentPaymentsService {
         referenceNumber: string | null;
         invoiceId: string | null;
         transactionId: string | null;
+        verifiedBy: string | null;
+        verifiedAt: Date | null;
     }>;
     softDelete(id: string): Promise<{
         id: string;
@@ -113,6 +135,7 @@ export declare class ResidentPaymentsService {
         deletedAt: Date | null;
         bankName: string | null;
         notes: string | null;
+        status: string;
         createdBy: string;
         amount: import("@prisma/client-runtime-utils").Decimal;
         paymentDate: Date;
@@ -122,6 +145,8 @@ export declare class ResidentPaymentsService {
         referenceNumber: string | null;
         invoiceId: string | null;
         transactionId: string | null;
+        verifiedBy: string | null;
+        verifiedAt: Date | null;
     }>;
     getByResident(residentId: string): Promise<{
         id: string;
@@ -130,6 +155,7 @@ export declare class ResidentPaymentsService {
         deletedAt: Date | null;
         bankName: string | null;
         notes: string | null;
+        status: string;
         createdBy: string;
         amount: import("@prisma/client-runtime-utils").Decimal;
         paymentDate: Date;
@@ -139,6 +165,8 @@ export declare class ResidentPaymentsService {
         referenceNumber: string | null;
         invoiceId: string | null;
         transactionId: string | null;
+        verifiedBy: string | null;
+        verifiedAt: Date | null;
     }[]>;
     getByInvoice(invoiceId: string): Promise<{
         id: string;
@@ -147,6 +175,7 @@ export declare class ResidentPaymentsService {
         deletedAt: Date | null;
         bankName: string | null;
         notes: string | null;
+        status: string;
         createdBy: string;
         amount: import("@prisma/client-runtime-utils").Decimal;
         paymentDate: Date;
@@ -156,6 +185,8 @@ export declare class ResidentPaymentsService {
         referenceNumber: string | null;
         invoiceId: string | null;
         transactionId: string | null;
+        verifiedBy: string | null;
+        verifiedAt: Date | null;
     }[]>;
     getPaymentStatistics(residentId?: string): Promise<any>;
     count(where?: any): Promise<number>;

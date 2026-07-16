@@ -112,7 +112,15 @@ export class ResidentPaymentsRepository {
     verifiedBy: string,
     tx?: PrismaTransactionalClient,
   ): Promise<ResidentPayment> {
-    return this.update(paymentId, {}, tx);
+    return this.update(
+      paymentId,
+      {
+        status: 'COMPLETED',
+        verifiedBy,
+        verifiedAt: new Date(),
+      },
+      tx,
+    );
   }
 
   async generatePaymentNumber(): Promise<string> {

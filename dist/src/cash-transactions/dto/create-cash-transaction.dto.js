@@ -13,6 +13,7 @@ exports.CreateCashTransactionDto = exports.ApprovalStatus = exports.TransactionT
 const swagger_1 = require("@nestjs/swagger");
 const class_validator_1 = require("class-validator");
 const class_transformer_1 = require("class-transformer");
+const reference_types_1 = require("../../common/constants/reference-types");
 var TransactionType;
 (function (TransactionType) {
     TransactionType["INCOME"] = "INCOME";
@@ -80,14 +81,16 @@ __decorate([
 ], CreateCashTransactionDto.prototype, "paymentMethod", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({
-        description: 'Reference type (optional)',
-        example: 'ResidentPayment',
+        description: 'Reference type (IPL_PAYMENT, KEGIATAN_PAYMENT, IPL_EXPENSE, KEGIATAN_EXPENSE, etc.)',
+        example: 'IPL_EXPENSE',
+        enum: reference_types_1.REFERENCE_TYPE_OPTIONS,
         maxLength: 50,
         required: false,
     }),
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.MaxLength)(50),
+    (0, class_validator_1.IsIn)(reference_types_1.REFERENCE_TYPE_OPTIONS, { message: 'Invalid reference type' }),
     __metadata("design:type", String)
 ], CreateCashTransactionDto.prototype, "referenceType", void 0);
 __decorate([

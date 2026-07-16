@@ -8,15 +8,24 @@ import {
   Param,
   Query,
   UseGuards,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
 } from '@nestjs/common';
 import {
   ApiTags,
   ApiOperation,
   ApiBearerAuth,
   ApiParam,
+  ApiConsumes,
+  ApiBody,
 } from '@nestjs/swagger';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { ResidentPaymentsService } from './resident-payments.service';
+import { ResidentPaymentReceiptsService } from './resident-payment-receipts.service';
+import { FileAttachmentsService } from '../file-attachments/file-attachments.service';
 import { CreateResidentPaymentDto } from './dto/create-resident-payment.dto';
+import { PaymentMethod } from './dto/create-resident-payment.dto';
 import { UpdateResidentPaymentDto } from './dto/update-resident-payment.dto';
 import { CreateBulkResidentPaymentDto } from './dto/create-bulk-resident-payment.dto';
 import { QueryOptionsDto } from '../common/dto/query-options.dto';
@@ -28,23 +37,88 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { CurrentUserData } from '../common/decorators/current-user.decorator';
 import { ApiResponseDecorators } from '../common/decorators/http-response.decorator';
 
+const PROOF_REQUIRED_METHODS: string[] = [
+  PaymentMethod.TRANSFER,
+  PaymentMethod.E_WALLET,
+  PaymentMethod.CARD,
+];
+
 @ApiTags('Resident Payments')
 @ApiBearerAuth('JWT-auth')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Controller('resident-payments')
 export class ResidentPaymentsController {
-  constructor(private readonly residentPaymentsService: ResidentPaymentsService) {}
+  constructor(
+    private readonly residentPaymentsService: ResidentPaymentsService,
+    private readonly fileAttachmentsService: FileAttachmentsService,
+    private readonly residentPaymentReceiptsService: ResidentPaymentReceiptsService,
+  ) {}
 
   @Post()
   @Roles('ADMIN', 'ACCOUNTANT')
+  @UseInterceptors(FileInterceptor('proofFile'))
+  @ApiConsumes('multipart/form-data')
   @ApiOperation({
     summary: 'Create new payment',
-    description: 'Create a new resident payment',
+    description:
+      'Create a new resident payment. Bukti transfer wajib untuk metode TRANSFER/E_WALLET/CARD (opsional untuk CASH). invoiceId opsional.',
+  })
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: {
+        residentId: { type: 'string', example: 'uuid-of-resident' },
+        invoiceId: { type: 'string', example: 'uuid-of-invoice', description: 'Opsional' },
+        paymentDate: { type: 'string', example: '2026-07-16' },
+        paymentMethod: { type: 'string', enum: ['CASH', 'TRANSFER', 'CARD', 'E_WALLET'] },
+        paymentChannel: { type: 'string', example: 'BCA' },
+        referenceNumber: { type: 'string', example: 'REF123456789' },
+        amount: { type: 'number', example: 500000 },
+        bankName: { type: 'string', example: 'BCA' },
+        accountNumber: { type: 'string', example: '1234567890' },
+        notes: { type: 'string' },
+        proofFile: { type: 'string', format: 'binary', description: 'Bukti transfer (wajib untuk non-tunai)' },
+      },
+      required: ['residentId', 'paymentDate', 'paymentMethod', 'amount'],
+    },
   })
   @ApiResponseDecorators.created()
   @ApiResponseDecorators.standard()
-  async create(@Body() createResidentPaymentDto: CreateResidentPaymentDto) {
-    const payment = await this.residentPaymentsService.create(createResidentPaymentDto);
+  async create(
+    @UploadedFile() proofFile: Express.Multer.File,
+    @CurrentUser('id') userId: string,
+    @Body() createResidentPaymentDto: CreateResidentPaymentDto,
+  ) {
+    // Conditional validation: proof file required for non-cash methods
+    if (PROOF_REQUIRED_METHODS.includes(createResidentPaymentDto.paymentMethod) && !proofFile) {
+      throw new BadRequestException(
+        `Bukti transfer wajib diupload untuk metode pembayaran ${createResidentPaymentDto.paymentMethod}`,
+      );
+    }
+
+    // Persist proof file as a temp FileAttachment (renamed/linked by the service)
+    let proofFileId: string | undefined;
+    if (proofFile) {
+      const fileAttachment = await this.fileAttachmentsService.create(
+        {
+          entityType: 'ResidentPayment',
+          fileName: proofFile.originalname,
+          filePath: `/uploads/temp/${proofFile.filename}`,
+          fileSize: proofFile.size,
+          mimeType: proofFile.mimetype,
+          category: 'PAYMENT_PROOF',
+          description: 'Bukti pembayaran warga',
+        },
+        userId,
+      );
+      proofFileId = fileAttachment.id;
+    }
+
+    const payment = await this.residentPaymentsService.create(
+      userId,
+      createResidentPaymentDto,
+      proofFileId,
+    );
     return {
       statusCode: 201,
       message: 'Payment created successfully',
@@ -159,6 +233,24 @@ export class ResidentPaymentsController {
       statusCode: 200,
       message: 'Payment retrieved successfully',
       data: payment,
+    };
+  }
+
+  @Get(':id/receipt')
+  @ApiOperation({
+    summary: 'Get resident payment receipt (PDF)',
+    description:
+      'Generate or retrieve the receipt for a verified resident payment. Returns file info with URL.',
+  })
+  @ApiParam({ name: 'id', description: 'Payment ID' })
+  @ApiResponseDecorators.ok()
+  @ApiResponseDecorators.standard()
+  async getReceipt(@Param('id', ParseUuidPipe) id: string) {
+    const receipt = await this.residentPaymentReceiptsService.getReceiptInfo(id);
+    return {
+      statusCode: 200,
+      message: 'Receipt retrieved successfully',
+      data: { ...receipt, url: receipt.filePath },
     };
   }
 

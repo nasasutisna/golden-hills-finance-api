@@ -26,35 +26,42 @@ export function formatMonth(month: number): string {
 
 /**
  * Generate bukti transfer filename
- * Format: BTF-{bulan}-{tahun}-IPL-{unit rumah}-{timestamp}
- * Example: BTF-Jul-2026-IPL-A10-1720872000000.jpg
+ * Format: BTF-{bulan}-{tahun}-{unit rumah}-{timestamp}-{reference number}
+ * Example: BTF-Jul-2026-A10-1720872000000-REF-20250114-0001.jpg
  */
 export function generateBuktiTransferFilename(
   month: number,
   year: number,
   unitNumber: string,
   timestamp: number,
+  referenceNumber: string,
   extension: string,
 ): string {
   const monthStr = formatMonth(month);
   const sanitizedUnit = sanitizeFilename(unitNumber);
-  return `BTF-${monthStr}-${year}-IPL-${sanitizedUnit}-${timestamp}${extension}`;
+  // Sanitize reference number for filename
+  const sanitizedRef = referenceNumber.replace(/[^a-zA-Z0-9-]/g, '');
+  return `BTF-${monthStr}-${year}-${sanitizedUnit}-${timestamp}-${sanitizedRef}${extension}`;
 }
 
 /**
  * Generate kwitansi filename
- * Format: KWT-{bulan}-{tahun}-IPL-{unit rumah}-{timestamp}
- * Example: KWT-Jul-2026-IPL-A10-1720872000000.pdf
+ * Format: KWT-{bulan}-{tahun}-{prefix}-{unit rumah}-{timestamp}
+ * Example (IPL):       KWT-Jul-2026-IPL-A10-1720872000000.pdf
+ * Example (RESIDENT):  KWT-Jul-2026-RESIDENT-A10-1720872000000.pdf
+ * Example (KEGIATAN):  KWT-Jul-2026-KEGIATAN-A10-1720872000000.pdf
  */
 export function generateKwitansiFilename(
   month: number,
   year: number,
   unitNumber: string,
   timestamp: number,
+  prefix: string = 'IPL',
 ): string {
   const monthStr = formatMonth(month);
   const sanitizedUnit = sanitizeFilename(unitNumber);
-  return `KWT-${monthStr}-${year}-IPL-${sanitizedUnit}-${timestamp}.pdf`;
+  const sanitizedPrefix = sanitizeFilename(prefix).toUpperCase();
+  return `KWT-${monthStr}-${year}-${sanitizedPrefix}-${sanitizedUnit}-${timestamp}.pdf`;
 }
 
 /**

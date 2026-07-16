@@ -211,4 +211,288 @@ export class CashTransactionsRepository {
     const timestamp = Date.now().toString().slice(-6);
     return `${prefix}${timestamp}${String(count + 1).padStart(4, '0')}`;
   }
+
+  /**
+   * Get transactions by reference type with optional date range filter
+   */
+  async getByReferenceType(
+    referenceType: string,
+    startDate?: Date,
+    endDate?: Date,
+  ): Promise<CashTransaction[]> {
+    const where: any = { referenceType, deletedAt: null };
+    if (startDate && endDate) {
+      where.transactionDate = { gte: startDate, lte: endDate };
+    }
+    return this.prisma.cashTransaction.findMany({
+      where,
+      include: {
+        category: {
+          select: {
+            id: true,
+            categoryCode: true,
+            categoryName: true,
+            categoryType: true,
+          },
+        },
+        creator: {
+          select: {
+            id: true,
+            username: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+      },
+      orderBy: { transactionDate: 'desc' },
+    });
+  }
+
+  /**
+   * Get IPL-specific statistics (income from IPL_PAYMENT, expenses from IPL_EXPENSE)
+   */
+  async getIplStatistics(startDate?: Date, endDate?: Date): Promise<{
+    totalIncome: number;
+    totalExpense: number;
+    balance: number;
+    breakdownByCategory: Record<string, number>;
+  }> {
+    const where: any = {
+      deletedAt: null,
+      OR: [
+        { referenceType: 'IPL_PAYMENT' },
+        { referenceType: 'IPL_EXPENSE' },
+      ],
+    };
+    if (startDate && endDate) {
+      where.transactionDate = { gte: startDate, lte: endDate };
+    }
+
+    const transactions = await this.prisma.cashTransaction.findMany({
+      where,
+      include: {
+        category: {
+          select: {
+            id: true,
+            categoryCode: true,
+            categoryName: true,
+          },
+        },
+      },
+    });
+
+    const income = transactions
+      .filter((t) => t.transactionType === 'INCOME')
+      .reduce((sum, t) => sum + Number(t.amount), 0);
+
+    const expense = transactions
+      .filter((t) => t.transactionType === 'EXPENSE')
+      .reduce((sum, t) => sum + Number(t.amount), 0);
+
+    // Breakdown by category
+    const breakdownByCategory: Record<string, number> = {};
+    for (const t of transactions) {
+      if (t.transactionType === 'EXPENSE' && t.category) {
+        const categoryName = t.category.categoryName;
+        breakdownByCategory[categoryName] = (breakdownByCategory[categoryName] || 0) + Number(t.amount);
+      }
+    }
+
+    return {
+      totalIncome: income,
+      totalExpense: expense,
+      balance: income - expense,
+      breakdownByCategory,
+    };
+  }
+
+  /**
+   * Get Kegiatan-specific statistics (income from KEGIATAN_PAYMENT, expenses from KEGIATAN_EXPENSE)
+   */
+  async getKegiatanStatistics(startDate?: Date, endDate?: Date): Promise<{
+    totalIncome: number;
+    totalExpense: number;
+    balance: number;
+    breakdownByCategory: Record<string, number>;
+  }> {
+    const where: any = {
+      deletedAt: null,
+      OR: [
+        { referenceType: 'KEGIATAN_PAYMENT' },
+        { referenceType: 'KEGIATAN_EXPENSE' },
+      ],
+    };
+    if (startDate && endDate) {
+      where.transactionDate = { gte: startDate, lte: endDate };
+    }
+
+    const transactions = await this.prisma.cashTransaction.findMany({
+      where,
+      include: {
+        category: {
+          select: {
+            id: true,
+            categoryCode: true,
+            categoryName: true,
+          },
+        },
+      },
+    });
+
+    const income = transactions
+      .filter((t) => t.transactionType === 'INCOME')
+      .reduce((sum, t) => sum + Number(t.amount), 0);
+
+    const expense = transactions
+      .filter((t) => t.transactionType === 'EXPENSE')
+      .reduce((sum, t) => sum + Number(t.amount), 0);
+
+    // Breakdown by category
+    const breakdownByCategory: Record<string, number> = {};
+    for (const t of transactions) {
+      if (t.transactionType === 'EXPENSE' && t.category) {
+        const categoryName = t.category.categoryName;
+        breakdownByCategory[categoryName] = (breakdownByCategory[categoryName] || 0) + Number(t.amount);
+      }
+    }
+
+    return {
+      totalIncome: income,
+      totalExpense: expense,
+      balance: income - expense,
+      breakdownByCategory,
+    };
+  }
+
+  /**
+   * Get full report data for Excel export: raw transactions + computed summary
+   * and per-category breakdown. Runs a single query covering all given
+   * reference types (e.g. IPL_PAYMENT + IPL_EXPENSE).
+   */
+  async getReportData(
+    referenceTypes: string[],
+    startDate?: Date,
+    endDate?: Date,
+  ): Promise<{
+    transactions: Array<{
+      transactionNumber: string;
+      transactionDate: Date;
+      transactionType: string;
+      amount: number;
+      description: string | null;
+      referenceType: string | null;
+      status: string;
+      category: { categoryName: string; categoryCode: string } | null;
+      creator: {
+        firstName: string | null;
+        lastName: string | null;
+        username: string;
+      } | null;
+    }>;
+    summary: { totalIncome: number; totalExpense: number; balance: number };
+    breakdown: {
+      categoryName: string;
+      categoryCode: string;
+      transactionCount: number;
+      totalAmount: number;
+    }[];
+  }> {
+    const where: any = {
+      deletedAt: null,
+      referenceType: { in: referenceTypes },
+    };
+    if (startDate && endDate) {
+      where.transactionDate = { gte: startDate, lte: endDate };
+    }
+
+    const rows = await this.prisma.cashTransaction.findMany({
+      where,
+      include: {
+        category: {
+          select: {
+            id: true,
+            categoryCode: true,
+            categoryName: true,
+          },
+        },
+        creator: {
+          select: {
+            id: true,
+            username: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+      },
+      orderBy: { transactionDate: 'desc' },
+    });
+
+    const totalIncome = rows
+      .filter((t) => t.transactionType === 'INCOME')
+      .reduce((sum, t) => sum + Number(t.amount), 0);
+    const totalExpense = rows
+      .filter((t) => t.transactionType === 'EXPENSE')
+      .reduce((sum, t) => sum + Number(t.amount), 0);
+
+    // Breakdown per category across all transactions in scope
+    const breakdownMap = new Map<
+      string,
+      {
+        categoryName: string;
+        categoryCode: string;
+        transactionCount: number;
+        totalAmount: number;
+      }
+    >();
+    for (const t of rows) {
+      if (!t.category) continue;
+      const key = t.category.id;
+      const existing = breakdownMap.get(key);
+      if (existing) {
+        existing.transactionCount += 1;
+        existing.totalAmount += Number(t.amount);
+      } else {
+        breakdownMap.set(key, {
+          categoryName: t.category.categoryName,
+          categoryCode: t.category.categoryCode,
+          transactionCount: 1,
+          totalAmount: Number(t.amount),
+        });
+      }
+    }
+
+    // Map to plain serializable rows (amount as number) for the export layer
+    const transactions = rows.map((t) => ({
+      transactionNumber: t.transactionNumber,
+      transactionDate: t.transactionDate,
+      transactionType: t.transactionType,
+      amount: Number(t.amount),
+      description: t.description,
+      referenceType: t.referenceType,
+      status: t.status,
+      category: t.category
+        ? {
+            categoryName: t.category.categoryName,
+            categoryCode: t.category.categoryCode,
+          }
+        : null,
+      creator: t.creator
+        ? {
+            firstName: t.creator.firstName,
+            lastName: t.creator.lastName,
+            username: t.creator.username,
+          }
+        : null,
+    }));
+
+    return {
+      transactions,
+      summary: {
+        totalIncome,
+        totalExpense,
+        balance: totalIncome - totalExpense,
+      },
+      breakdown: Array.from(breakdownMap.values()),
+    };
+  }
 }

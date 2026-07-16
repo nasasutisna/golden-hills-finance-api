@@ -622,4 +622,114 @@ export class IplPaymentsRepository {
     });
     return existing.map((e) => e.periodId);
   }
+
+  /**
+   * Find all IPL payments by reference number
+   * Used to group payments from a single transfer
+   */
+  async findByReferenceNumber(referenceNumber: string): Promise<IplPaymentWithFiles[]> {
+    const payments = await this.prisma.iplPayment.findMany({
+      where: {
+        referenceNumber,
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+        paymentNumber: true,
+        periodId: true,
+        residentId: true,
+        houseUnitId: true,
+        paymentDate: true,
+        landArea: true,
+        iplPercentage: true,
+        baseRate: true,
+        calculatedAmount: true,
+        paymentMethod: true,
+        referenceNumber: true,
+        notes: true,
+        status: true,
+        approvedBy: true,
+        approvedAt: true,
+        rejectionReason: true,
+        submittedBy: true,
+        paymentGroupId: true,
+        createdAt: true,
+        updatedAt: true,
+        deletedAt: true,
+        period: {
+          select: {
+            id: true,
+            periodCode: true,
+            periodName: true,
+            month: true,
+            year: true,
+            status: true,
+            baseRate: true,
+          },
+        },
+        resident: {
+          select: {
+            id: true,
+            residentCode: true,
+            firstName: true,
+            lastName: true,
+            email: true,
+            phoneNumber: true,
+            houseUnitId: true,
+          },
+        },
+        houseUnit: {
+          select: {
+            id: true,
+            unitCode: true,
+            unitNumber: true,
+            landArea: true,
+            iplPercentage: true,
+            houseBlockId: true,
+            houseBlock: {
+              select: {
+                id: true,
+                blockCode: true,
+                blockName: true,
+                coordinatorId: true,
+              },
+            },
+          },
+        },
+        submitter: {
+          select: {
+            id: true,
+            username: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+        approver: {
+          select: {
+            id: true,
+            username: true,
+            firstName: true,
+            lastName: true,
+          },
+        },
+      },
+      orderBy: { paymentDate: 'asc' },
+    });
+
+    if (!payments || payments.length === 0) {
+      return [];
+    }
+
+    // Fetch files for all payments
+    const paymentIds = payments.map((p) => p.id);
+    const filesByPaymentId = await this.getFilesForPayments(paymentIds, this.prisma);
+
+    // Attach files to each payment
+    const paymentsWithFiles = payments.map((payment) => ({
+      ...payment,
+      files: filesByPaymentId.get(payment.id) || [],
+    }));
+
+    return paymentsWithFiles;
+  }
 }

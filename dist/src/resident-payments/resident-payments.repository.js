@@ -102,7 +102,11 @@ let ResidentPaymentsRepository = class ResidentPaymentsRepository {
         });
     }
     async verifyPayment(paymentId, verifiedBy, tx) {
-        return this.update(paymentId, {}, tx);
+        return this.update(paymentId, {
+            status: 'COMPLETED',
+            verifiedBy,
+            verifiedAt: new Date(),
+        }, tx);
     }
     async generatePaymentNumber() {
         const count = await this.prisma.residentPayment.count();

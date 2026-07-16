@@ -36,13 +36,6 @@ import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { ParseUuidPipe } from '../common/pipes/parse-uuid.pipe';
 import { ApiResponseDecorators } from '../common/decorators/http-response.decorator';
-import * as fs from 'fs';
-import * as path from 'path';
-import {
-  generateBuktiTransferFilename,
-  moveFile,
-  sanitizeFilename,
-} from './helpers/file-naming.helper';
 
 @ApiTags('IPL Payments')
 @ApiBearerAuth('JWT-auth')
@@ -61,7 +54,7 @@ export class IplPaymentsController {
   @ApiConsumes('multipart/form-data')
   @ApiOperation({
     summary: 'Create new IPL payment (Coordinator, Admin, Accountant)',
-    description: 'Submit IPL payment (single or multi-month). For coordinators, payment requires approval. For admin/accountant, payment is auto-approved.',
+    description: 'Submit IPL payment (single or multi-month) with optional iuran kegiatan warga. Reference number is auto-generated. For coordinators, payment requires approval. For admin/accountant, payment is auto-approved.',
   })
   @ApiBody({
     schema: {
@@ -72,8 +65,8 @@ export class IplPaymentsController {
         monthCount: { type: 'number', example: 6, description: 'Number of months to pay (1-24, default: 1)' },
         paymentDate: { type: 'string', example: '2026-07-09', description: 'Payment date (tanggal pembayaran)' },
         paymentMethod: { type: 'string', enum: ['CASH', 'TRANSFER', 'CARD', 'E_WALLET'], description: 'Payment method' },
-        referenceNumber: { type: 'string', example: 'REF123456789', description: 'Reference number (nomor referensi transfer)' },
-        notes: { type: 'string', example: 'Pembayaran IPL', description: 'Additional notes' },
+        kegiatanAmount: { type: 'number', example: 200000, description: 'Iuran kegiatan warga (optional - dalam Rupiah)' },
+        notes: { type: 'string', example: 'Pembayaran IPL + Kegiatan', description: 'Additional notes' },
         proofFile: { type: 'string', format: 'binary', description: 'Proof of payment file' },
       },
       required: ['periodId', 'residentId', 'paymentDate', 'paymentMethod'],
@@ -89,7 +82,7 @@ export class IplPaymentsController {
     @Body('paymentDate') paymentDate: string,
     @Body('paymentMethod') paymentMethod: string,
     @Body('monthCount') monthCount?: string,
-    @Body('referenceNumber') referenceNumber?: string,
+    @Body('kegiatanAmount') kegiatanAmount?: string,
     @Body('notes') notes?: string,
   ) {
     let fileAttachmentId: string | undefined;
@@ -123,60 +116,14 @@ export class IplPaymentsController {
       monthCount: monthCount ? parseInt(monthCount, 10) : undefined,
       paymentDate,
       paymentMethod: paymentMethod as PaymentMethod,
-      referenceNumber,
+      kegiatanAmount: kegiatanAmount ? parseFloat(kegiatanAmount) : undefined,
       notes,
       proofFileId: fileAttachmentId,
     };
 
     // Create payment with file attachment
-    // Note: The service will handle linking the file attachment to the payment
+    // Note: The service will handle auto-generating reference number and linking the file attachment
     const payment = await this.iplPaymentsService.create(userId, createIplPaymentDto);
-
-    // Rename and move file after payment creation with proper naming
-    if (fileAttachmentId && tempFilePath && payment) {
-      try {
-        // Get full payment details with period and house unit
-        const fullPayment = await this.iplPaymentsService.findById((payment as any).id);
-
-        if (fullPayment && fullPayment.period && fullPayment.houseUnit) {
-          const month = fullPayment.period.month;
-          const year = fullPayment.period.year;
-          const unitNumber = fullPayment.houseUnit.unitNumber;
-          const timestamp = new Date(fullPayment.paymentDate).getTime();
-
-          // Get file extension
-          const ext = path.extname(proofFile.originalname);
-
-          // Generate new filename
-          const newFilename = generateBuktiTransferFilename(
-            month,
-            year,
-            unitNumber,
-            timestamp,
-            ext,
-          );
-
-          // Create new path: /uploads/{unitNumber}/{newFilename}
-          const sanitizedUnit = sanitizeFilename(unitNumber);
-          const newDir = path.join(process.cwd(), 'uploads', sanitizedUnit);
-          const newPath = path.join(newDir, newFilename);
-
-          // Move file from temp to new location
-          const oldPath = path.join(process.cwd(), 'uploads', 'temp', proofFile.filename);
-          moveFile(oldPath, newPath);
-
-          // Update file attachment record with new path
-          await this.fileAttachmentsService.update(fileAttachmentId, {
-            filePath: `/uploads/${sanitizedUnit}/${newFilename}`,
-            fileName: newFilename,
-            entityId: (payment as any).id,
-          });
-        }
-      } catch (error) {
-        console.error('Error renaming file after payment creation:', error);
-        // Continue even if renaming fails, the file is still accessible in temp
-      }
-    }
 
     const message = payment?.status === 'APPROVED'
       ? 'IPL payment created and auto-approved successfully'
@@ -224,6 +171,23 @@ export class IplPaymentsController {
       message: 'Block IPL payments retrieved successfully',
       data: result.data,
       meta: result.meta,
+    };
+  }
+
+  @Get('by-reference/:referenceNumber')
+  @ApiOperation({
+    summary: 'Get all payments by reference number',
+    description: 'Get all IPL and kegiatan payments grouped by reference number (single transfer)',
+  })
+  @ApiParam({ name: 'referenceNumber', description: 'Reference number (e.g., REF-20250114-0001)' })
+  @ApiResponseDecorators.ok()
+  @ApiResponseDecorators.standard()
+  async getByReferenceNumber(@Param('referenceNumber') referenceNumber: string) {
+    const result = await this.iplPaymentsService.getByReferenceNumber(referenceNumber);
+    return {
+      statusCode: 200,
+      message: 'Payments by reference number retrieved successfully',
+      data: result,
     };
   }
 

@@ -9,8 +9,10 @@ import {
   IsOptional,
   IsBoolean,
   MaxLength,
+  IsIn,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import { REFERENCE_TYPE_OPTIONS } from '../../common/constants/reference-types';
 
 export enum TransactionType {
   INCOME = 'INCOME',
@@ -68,14 +70,16 @@ export class CreateCashTransactionDto {
   paymentMethod: string;
 
   @ApiProperty({
-    description: 'Reference type (optional)',
-    example: 'ResidentPayment',
+    description: 'Reference type (IPL_PAYMENT, KEGIATAN_PAYMENT, IPL_EXPENSE, KEGIATAN_EXPENSE, etc.)',
+    example: 'IPL_EXPENSE',
+    enum: REFERENCE_TYPE_OPTIONS,
     maxLength: 50,
     required: false,
   })
   @IsOptional()
   @IsString()
   @MaxLength(50)
+  @IsIn(REFERENCE_TYPE_OPTIONS, { message: 'Invalid reference type' })
   referenceType?: string;
 
   @ApiProperty({

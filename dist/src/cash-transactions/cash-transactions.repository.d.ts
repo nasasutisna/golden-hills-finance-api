@@ -33,4 +33,48 @@ export declare class CashTransactionsRepository {
     }>;
     updateApprovalStatus(transactionId: string, status: string, approvedBy?: string, tx?: PrismaTransactionalClient): Promise<CashTransaction>;
     generateTransactionNumber(transactionType: string): Promise<string>;
+    getByReferenceType(referenceType: string, startDate?: Date, endDate?: Date): Promise<CashTransaction[]>;
+    getIplStatistics(startDate?: Date, endDate?: Date): Promise<{
+        totalIncome: number;
+        totalExpense: number;
+        balance: number;
+        breakdownByCategory: Record<string, number>;
+    }>;
+    getKegiatanStatistics(startDate?: Date, endDate?: Date): Promise<{
+        totalIncome: number;
+        totalExpense: number;
+        balance: number;
+        breakdownByCategory: Record<string, number>;
+    }>;
+    getReportData(referenceTypes: string[], startDate?: Date, endDate?: Date): Promise<{
+        transactions: Array<{
+            transactionNumber: string;
+            transactionDate: Date;
+            transactionType: string;
+            amount: number;
+            description: string | null;
+            referenceType: string | null;
+            status: string;
+            category: {
+                categoryName: string;
+                categoryCode: string;
+            } | null;
+            creator: {
+                firstName: string | null;
+                lastName: string | null;
+                username: string;
+            } | null;
+        }>;
+        summary: {
+            totalIncome: number;
+            totalExpense: number;
+            balance: number;
+        };
+        breakdown: {
+            categoryName: string;
+            categoryCode: string;
+            transactionCount: number;
+            totalAmount: number;
+        }[];
+    }>;
 }

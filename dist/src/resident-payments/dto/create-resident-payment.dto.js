@@ -41,10 +41,11 @@ __decorate([
 ], CreateResidentPaymentDto.prototype, "residentId", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({
-        description: 'Invoice ID',
+        description: 'Invoice ID (opsional — boleh catat pembayaran tanpa invoice)',
         example: 'uuid-of-invoice',
+        required: false,
     }),
-    (0, class_validator_1.IsNotEmpty)({ message: 'Invoice is required' }),
+    (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], CreateResidentPaymentDto.prototype, "invoiceId", void 0);

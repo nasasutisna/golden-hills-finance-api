@@ -405,6 +405,12 @@ model ResidentPayment {
   bankName        String?   @map("bank_name") @db.VarChar(100)
   notes           String?   @db.Text
   transactionId   String?   @map("transaction_id") @db.VarChar(100)
+
+  // Verification flow
+  status          String    @default("PENDING") @db.VarChar(20)
+  verifiedBy      String?   @map("verified_by")
+  verifiedAt      DateTime? @map("verified_at")
+
   createdBy       String    @map("created_by")
   createdAt       DateTime  @default(now()) @map("created_at")
   updatedAt       DateTime  @updatedAt @map("updated_at")
@@ -418,6 +424,7 @@ model ResidentPayment {
   @@index([residentId])
   @@index([invoiceId])
   @@index([paymentDate])
+  @@index([status])
   @@index([deletedAt])
   @@map("resident_payments")
 }

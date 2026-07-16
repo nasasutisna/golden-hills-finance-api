@@ -35,12 +35,13 @@ export class CreateResidentPaymentDto {
   residentId: string;
 
   @ApiProperty({
-    description: 'Invoice ID',
+    description: 'Invoice ID (opsional — boleh catat pembayaran tanpa invoice)',
     example: 'uuid-of-invoice',
+    required: false,
   })
-  @IsNotEmpty({ message: 'Invoice is required' })
+  @IsOptional()
   @IsString()
-  invoiceId: string;
+  invoiceId?: string;
 
   @ApiProperty({
     description: 'Payment date',

@@ -15,11 +15,20 @@ const common_1 = require("@nestjs/common");
 const resident_payments_repository_1 = require("./resident-payments.repository");
 const resident_invoices_repository_1 = require("../resident-invoices/resident-invoices.repository");
 const prisma_service_1 = require("../prisma/prisma.service");
+const file_attachments_service_1 = require("../file-attachments/file-attachments.service");
+const cash_transactions_service_1 = require("../cash-transactions/cash-transactions.service");
+const resident_payment_receipts_service_1 = require("./resident-payment-receipts.service");
+const file_naming_helper_1 = require("../ipl-payments/helpers/file-naming.helper");
+const fs = require("fs");
+const path = require("path");
 let ResidentPaymentsService = ResidentPaymentsService_1 = class ResidentPaymentsService {
-    constructor(residentPaymentsRepository, residentInvoicesRepository, prisma) {
+    constructor(residentPaymentsRepository, residentInvoicesRepository, prisma, fileAttachmentsService, cashTransactionsService, residentPaymentReceiptsService) {
         this.residentPaymentsRepository = residentPaymentsRepository;
         this.residentInvoicesRepository = residentInvoicesRepository;
         this.prisma = prisma;
+        this.fileAttachmentsService = fileAttachmentsService;
+        this.cashTransactionsService = cashTransactionsService;
+        this.residentPaymentReceiptsService = residentPaymentReceiptsService;
         this.logger = new common_1.Logger(ResidentPaymentsService_1.name);
     }
     async findAll(queryOptions) {
@@ -57,37 +66,116 @@ let ResidentPaymentsService = ResidentPaymentsService_1 = class ResidentPayments
     async findById(id) {
         return await this.residentPaymentsRepository.findById(id);
     }
-    async create(createResidentPaymentDto) {
+    async create(userId, createResidentPaymentDto, proofFileId) {
         return await this.prisma.executeInTransaction(async (tx) => {
-            const invoice = await this.residentInvoicesRepository.findById(createResidentPaymentDto.invoiceId);
-            if (invoice.status === 'PAID' || invoice.status === 'CANCELLED') {
-                throw new common_1.ConflictException('Cannot create payment for this invoice status');
+            const resident = await tx.resident.findFirst({
+                where: { id: createResidentPaymentDto.residentId, deletedAt: null },
+                include: { houseUnit: true },
+            });
+            if (!resident) {
+                throw new common_1.BadRequestException('Resident not found');
+            }
+            let invoice = null;
+            if (createResidentPaymentDto.invoiceId) {
+                invoice = await this.residentInvoicesRepository.findById(createResidentPaymentDto.invoiceId);
+                if (invoice.status === 'PAID' || invoice.status === 'CANCELLED') {
+                    throw new common_1.ConflictException('Cannot create payment for this invoice status');
+                }
             }
             const paymentNumber = await this.residentPaymentsRepository.generatePaymentNumber();
             const payment = await this.residentPaymentsRepository.create({
-                ...createResidentPaymentDto,
+                residentId: createResidentPaymentDto.residentId,
+                invoiceId: createResidentPaymentDto.invoiceId || null,
+                paymentDate: new Date(createResidentPaymentDto.paymentDate),
+                paymentMethod: createResidentPaymentDto.paymentMethod,
+                referenceNumber: createResidentPaymentDto.referenceNumber,
+                amount: createResidentPaymentDto.amount,
+                bankName: createResidentPaymentDto.bankName,
+                notes: createResidentPaymentDto.notes,
                 paymentNumber,
                 status: 'PENDING',
+                createdBy: userId,
             }, tx);
-            await this.residentInvoicesRepository.updatePaymentAmount(createResidentPaymentDto.invoiceId, Number(createResidentPaymentDto.amount), tx);
+            if (invoice) {
+                await this.residentInvoicesRepository.updatePaymentAmount(createResidentPaymentDto.invoiceId, Number(createResidentPaymentDto.amount), tx);
+            }
+            if (proofFileId) {
+                await this.linkProofFile(proofFileId, payment.id, resident.houseUnit?.unitNumber || resident.unitNumber || 'UNKNOWN', payment.paymentNumber, payment.referenceNumber, new Date(payment.paymentDate), tx);
+            }
             this.logger.log(`Payment created: ${payment.paymentNumber}`);
             return payment;
         });
     }
-    async verifyPayment(id, verifiedBy) {
-        return await this.prisma.executeInTransaction(async (tx) => {
-            const payment = await this.residentPaymentsRepository.findById(id);
-            if (!payment.invoiceId) {
-                throw new common_1.BadRequestException('Payment is not linked to an invoice');
-            }
-            const verifiedPayment = await this.residentPaymentsRepository.verifyPayment(id, verifiedBy, tx);
-            const invoice = await this.residentInvoicesRepository.findById(payment.invoiceId);
-            if (invoice.status === 'PAID') {
-                await this.residentInvoicesRepository.updateInvoiceStatus(invoice.id, 'PAID', tx);
-            }
-            this.logger.log(`Payment verified: ${verifiedPayment.paymentNumber}`);
-            return verifiedPayment;
+    async linkProofFile(proofFileId, paymentId, unitNumber, paymentNumber, referenceNumber, paymentDate, tx) {
+        const existingFile = await tx.fileAttachment.findUnique({
+            where: { id: proofFileId },
         });
+        if (!existingFile) {
+            this.logger.warn(`Proof file attachment ${proofFileId} not found, skipping rename`);
+            return;
+        }
+        const originalExt = path.extname(existingFile.fileName) || '';
+        const sanitizedUnit = (0, file_naming_helper_1.sanitizeFilename)(unitNumber);
+        const timestamp = new Date(paymentDate).getTime();
+        const refToken = referenceNumber || paymentNumber;
+        const newFileName = (0, file_naming_helper_1.generateBuktiTransferFilename)(new Date(paymentDate).getMonth() + 1, new Date(paymentDate).getFullYear(), sanitizedUnit, timestamp, refToken, originalExt);
+        const unitDir = path.join('./uploads', sanitizedUnit);
+        const newFilePath = path.join(unitDir, newFileName);
+        const oldFilePath = existingFile.filePath.startsWith('./')
+            ? existingFile.filePath
+            : `.${existingFile.filePath}`;
+        if (!fs.existsSync(unitDir)) {
+            fs.mkdirSync(unitDir, { recursive: true });
+        }
+        let renamedFilePath = null;
+        if (fs.existsSync(oldFilePath)) {
+            fs.renameSync(oldFilePath, newFilePath);
+            renamedFilePath = newFilePath.replace('./', '/uploads/');
+            this.logger.log(`File renamed: ${existingFile.fileName} -> ${newFileName}`);
+        }
+        await tx.fileAttachment.update({
+            where: { id: proofFileId },
+            data: {
+                entityType: 'ResidentPayment',
+                entityId: paymentId,
+                fileName: newFileName,
+                filePath: renamedFilePath || existingFile.filePath,
+            },
+        });
+    }
+    async verifyPayment(id, verifiedBy) {
+        const verifiedPayment = await this.prisma.executeInTransaction(async (tx) => {
+            const payment = await this.residentPaymentsRepository.findById(id);
+            if (payment.status === 'COMPLETED') {
+                throw new common_1.BadRequestException('Payment is already verified');
+            }
+            const updated = await this.residentPaymentsRepository.verifyPayment(id, verifiedBy, tx);
+            if (payment.invoiceId) {
+                const invoice = await this.residentInvoicesRepository.findById(payment.invoiceId);
+                if (invoice.status === 'PAID') {
+                    await this.residentInvoicesRepository.updateInvoiceStatus(invoice.id, 'PAID', tx);
+                }
+            }
+            this.logger.log(`Payment verified: ${updated.paymentNumber}`);
+            return updated;
+        });
+        setImmediate(async () => {
+            try {
+                await this.residentPaymentReceiptsService.generateReceipt(id);
+                const fullPayment = await this.prisma.residentPayment.findUnique({
+                    where: { id },
+                    include: { resident: true },
+                });
+                if (fullPayment) {
+                    await this.cashTransactionsService.createFromResidentPayment(fullPayment, verifiedBy);
+                }
+                this.logger.log(`Receipt & ledger created for verified payment: ${verifiedPayment.paymentNumber}`);
+            }
+            catch (error) {
+                this.logger.error(`Failed to process post-verify side effects for ${verifiedPayment.paymentNumber}:`, error);
+            }
+        });
+        return verifiedPayment;
     }
     async update(id, updateResidentPaymentDto) {
         try {
@@ -167,6 +255,9 @@ exports.ResidentPaymentsService = ResidentPaymentsService = ResidentPaymentsServ
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [resident_payments_repository_1.ResidentPaymentsRepository,
         resident_invoices_repository_1.ResidentInvoicesRepository,
-        prisma_service_1.PrismaService])
+        prisma_service_1.PrismaService,
+        file_attachments_service_1.FileAttachmentsService,
+        cash_transactions_service_1.CashTransactionsService,
+        resident_payment_receipts_service_1.ResidentPaymentReceiptsService])
 ], ResidentPaymentsService);
 //# sourceMappingURL=resident-payments.service.js.map

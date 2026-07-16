@@ -9,6 +9,7 @@ import {
   IsInt,
   Min,
   Max,
+  IsNumber,
 } from 'class-validator';
 import { PaymentMethod } from './enums';
 
@@ -59,14 +60,24 @@ export class CreateIplPaymentDto {
   paymentMethod: PaymentMethod;
 
   @ApiProperty({
-    description: 'Reference number (nomor referensi transfer)',
-    example: 'REF123456789',
+    description: 'Reference number (nomor referensi transfer - AUTO-GENERATED)',
+    example: 'REF-20250114-0001',
     required: false,
   })
   @IsOptional()
   @IsString()
   @MaxLength(100)
   referenceNumber?: string;
+
+  @ApiProperty({
+    description: 'Iuran kegiatan warga (optional - dalam Rupiah)',
+    example: 200000,
+    required: false,
+  })
+  @IsOptional()
+  @IsNumber({}, { message: 'Kegiatan amount must be a number' })
+  @Min(0, { message: 'Kegiatan amount cannot be negative' })
+  kegiatanAmount?: number;
 
   @ApiProperty({
     description: 'Additional notes (catatan tambahan)',

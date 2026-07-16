@@ -8,6 +8,7 @@ import {
   Param,
   Query,
   UseGuards,
+  Res,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -15,6 +16,7 @@ import {
   ApiBearerAuth,
   ApiParam,
 } from '@nestjs/swagger';
+import { Response } from 'express';
 import { CashTransactionsService } from './cash-transactions.service';
 import { CreateCashTransactionDto } from './dto/create-cash-transaction.dto';
 import { UpdateCashTransactionDto } from './dto/update-cash-transaction.dto';
@@ -57,17 +59,40 @@ export class CashTransactionsController {
   @Get()
   @ApiOperation({
     summary: 'Get all cash transactions',
-    description: 'Get paginated list of cash transactions',
+    description: 'Get paginated list of cash transactions with optional date range filter',
   })
   @ApiResponseDecorators.ok()
   @ApiResponseDecorators.standard()
-  async findAll(@Query() queryOptions: QueryOptionsDto) {
-    const result = await this.cashTransactionsService.findAll(queryOptions);
+  async findAll(
+    @Query() queryOptions: QueryOptionsDto,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    const result = await this.cashTransactionsService.findAll(queryOptions, startDate, endDate);
     return {
       statusCode: 200,
       message: 'Cash transactions retrieved successfully',
       data: result.data,
       meta: result.meta,
+    };
+  }
+
+  @Get('summary')
+  @ApiOperation({
+    summary: 'Get cash transactions summary',
+    description: 'Get cash transactions summary including income, expenses, and pending approvals',
+  })
+  @ApiResponseDecorators.ok()
+  @ApiResponseDecorators.standard()
+  async getSummary(
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    const stats = await this.cashTransactionsService.getTransactionStatistics(startDate, endDate);
+    return {
+      statusCode: 200,
+      message: 'Cash transactions summary retrieved successfully',
+      data: stats,
     };
   }
 
@@ -256,6 +281,118 @@ export class CashTransactionsController {
       statusCode: 200,
       message: 'Cash transaction deleted successfully',
       data: transaction,
+    };
+  }
+
+  @Get('reports/ipl')
+  @Roles('ADMIN', 'ACCOUNTANT')
+  @ApiOperation({
+    summary: 'Get IPL financial report',
+    description: 'Get IPL-specific income, expenses, and balance',
+  })
+  @ApiResponseDecorators.ok()
+  @ApiResponseDecorators.standard()
+  async getIplReport(
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    const data = await this.cashTransactionsService.getIplReport(startDate, endDate);
+    return {
+      statusCode: 200,
+      message: 'IPL report retrieved successfully',
+      data,
+    };
+  }
+
+  @Get('reports/kegiatan')
+  @Roles('ADMIN', 'ACCOUNTANT')
+  @ApiOperation({
+    summary: 'Get Kegiatan financial report',
+    description: 'Get Kegiatan-specific income, expenses, and balance',
+  })
+  @ApiResponseDecorators.ok()
+  @ApiResponseDecorators.standard()
+  async getKegiatanReport(
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    const data = await this.cashTransactionsService.getKegiatanReport(startDate, endDate);
+    return {
+      statusCode: 200,
+      message: 'Kegiatan report retrieved successfully',
+      data,
+    };
+  }
+
+  @Get('reports/ipl/export')
+  @Roles('ADMIN', 'ACCOUNTANT')
+  @ApiOperation({
+    summary: 'Export IPL report to Excel',
+    description: 'Download the IPL financial report as an .xlsx file',
+  })
+  async exportIplReport(
+    @Res() res: Response,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    const { buffer, filename } = await this.cashTransactionsService.exportIplReport(
+      startDate,
+      endDate,
+    );
+    res.header({
+      'Content-Type':
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'Content-Disposition': `attachment; filename="${filename}"`,
+    });
+    res.send(buffer);
+  }
+
+  @Get('reports/kegiatan/export')
+  @Roles('ADMIN', 'ACCOUNTANT')
+  @ApiOperation({
+    summary: 'Export Kegiatan report to Excel',
+    description: 'Download the Kegiatan financial report as an .xlsx file',
+  })
+  async exportKegiatanReport(
+    @Res() res: Response,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    const { buffer, filename } = await this.cashTransactionsService.exportKegiatanReport(
+      startDate,
+      endDate,
+    );
+    res.header({
+      'Content-Type':
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'Content-Disposition': `attachment; filename="${filename}"`,
+    });
+    res.send(buffer);
+  }
+
+  @Get('reference/:referenceType')
+  @Roles('ADMIN', 'ACCOUNTANT')
+  @ApiOperation({
+    summary: 'Get transactions by reference type',
+    description: 'Get transactions filtered by reference type (e.g., IPL_PAYMENT, KEGIATAN_EXPENSE)',
+  })
+  @ApiParam({ name: 'referenceType', description: 'Reference type filter' })
+  @ApiResponseDecorators.ok()
+  @ApiResponseDecorators.standard()
+  async getByReferenceType(
+    @Param('referenceType') referenceType: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+  ) {
+    const transactions = await this.cashTransactionsService.getByReferenceType(
+      referenceType,
+      startDate,
+      endDate,
+    );
+    return {
+      statusCode: 200,
+      message: 'Transactions retrieved successfully',
+      data: transactions,
     };
   }
 }
