@@ -6,7 +6,7 @@ import { CashTransactionsRepository } from './cash-transactions.repository';
 import { TransactionCategoriesRepository } from '../transaction-categories/transaction-categories.repository';
 import { ApprovalHistoriesService } from '../approval-histories/approval-histories.service';
 import { ApprovalAction } from '../approval-histories/dto/create-approval-history.dto';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService, PrismaTransactionalClient } from '../prisma/prisma.service';
 import { CurrentUserData } from '../common/decorators/current-user.decorator';
 import { REFERENCE_TYPES } from '../common/constants/reference-types';
 import { buildReportWorkbook } from './cash-transactions.export';
@@ -22,12 +22,22 @@ export class CashTransactionsService {
     private readonly prisma: PrismaService,
   ) {}
 
-  async findAll(queryOptions: QueryOptionsDto, startDate?: string, endDate?: string) {
+  async findAll(
+    queryOptions: QueryOptionsDto,
+    startDate?: string,
+    endDate?: string,
+    categoryId?: string,
+  ) {
     const { page = 1, limit = 10, sortBy = 'transactionDate', sortOrder = 'desc', search, searchFields, filters } = queryOptions;
 
     const skip = (page - 1) * limit;
 
     let where: any = {};
+
+    // Filter by category if provided
+    if (categoryId) {
+      where.categoryId = categoryId;
+    }
 
     // Add date range filter if provided
     if (startDate || endDate) {
@@ -109,6 +119,68 @@ export class CashTransactionsService {
       this.logger.log(`Cash transaction created: ${transaction.transactionNumber}`);
       return transaction;
     });
+  }
+
+  /**
+   * Create an EXPENSE CashTransaction from an approved ExpenseRequest.
+   * Designed to be called INSIDE the caller's transaction (tx-aware) to keep the
+   * approval + ledger post atomic. Mirrors createFromIplPayment but for EXPENSE.
+   * Additive only — does not affect existing flows.
+   */
+  async createFromExpenseRequest(
+    request: {
+      id: string;
+      requestNumber: string;
+      title: string;
+      amount: any;
+      categoryId?: string | null;
+      transactionDate: Date;
+      paymentMethod?: string | null;
+    },
+    approvedBy: string,
+    tx?: PrismaTransactionalClient,
+  ) {
+    // Resolve category: use the request's category, else default to PENGELUARAN-WARGA
+    let categoryId = request.categoryId;
+    if (!categoryId) {
+      const defaultCategory =
+        await this.transactionCategoriesRepository.findByCategoryCode('PENGELUARAN-WARGA');
+      if (!defaultCategory) {
+        throw new BadRequestException(
+          "Default expense category 'PENGELUARAN-WARGA' not found. Please seed it.",
+        );
+      }
+      categoryId = defaultCategory.id;
+    }
+
+    const transactionNumber = await this.cashTransactionsRepository.generateTransactionNumber(
+      'EXPENSE',
+    );
+
+    const description = `Pengeluaran ${request.requestNumber} - ${request.title}`;
+
+    const cashTx = await this.cashTransactionsRepository.create(
+      {
+        transactionNumber,
+        transactionDate: request.transactionDate,
+        transactionType: 'EXPENSE',
+        amount: request.amount,
+        categoryId,
+        description,
+        referenceType: REFERENCE_TYPES.EXPENSE_REQUEST,
+        referenceId: request.id,
+        status: 'APPROVED',
+        approvedBy,
+        approvedAt: new Date(),
+        createdBy: approvedBy,
+      } as any,
+      tx,
+    );
+
+    this.logger.log(
+      `Cash transaction ${cashTx.transactionNumber} created from expense request ${request.requestNumber}`,
+    );
+    return cashTx;
   }
 
   async approveTransaction(id: string, user: CurrentUserData) {
@@ -219,10 +291,10 @@ export class CashTransactionsService {
     return await this.cashTransactionsRepository.getByApprovalStatus(status);
   }
 
-  async getTransactionStatistics(startDate?: string, endDate?: string) {
+  async getTransactionStatistics(startDate?: string, endDate?: string, categoryId?: string) {
     const start = startDate ? new Date(startDate) : undefined;
     const end = endDate ? new Date(endDate) : undefined;
-    return await this.cashTransactionsRepository.getTransactionStatistics(start, end);
+    return await this.cashTransactionsRepository.getTransactionStatistics(start, end, categoryId);
   }
 
   async count(where?: any): Promise<number> {

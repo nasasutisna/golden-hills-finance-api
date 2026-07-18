@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Resident } from '@prisma/client';
+import { generateResidentCode } from './helpers/resident-code.helper';
 
 @Injectable()
 export class ResidentsRepository {
@@ -68,6 +69,15 @@ export class ResidentsRepository {
       where: { residentCode, deletedAt: null },
       include: { houseBlock: true },
     });
+  }
+
+  /**
+   * Generate the next sequential resident code (RES###), e.g. RES001.
+   * Delegates to the shared helper which scans all residents (including
+   * soft-deleted) to respect the @unique constraint on resident_code.
+   */
+  async generateResidentCode(): Promise<string> {
+    return generateResidentCode(this.prisma);
   }
 
   async create(data: any): Promise<Resident> {

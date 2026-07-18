@@ -19,6 +19,7 @@ export declare class EmployeesService {
             phoneNumber: string | null;
             roleId: string | null;
             address: string | null;
+            userId: string | null;
             alternatePhone: string | null;
             identityNumber: string | null;
             dateOfBirth: Date | null;
@@ -27,7 +28,6 @@ export declare class EmployeesService {
             emergencyContact: string | null;
             emergencyPhone: string | null;
             employeeCode: string;
-            userId: string | null;
             city: string | null;
             province: string | null;
             postalCode: string | null;
@@ -63,6 +63,7 @@ export declare class EmployeesService {
         phoneNumber: string | null;
         roleId: string | null;
         address: string | null;
+        userId: string | null;
         alternatePhone: string | null;
         identityNumber: string | null;
         dateOfBirth: Date | null;
@@ -71,7 +72,6 @@ export declare class EmployeesService {
         emergencyContact: string | null;
         emergencyPhone: string | null;
         employeeCode: string;
-        userId: string | null;
         city: string | null;
         province: string | null;
         postalCode: string | null;
@@ -98,6 +98,7 @@ export declare class EmployeesService {
         phoneNumber: string | null;
         roleId: string | null;
         address: string | null;
+        userId: string | null;
         alternatePhone: string | null;
         identityNumber: string | null;
         dateOfBirth: Date | null;
@@ -106,7 +107,6 @@ export declare class EmployeesService {
         emergencyContact: string | null;
         emergencyPhone: string | null;
         employeeCode: string;
-        userId: string | null;
         city: string | null;
         province: string | null;
         postalCode: string | null;
@@ -133,6 +133,7 @@ export declare class EmployeesService {
         phoneNumber: string | null;
         roleId: string | null;
         address: string | null;
+        userId: string | null;
         alternatePhone: string | null;
         identityNumber: string | null;
         dateOfBirth: Date | null;
@@ -141,7 +142,6 @@ export declare class EmployeesService {
         emergencyContact: string | null;
         emergencyPhone: string | null;
         employeeCode: string;
-        userId: string | null;
         city: string | null;
         province: string | null;
         postalCode: string | null;
@@ -168,6 +168,7 @@ export declare class EmployeesService {
         phoneNumber: string | null;
         roleId: string | null;
         address: string | null;
+        userId: string | null;
         alternatePhone: string | null;
         identityNumber: string | null;
         dateOfBirth: Date | null;
@@ -176,7 +177,6 @@ export declare class EmployeesService {
         emergencyContact: string | null;
         emergencyPhone: string | null;
         employeeCode: string;
-        userId: string | null;
         city: string | null;
         province: string | null;
         postalCode: string | null;
@@ -203,6 +203,7 @@ export declare class EmployeesService {
         phoneNumber: string | null;
         roleId: string | null;
         address: string | null;
+        userId: string | null;
         alternatePhone: string | null;
         identityNumber: string | null;
         dateOfBirth: Date | null;
@@ -211,7 +212,6 @@ export declare class EmployeesService {
         emergencyContact: string | null;
         emergencyPhone: string | null;
         employeeCode: string;
-        userId: string | null;
         city: string | null;
         province: string | null;
         postalCode: string | null;
@@ -238,6 +238,7 @@ export declare class EmployeesService {
         phoneNumber: string | null;
         roleId: string | null;
         address: string | null;
+        userId: string | null;
         alternatePhone: string | null;
         identityNumber: string | null;
         dateOfBirth: Date | null;
@@ -246,7 +247,6 @@ export declare class EmployeesService {
         emergencyContact: string | null;
         emergencyPhone: string | null;
         employeeCode: string;
-        userId: string | null;
         city: string | null;
         province: string | null;
         postalCode: string | null;
@@ -273,6 +273,7 @@ export declare class EmployeesService {
         phoneNumber: string | null;
         roleId: string | null;
         address: string | null;
+        userId: string | null;
         alternatePhone: string | null;
         identityNumber: string | null;
         dateOfBirth: Date | null;
@@ -281,7 +282,6 @@ export declare class EmployeesService {
         emergencyContact: string | null;
         emergencyPhone: string | null;
         employeeCode: string;
-        userId: string | null;
         city: string | null;
         province: string | null;
         postalCode: string | null;
@@ -308,6 +308,7 @@ export declare class EmployeesService {
         phoneNumber: string | null;
         roleId: string | null;
         address: string | null;
+        userId: string | null;
         alternatePhone: string | null;
         identityNumber: string | null;
         dateOfBirth: Date | null;
@@ -316,7 +317,6 @@ export declare class EmployeesService {
         emergencyContact: string | null;
         emergencyPhone: string | null;
         employeeCode: string;
-        userId: string | null;
         city: string | null;
         province: string | null;
         postalCode: string | null;
@@ -343,6 +343,7 @@ export declare class EmployeesService {
         phoneNumber: string | null;
         roleId: string | null;
         address: string | null;
+        userId: string | null;
         alternatePhone: string | null;
         identityNumber: string | null;
         dateOfBirth: Date | null;
@@ -351,7 +352,6 @@ export declare class EmployeesService {
         emergencyContact: string | null;
         emergencyPhone: string | null;
         employeeCode: string;
-        userId: string | null;
         city: string | null;
         province: string | null;
         postalCode: string | null;
@@ -378,6 +378,7 @@ export declare class EmployeesService {
         phoneNumber: string | null;
         roleId: string | null;
         address: string | null;
+        userId: string | null;
         alternatePhone: string | null;
         identityNumber: string | null;
         dateOfBirth: Date | null;
@@ -386,7 +387,6 @@ export declare class EmployeesService {
         emergencyContact: string | null;
         emergencyPhone: string | null;
         employeeCode: string;
-        userId: string | null;
         city: string | null;
         province: string | null;
         postalCode: string | null;
@@ -413,6 +413,7 @@ export declare class EmployeesService {
         phoneNumber: string | null;
         roleId: string | null;
         address: string | null;
+        userId: string | null;
         alternatePhone: string | null;
         identityNumber: string | null;
         dateOfBirth: Date | null;
@@ -421,7 +422,6 @@ export declare class EmployeesService {
         emergencyContact: string | null;
         emergencyPhone: string | null;
         employeeCode: string;
-        userId: string | null;
         city: string | null;
         province: string | null;
         postalCode: string | null;

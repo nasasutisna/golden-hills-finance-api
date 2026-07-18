@@ -35,11 +35,12 @@ class CreateResidentDto {
 exports.CreateResidentDto = CreateResidentDto;
 __decorate([
     (0, swagger_1.ApiProperty)({
-        description: 'Resident code (unique identifier)',
+        description: 'Resident code (unique identifier). Auto-generated as RES### when omitted.',
         example: 'RES001',
         maxLength: 20,
+        required: false,
     }),
-    (0, class_validator_1.IsNotEmpty)({ message: 'Resident code is required' }),
+    (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.MaxLength)(20, { message: 'Resident code must not exceed 20 characters' }),
     __metadata("design:type", String)

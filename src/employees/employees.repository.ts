@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Employee } from '@prisma/client';
+import { generateEmployeeCode } from './helpers/employee-code.helper';
 
 @Injectable()
 export class EmployeesRepository {
@@ -52,9 +53,9 @@ export class EmployeesRepository {
             select: {
               id: true,
               payrollNumber: true,
-              periodYear: true,
-              periodMonth: true,
-              totalNetSalary: true,
+              payPeriod: true,
+              paymentDate: true,
+              netSalary: true,
               status: true,
             },
           },
@@ -84,13 +85,12 @@ export class EmployeesRepository {
         user: true,
         salaryHeaders: {
           where: { deletedAt: null },
-          orderBy: { periodYear: 'desc', periodMonth: 'desc' },
+          orderBy: { payPeriod: 'desc' },
         },
         cashAdvances: {
           where: { deletedAt: null, status: { in: ['APPROVED', 'DISBURSED', 'PARTIAL'] } },
           orderBy: { requestDate: 'desc' },
         },
-        fileAttachments: true,
       },
     });
 
@@ -106,6 +106,15 @@ export class EmployeesRepository {
       where: { employeeCode, deletedAt: null },
       include: { position: true, role: true },
     });
+  }
+
+  /**
+   * Generate the next sequential employee code (EMP###), e.g. EMP001.
+   * Delegates to the shared helper which scans all employees (including
+   * soft-deleted) to respect the @unique constraint on employee_code.
+   */
+  async generateEmployeeCode(): Promise<string> {
+    return generateEmployeeCode(this.prisma);
   }
 
   async create(data: any): Promise<Employee> {

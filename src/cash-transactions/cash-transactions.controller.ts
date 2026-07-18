@@ -67,8 +67,14 @@ export class CashTransactionsController {
     @Query() queryOptions: QueryOptionsDto,
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
+    @Query('categoryId') categoryId?: string,
   ) {
-    const result = await this.cashTransactionsService.findAll(queryOptions, startDate, endDate);
+    const result = await this.cashTransactionsService.findAll(
+      queryOptions,
+      startDate,
+      endDate,
+      categoryId,
+    );
     return {
       statusCode: 200,
       message: 'Cash transactions retrieved successfully',
@@ -87,8 +93,13 @@ export class CashTransactionsController {
   async getSummary(
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
+    @Query('categoryId') categoryId?: string,
   ) {
-    const stats = await this.cashTransactionsService.getTransactionStatistics(startDate, endDate);
+    const stats = await this.cashTransactionsService.getTransactionStatistics(
+      startDate,
+      endDate,
+      categoryId,
+    );
     return {
       statusCode: 200,
       message: 'Cash transactions summary retrieved successfully',
@@ -106,8 +117,13 @@ export class CashTransactionsController {
   async getStatistics(
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
+    @Query('categoryId') categoryId?: string,
   ) {
-    const stats = await this.cashTransactionsService.getTransactionStatistics(startDate, endDate);
+    const stats = await this.cashTransactionsService.getTransactionStatistics(
+      startDate,
+      endDate,
+      categoryId,
+    );
     return {
       statusCode: 200,
       message: 'Transaction statistics retrieved successfully',

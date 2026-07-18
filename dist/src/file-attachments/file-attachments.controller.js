@@ -104,7 +104,7 @@ let FileAttachmentsController = class FileAttachmentsController {
 exports.FileAttachmentsController = FileAttachmentsController;
 __decorate([
     (0, common_1.Post)('upload'),
-    (0, roles_decorator_1.Roles)('ADMIN', 'MANAGER', 'STAFF'),
+    (0, roles_decorator_1.Roles)('ADMIN', 'MANAGER', 'STAFF', 'PENGURUS', 'COORDINATOR'),
     (0, common_1.UseInterceptors)((0, platform_express_1.FileInterceptor)('file')),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", []),
@@ -112,7 +112,7 @@ __decorate([
 ], FileAttachmentsController.prototype, "uploadFile", null);
 __decorate([
     (0, common_1.Post)('upload/multiple'),
-    (0, roles_decorator_1.Roles)('ADMIN', 'MANAGER', 'STAFF'),
+    (0, roles_decorator_1.Roles)('ADMIN', 'MANAGER', 'STAFF', 'PENGURUS', 'COORDINATOR'),
     (0, common_1.UseInterceptors)((0, platform_express_1.FilesInterceptor)('files', 10)),
     (0, swagger_1.ApiConsumes)('multipart/form-data'),
     (0, swagger_1.ApiOperation)({ summary: 'Upload multiple files' }),

@@ -40,6 +40,7 @@ const notifications_module_1 = require("./notifications/notifications.module");
 const file_attachments_module_1 = require("./file-attachments/file-attachments.module");
 const ipl_periods_module_1 = require("./ipl-periods/ipl-periods.module");
 const ipl_payments_module_1 = require("./ipl-payments/ipl-payments.module");
+const expense_requests_module_1 = require("./expense-requests/expense-requests.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -73,6 +74,7 @@ exports.AppModule = AppModule = __decorate([
             resident_payments_module_1.ResidentPaymentsModule,
             ipl_periods_module_1.IplPeriodsModule,
             ipl_payments_module_1.IplPaymentsModule,
+            expense_requests_module_1.ExpenseRequestsModule,
             approval_histories_module_1.ApprovalHistoriesModule,
             inventories_module_1.InventoriesModule,
             inventory_requests_module_1.InventoryRequestsModule,

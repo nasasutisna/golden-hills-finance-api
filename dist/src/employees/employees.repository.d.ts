@@ -15,6 +15,7 @@ export declare class EmployeesRepository {
     }>;
     findById(id: string, include?: any): Promise<Employee>;
     findByEmployeeCode(employeeCode: string): Promise<Employee | null>;
+    generateEmployeeCode(): Promise<string>;
     create(data: any): Promise<Employee>;
     update(id: string, data: any): Promise<Employee>;
     softDelete(id: string): Promise<Employee>;

@@ -15,6 +15,7 @@ export declare class ResidentsRepository {
     }>;
     findById(id: string, include?: any): Promise<Resident>;
     findByResidentCode(residentCode: string): Promise<Resident | null>;
+    generateResidentCode(): Promise<string>;
     create(data: any): Promise<Resident>;
     update(id: string, data: any): Promise<Resident>;
     softDelete(id: string): Promise<Resident>;

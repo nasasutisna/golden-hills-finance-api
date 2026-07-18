@@ -21,6 +21,7 @@ export declare class ResidentsController {
             unitNumber: string | null;
             houseBlockId: string | null;
             residentCode: string;
+            userId: string | null;
             alternatePhone: string | null;
             identityNumber: string | null;
             dateOfBirth: Date | null;
@@ -51,6 +52,7 @@ export declare class ResidentsController {
             unitNumber: string | null;
             houseBlockId: string | null;
             residentCode: string;
+            userId: string | null;
             alternatePhone: string | null;
             identityNumber: string | null;
             dateOfBirth: Date | null;
@@ -96,6 +98,7 @@ export declare class ResidentsController {
             unitNumber: string | null;
             houseBlockId: string | null;
             residentCode: string;
+            userId: string | null;
             alternatePhone: string | null;
             identityNumber: string | null;
             dateOfBirth: Date | null;
@@ -150,6 +153,7 @@ export declare class ResidentsController {
             unitNumber: string | null;
             houseBlockId: string | null;
             residentCode: string;
+            userId: string | null;
             alternatePhone: string | null;
             identityNumber: string | null;
             dateOfBirth: Date | null;
@@ -180,6 +184,7 @@ export declare class ResidentsController {
             unitNumber: string | null;
             houseBlockId: string | null;
             residentCode: string;
+            userId: string | null;
             alternatePhone: string | null;
             identityNumber: string | null;
             dateOfBirth: Date | null;
@@ -210,6 +215,7 @@ export declare class ResidentsController {
             unitNumber: string | null;
             houseBlockId: string | null;
             residentCode: string;
+            userId: string | null;
             alternatePhone: string | null;
             identityNumber: string | null;
             dateOfBirth: Date | null;
@@ -240,6 +246,7 @@ export declare class ResidentsController {
             unitNumber: string | null;
             houseBlockId: string | null;
             residentCode: string;
+            userId: string | null;
             alternatePhone: string | null;
             identityNumber: string | null;
             dateOfBirth: Date | null;

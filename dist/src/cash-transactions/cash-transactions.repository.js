@@ -41,6 +41,14 @@ let CashTransactionsRepository = class CashTransactionsRepository {
                             lastName: true,
                         },
                     },
+                    approver: {
+                        select: {
+                            id: true,
+                            username: true,
+                            firstName: true,
+                            lastName: true,
+                        },
+                    },
                 },
             }),
             this.prisma.cashTransaction.count({ where: { ...where, deletedAt: null } }),
@@ -53,6 +61,7 @@ let CashTransactionsRepository = class CashTransactionsRepository {
             include: {
                 category: true,
                 creator: true,
+                approver: true,
             },
         });
         if (!transaction) {
@@ -63,14 +72,14 @@ let CashTransactionsRepository = class CashTransactionsRepository {
     async findByTransactionNumber(transactionNumber) {
         return this.prisma.cashTransaction.findFirst({
             where: { transactionNumber, deletedAt: null },
-            include: { category: true, creator: true },
+            include: { category: true, creator: true, approver: true },
         });
     }
     async create(data, tx) {
         const prisma = tx || this.prisma;
         return prisma.cashTransaction.create({
             data,
-            include: { category: true, creator: true },
+            include: { category: true, creator: true, approver: true },
         });
     }
     async update(id, data, tx) {
@@ -79,7 +88,7 @@ let CashTransactionsRepository = class CashTransactionsRepository {
             return await prisma.cashTransaction.update({
                 where: { id },
                 data,
-                include: { category: true, creator: true },
+                include: { category: true, creator: true, approver: true },
             });
         }
         catch (error) {
@@ -106,14 +115,14 @@ let CashTransactionsRepository = class CashTransactionsRepository {
     async getByType(transactionType) {
         return this.prisma.cashTransaction.findMany({
             where: { transactionType, deletedAt: null },
-            include: { category: true, creator: true },
+            include: { category: true, creator: true, approver: true },
             orderBy: { transactionDate: 'desc' },
         });
     }
     async getByCategory(categoryId) {
         return this.prisma.cashTransaction.findMany({
             where: { categoryId, deletedAt: null },
-            include: { category: true, creator: true },
+            include: { category: true, creator: true, approver: true },
             orderBy: { transactionDate: 'desc' },
         });
     }
@@ -126,19 +135,22 @@ let CashTransactionsRepository = class CashTransactionsRepository {
                 },
                 deletedAt: null,
             },
-            include: { category: true, creator: true },
+            include: { category: true, creator: true, approver: true },
             orderBy: { transactionDate: 'desc' },
         });
     }
     async getByApprovalStatus(status) {
         return this.prisma.cashTransaction.findMany({
             where: { status, deletedAt: null },
-            include: { category: true, creator: true },
+            include: { category: true, creator: true, approver: true },
             orderBy: { transactionDate: 'desc' },
         });
     }
-    async getTransactionStatistics(startDate, endDate) {
+    async getTransactionStatistics(startDate, endDate, categoryId) {
         const where = { deletedAt: null };
+        if (categoryId) {
+            where.categoryId = categoryId;
+        }
         if (startDate && endDate) {
             where.transactionDate = { gte: startDate, lte: endDate };
         }

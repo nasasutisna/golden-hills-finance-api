@@ -28,11 +28,12 @@ class CreateEmployeeDto {
 exports.CreateEmployeeDto = CreateEmployeeDto;
 __decorate([
     (0, swagger_1.ApiProperty)({
-        description: 'Employee code (unique identifier)',
+        description: 'Employee code (unique identifier). If omitted, it is auto-generated as EMP###.',
         example: 'EMP001',
         maxLength: 20,
+        required: false,
     }),
-    (0, class_validator_1.IsNotEmpty)({ message: 'Employee code is required' }),
+    (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.MinLength)(3),
     (0, class_validator_1.MaxLength)(20),

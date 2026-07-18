@@ -4,7 +4,7 @@ import { UpdateCashTransactionDto } from './dto/update-cash-transaction.dto';
 import { CashTransactionsRepository } from './cash-transactions.repository';
 import { TransactionCategoriesRepository } from '../transaction-categories/transaction-categories.repository';
 import { ApprovalHistoriesService } from '../approval-histories/approval-histories.service';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService, PrismaTransactionalClient } from '../prisma/prisma.service';
 import { CurrentUserData } from '../common/decorators/current-user.decorator';
 export declare class CashTransactionsService {
     private readonly cashTransactionsRepository;
@@ -13,7 +13,7 @@ export declare class CashTransactionsService {
     private readonly prisma;
     private readonly logger;
     constructor(cashTransactionsRepository: CashTransactionsRepository, transactionCategoriesRepository: TransactionCategoriesRepository, approvalHistoriesService: ApprovalHistoriesService, prisma: PrismaService);
-    findAll(queryOptions: QueryOptionsDto, startDate?: string, endDate?: string): Promise<{
+    findAll(queryOptions: QueryOptionsDto, startDate?: string, endDate?: string, categoryId?: string): Promise<{
         data: {
             id: string;
             description: string | null;
@@ -60,6 +60,32 @@ export declare class CashTransactionsService {
         referenceId: string | null;
     }>;
     create(createCashTransactionDto: CreateCashTransactionDto, user: CurrentUserData): Promise<{
+        id: string;
+        description: string | null;
+        createdAt: Date;
+        updatedAt: Date;
+        deletedAt: Date | null;
+        status: string;
+        approvedBy: string | null;
+        approvedAt: Date | null;
+        createdBy: string;
+        transactionNumber: string;
+        transactionDate: Date;
+        transactionType: string;
+        amount: import("@prisma/client-runtime-utils").Decimal;
+        categoryId: string | null;
+        referenceType: string | null;
+        referenceId: string | null;
+    }>;
+    createFromExpenseRequest(request: {
+        id: string;
+        requestNumber: string;
+        title: string;
+        amount: any;
+        categoryId?: string | null;
+        transactionDate: Date;
+        paymentMethod?: string | null;
+    }, approvedBy: string, tx?: PrismaTransactionalClient): Promise<{
         id: string;
         description: string | null;
         createdAt: Date;
@@ -221,7 +247,7 @@ export declare class CashTransactionsService {
         referenceType: string | null;
         referenceId: string | null;
     }[]>;
-    getTransactionStatistics(startDate?: string, endDate?: string): Promise<{
+    getTransactionStatistics(startDate?: string, endDate?: string, categoryId?: string): Promise<{
         totalTransactions: number;
         totalIncome: number;
         totalExpense: number;

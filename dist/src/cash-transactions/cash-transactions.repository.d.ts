@@ -24,7 +24,7 @@ export declare class CashTransactionsRepository {
     getByCategory(categoryId: string): Promise<CashTransaction[]>;
     getByDateRange(startDate: Date, endDate: Date): Promise<CashTransaction[]>;
     getByApprovalStatus(status: string): Promise<CashTransaction[]>;
-    getTransactionStatistics(startDate?: Date, endDate?: Date): Promise<{
+    getTransactionStatistics(startDate?: Date, endDate?: Date, categoryId?: string): Promise<{
         totalTransactions: number;
         totalIncome: number;
         totalExpense: number;

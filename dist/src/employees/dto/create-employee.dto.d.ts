@@ -5,7 +5,7 @@ export declare enum EmploymentStatus {
     TERMINATED = "TERMINATED"
 }
 export declare class CreateEmployeeDto {
-    employeeCode: string;
+    employeeCode?: string;
     firstName: string;
     lastName: string;
     email?: string;

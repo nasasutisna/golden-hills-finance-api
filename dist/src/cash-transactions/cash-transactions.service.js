@@ -27,10 +27,13 @@ let CashTransactionsService = CashTransactionsService_1 = class CashTransactions
         this.prisma = prisma;
         this.logger = new common_1.Logger(CashTransactionsService_1.name);
     }
-    async findAll(queryOptions, startDate, endDate) {
+    async findAll(queryOptions, startDate, endDate, categoryId) {
         const { page = 1, limit = 10, sortBy = 'transactionDate', sortOrder = 'desc', search, searchFields, filters } = queryOptions;
         const skip = (page - 1) * limit;
         let where = {};
+        if (categoryId) {
+            where.categoryId = categoryId;
+        }
         if (startDate || endDate) {
             where.transactionDate = {};
             if (startDate) {
@@ -92,6 +95,34 @@ let CashTransactionsService = CashTransactionsService_1 = class CashTransactions
             this.logger.log(`Cash transaction created: ${transaction.transactionNumber}`);
             return transaction;
         });
+    }
+    async createFromExpenseRequest(request, approvedBy, tx) {
+        let categoryId = request.categoryId;
+        if (!categoryId) {
+            const defaultCategory = await this.transactionCategoriesRepository.findByCategoryCode('PENGELUARAN-WARGA');
+            if (!defaultCategory) {
+                throw new common_1.BadRequestException("Default expense category 'PENGELUARAN-WARGA' not found. Please seed it.");
+            }
+            categoryId = defaultCategory.id;
+        }
+        const transactionNumber = await this.cashTransactionsRepository.generateTransactionNumber('EXPENSE');
+        const description = `Pengeluaran ${request.requestNumber} - ${request.title}`;
+        const cashTx = await this.cashTransactionsRepository.create({
+            transactionNumber,
+            transactionDate: request.transactionDate,
+            transactionType: 'EXPENSE',
+            amount: request.amount,
+            categoryId,
+            description,
+            referenceType: reference_types_1.REFERENCE_TYPES.EXPENSE_REQUEST,
+            referenceId: request.id,
+            status: 'APPROVED',
+            approvedBy,
+            approvedAt: new Date(),
+            createdBy: approvedBy,
+        }, tx);
+        this.logger.log(`Cash transaction ${cashTx.transactionNumber} created from expense request ${request.requestNumber}`);
+        return cashTx;
     }
     async approveTransaction(id, user) {
         return await this.prisma.executeInTransaction(async (tx) => {
@@ -170,10 +201,10 @@ let CashTransactionsService = CashTransactionsService_1 = class CashTransactions
     async getByApprovalStatus(status) {
         return await this.cashTransactionsRepository.getByApprovalStatus(status);
     }
-    async getTransactionStatistics(startDate, endDate) {
+    async getTransactionStatistics(startDate, endDate, categoryId) {
         const start = startDate ? new Date(startDate) : undefined;
         const end = endDate ? new Date(endDate) : undefined;
-        return await this.cashTransactionsRepository.getTransactionStatistics(start, end);
+        return await this.cashTransactionsRepository.getTransactionStatistics(start, end, categoryId);
     }
     async count(where) {
         return await this.cashTransactionsRepository.count(where);

@@ -38,6 +38,14 @@ export class CashTransactionsRepository {
               lastName: true,
             },
           },
+          approver: {
+            select: {
+              id: true,
+              username: true,
+              firstName: true,
+              lastName: true,
+            },
+          },
         },
       }),
       this.prisma.cashTransaction.count({ where: { ...where, deletedAt: null } }),
@@ -52,6 +60,7 @@ export class CashTransactionsRepository {
       include: {
         category: true,
         creator: true,
+        approver: true,
       },
     });
 
@@ -65,7 +74,7 @@ export class CashTransactionsRepository {
   async findByTransactionNumber(transactionNumber: string): Promise<CashTransaction | null> {
     return this.prisma.cashTransaction.findFirst({
       where: { transactionNumber, deletedAt: null },
-      include: { category: true, creator: true },
+      include: { category: true, creator: true, approver: true },
     });
   }
 
@@ -73,7 +82,7 @@ export class CashTransactionsRepository {
     const prisma = tx || this.prisma;
     return prisma.cashTransaction.create({
       data,
-      include: { category: true, creator: true },
+      include: { category: true, creator: true, approver: true },
     });
   }
 
@@ -83,7 +92,7 @@ export class CashTransactionsRepository {
       return await prisma.cashTransaction.update({
         where: { id },
         data,
-        include: { category: true, creator: true },
+        include: { category: true, creator: true, approver: true },
       });
     } catch (error) {
       if (error.code === 'P2025') {
@@ -113,7 +122,7 @@ export class CashTransactionsRepository {
   async getByType(transactionType: string): Promise<CashTransaction[]> {
     return this.prisma.cashTransaction.findMany({
       where: { transactionType, deletedAt: null },
-      include: { category: true, creator: true },
+      include: { category: true, creator: true, approver: true },
       orderBy: { transactionDate: 'desc' },
     });
   }
@@ -121,7 +130,7 @@ export class CashTransactionsRepository {
   async getByCategory(categoryId: string): Promise<CashTransaction[]> {
     return this.prisma.cashTransaction.findMany({
       where: { categoryId, deletedAt: null },
-      include: { category: true, creator: true },
+      include: { category: true, creator: true, approver: true },
       orderBy: { transactionDate: 'desc' },
     });
   }
@@ -135,7 +144,7 @@ export class CashTransactionsRepository {
         },
         deletedAt: null,
       },
-      include: { category: true, creator: true },
+      include: { category: true, creator: true, approver: true },
       orderBy: { transactionDate: 'desc' },
     });
   }
@@ -143,12 +152,12 @@ export class CashTransactionsRepository {
   async getByApprovalStatus(status: string): Promise<CashTransaction[]> {
     return this.prisma.cashTransaction.findMany({
       where: { status, deletedAt: null },
-      include: { category: true, creator: true },
+      include: { category: true, creator: true, approver: true },
       orderBy: { transactionDate: 'desc' },
     });
   }
 
-  async getTransactionStatistics(startDate?: Date, endDate?: Date): Promise<{
+  async getTransactionStatistics(startDate?: Date, endDate?: Date, categoryId?: string): Promise<{
     totalTransactions: number;
     totalIncome: number;
     totalExpense: number;
@@ -156,6 +165,9 @@ export class CashTransactionsRepository {
     pendingApproval: number;
   }> {
     const where: any = { deletedAt: null };
+    if (categoryId) {
+      where.categoryId = categoryId;
+    }
     if (startDate && endDate) {
       where.transactionDate = { gte: startDate, lte: endDate };
     }

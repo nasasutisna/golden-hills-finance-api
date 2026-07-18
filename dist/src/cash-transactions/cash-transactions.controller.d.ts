@@ -29,7 +29,7 @@ export declare class CashTransactionsController {
             referenceId: string | null;
         };
     }>;
-    findAll(queryOptions: QueryOptionsDto, startDate?: string, endDate?: string): Promise<{
+    findAll(queryOptions: QueryOptionsDto, startDate?: string, endDate?: string, categoryId?: string): Promise<{
         statusCode: number;
         message: string;
         data: {
@@ -59,7 +59,7 @@ export declare class CashTransactionsController {
             hasPrevious: boolean;
         };
     }>;
-    getSummary(startDate?: string, endDate?: string): Promise<{
+    getSummary(startDate?: string, endDate?: string, categoryId?: string): Promise<{
         statusCode: number;
         message: string;
         data: {
@@ -70,7 +70,7 @@ export declare class CashTransactionsController {
             pendingApproval: number;
         };
     }>;
-    getStatistics(startDate?: string, endDate?: string): Promise<{
+    getStatistics(startDate?: string, endDate?: string, categoryId?: string): Promise<{
         statusCode: number;
         message: string;
         data: {

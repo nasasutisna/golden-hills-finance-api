@@ -12,6 +12,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.ResidentsRepository = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma/prisma.service");
+const resident_code_helper_1 = require("./helpers/resident-code.helper");
 let ResidentsRepository = class ResidentsRepository {
     constructor(prisma) {
         this.prisma = prisma;
@@ -66,6 +67,9 @@ let ResidentsRepository = class ResidentsRepository {
             where: { residentCode, deletedAt: null },
             include: { houseBlock: true },
         });
+    }
+    async generateResidentCode() {
+        return (0, resident_code_helper_1.generateResidentCode)(this.prisma);
     }
     async create(data) {
         return this.prisma.resident.create({

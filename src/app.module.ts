@@ -31,6 +31,7 @@ import { NotificationsModule } from './notifications/notifications.module';
 import { FileAttachmentsModule } from './file-attachments/file-attachments.module';
 import { IplPeriodsModule } from './ipl-periods/ipl-periods.module';
 import { IplPaymentsModule } from './ipl-payments/ipl-payments.module';
+import { ExpenseRequestsModule } from './expense-requests/expense-requests.module';
 
 @Module({
   imports: [
@@ -73,6 +74,7 @@ import { IplPaymentsModule } from './ipl-payments/ipl-payments.module';
     ResidentPaymentsModule,
     IplPeriodsModule,
     IplPaymentsModule,
+    ExpenseRequestsModule,
 
     // Audit & Approval
     ApprovalHistoriesModule,

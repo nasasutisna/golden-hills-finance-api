@@ -21,15 +21,16 @@ export enum EmploymentStatus {
 
 export class CreateEmployeeDto {
   @ApiProperty({
-    description: 'Employee code (unique identifier)',
+    description: 'Employee code (unique identifier). If omitted, it is auto-generated as EMP###.',
     example: 'EMP001',
     maxLength: 20,
+    required: false,
   })
-  @IsNotEmpty({ message: 'Employee code is required' })
+  @IsOptional()
   @IsString()
   @MinLength(3)
   @MaxLength(20)
-  employeeCode: string;
+  employeeCode?: string;
 
   @ApiProperty({
     description: 'First name',

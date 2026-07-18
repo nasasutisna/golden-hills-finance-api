@@ -119,6 +119,37 @@ async function main() {
                 isActive: true,
             },
         }),
+        prisma.role.upsert({
+            where: { name: 'PENGURUS' },
+            update: {},
+            create: {
+                name: 'PENGURUS',
+                description: 'Pengurus paguyuban (warga) - dapat membuat request pengeluaran',
+                permissions: JSON.stringify([
+                    'expense-requests.create',
+                    'expense-requests.view',
+                    'file-attachments.upload',
+                    'residents.view',
+                ]),
+                isActive: true,
+            },
+        }),
+        prisma.role.upsert({
+            where: { name: 'COORDINATOR' },
+            update: {},
+            create: {
+                name: 'COORDINATOR',
+                description: 'Koordinator blok (warga) - dapat submit IPL payment & request pengeluaran',
+                permissions: JSON.stringify([
+                    'ipl-payments.create',
+                    'expense-requests.create',
+                    'expense-requests.view',
+                    'file-attachments.upload',
+                    'residents.view',
+                ]),
+                isActive: true,
+            },
+        }),
     ]);
     console.log(`✓ Created ${roles.length} roles`);
     console.log('Creating superadmin user...');
@@ -744,6 +775,17 @@ async function main() {
                 categoryName: 'Resident Payment Income',
                 description: 'Income from manual resident payments (tagihan warga)',
                 categoryType: 'INCOME',
+                isActive: true,
+            },
+        }),
+        prisma.transactionCategory.upsert({
+            where: { categoryCode: 'PENGELUARAN-WARGA' },
+            update: {},
+            create: {
+                categoryCode: 'PENGELUARAN-WARGA',
+                categoryName: 'Pengeluaran Warga/Pengurus',
+                description: 'Default category for expense requests submitted by pengurus/warga',
+                categoryType: 'EXPENSE',
                 isActive: true,
             },
         }),

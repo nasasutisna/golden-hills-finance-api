@@ -12,6 +12,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.EmployeesRepository = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma/prisma.service");
+const employee_code_helper_1 = require("./helpers/employee-code.helper");
 let EmployeesRepository = class EmployeesRepository {
     constructor(prisma) {
         this.prisma = prisma;
@@ -55,9 +56,9 @@ let EmployeesRepository = class EmployeesRepository {
                         select: {
                             id: true,
                             payrollNumber: true,
-                            periodYear: true,
-                            periodMonth: true,
-                            totalNetSalary: true,
+                            payPeriod: true,
+                            paymentDate: true,
+                            netSalary: true,
                             status: true,
                         },
                     },
@@ -85,13 +86,12 @@ let EmployeesRepository = class EmployeesRepository {
                 user: true,
                 salaryHeaders: {
                     where: { deletedAt: null },
-                    orderBy: { periodYear: 'desc', periodMonth: 'desc' },
+                    orderBy: { payPeriod: 'desc' },
                 },
                 cashAdvances: {
                     where: { deletedAt: null, status: { in: ['APPROVED', 'DISBURSED', 'PARTIAL'] } },
                     orderBy: { requestDate: 'desc' },
                 },
-                fileAttachments: true,
             },
         });
         if (!employee) {
@@ -104,6 +104,9 @@ let EmployeesRepository = class EmployeesRepository {
             where: { employeeCode, deletedAt: null },
             include: { position: true, role: true },
         });
+    }
+    async generateEmployeeCode() {
+        return (0, employee_code_helper_1.generateEmployeeCode)(this.prisma);
     }
     async create(data) {
         return this.prisma.employee.create({

@@ -31,14 +31,15 @@ export enum MaritalStatus {
 
 export class CreateResidentDto {
   @ApiProperty({
-    description: 'Resident code (unique identifier)',
+    description: 'Resident code (unique identifier). Auto-generated as RES### when omitted.',
     example: 'RES001',
     maxLength: 20,
+    required: false,
   })
-  @IsNotEmpty({ message: 'Resident code is required' })
+  @IsOptional()
   @IsString()
   @MaxLength(20, { message: 'Resident code must not exceed 20 characters' })
-  residentCode: string;
+  residentCode?: string;
 
   @ApiProperty({
     description: 'First name',

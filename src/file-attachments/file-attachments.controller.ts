@@ -36,7 +36,7 @@ export class FileAttachmentsController {
   constructor(private readonly fileAttachmentsService: FileAttachmentsService) {}
 
   @Post('upload')
-  @Roles('ADMIN', 'MANAGER', 'STAFF')
+  @Roles('ADMIN', 'MANAGER', 'STAFF', 'PENGURUS', 'COORDINATOR')
   @UseInterceptors(FileInterceptor('file'))
   async uploadFile() {
     return {
@@ -47,7 +47,7 @@ export class FileAttachmentsController {
   }
 
   @Post('upload/multiple')
-  @Roles('ADMIN', 'MANAGER', 'STAFF')
+  @Roles('ADMIN', 'MANAGER', 'STAFF', 'PENGURUS', 'COORDINATOR')
   @UseInterceptors(FilesInterceptor('files', 10))
   @ApiConsumes('multipart/form-data')
   @ApiOperation({ summary: 'Upload multiple files' })

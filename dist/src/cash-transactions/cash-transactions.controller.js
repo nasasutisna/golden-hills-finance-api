@@ -37,8 +37,8 @@ let CashTransactionsController = class CashTransactionsController {
             data: transaction,
         };
     }
-    async findAll(queryOptions, startDate, endDate) {
-        const result = await this.cashTransactionsService.findAll(queryOptions, startDate, endDate);
+    async findAll(queryOptions, startDate, endDate, categoryId) {
+        const result = await this.cashTransactionsService.findAll(queryOptions, startDate, endDate, categoryId);
         return {
             statusCode: 200,
             message: 'Cash transactions retrieved successfully',
@@ -46,16 +46,16 @@ let CashTransactionsController = class CashTransactionsController {
             meta: result.meta,
         };
     }
-    async getSummary(startDate, endDate) {
-        const stats = await this.cashTransactionsService.getTransactionStatistics(startDate, endDate);
+    async getSummary(startDate, endDate, categoryId) {
+        const stats = await this.cashTransactionsService.getTransactionStatistics(startDate, endDate, categoryId);
         return {
             statusCode: 200,
             message: 'Cash transactions summary retrieved successfully',
             data: stats,
         };
     }
-    async getStatistics(startDate, endDate) {
-        const stats = await this.cashTransactionsService.getTransactionStatistics(startDate, endDate);
+    async getStatistics(startDate, endDate, categoryId) {
+        const stats = await this.cashTransactionsService.getTransactionStatistics(startDate, endDate, categoryId);
         return {
             statusCode: 200,
             message: 'Transaction statistics retrieved successfully',
@@ -202,8 +202,9 @@ __decorate([
     __param(0, (0, common_1.Query)()),
     __param(1, (0, common_1.Query)('startDate')),
     __param(2, (0, common_1.Query)('endDate')),
+    __param(3, (0, common_1.Query)('categoryId')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [query_options_dto_1.QueryOptionsDto, String, String]),
+    __metadata("design:paramtypes", [query_options_dto_1.QueryOptionsDto, String, String, String]),
     __metadata("design:returntype", Promise)
 ], CashTransactionsController.prototype, "findAll", null);
 __decorate([
@@ -216,8 +217,9 @@ __decorate([
     http_response_decorator_1.ApiResponseDecorators.standard(),
     __param(0, (0, common_1.Query)('startDate')),
     __param(1, (0, common_1.Query)('endDate')),
+    __param(2, (0, common_1.Query)('categoryId')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:paramtypes", [String, String, String]),
     __metadata("design:returntype", Promise)
 ], CashTransactionsController.prototype, "getSummary", null);
 __decorate([
@@ -230,8 +232,9 @@ __decorate([
     http_response_decorator_1.ApiResponseDecorators.standard(),
     __param(0, (0, common_1.Query)('startDate')),
     __param(1, (0, common_1.Query)('endDate')),
+    __param(2, (0, common_1.Query)('categoryId')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:paramtypes", [String, String, String]),
     __metadata("design:returntype", Promise)
 ], CashTransactionsController.prototype, "getStatistics", null);
 __decorate([
