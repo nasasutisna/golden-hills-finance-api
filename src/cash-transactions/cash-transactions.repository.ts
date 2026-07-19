@@ -28,6 +28,15 @@ export class CashTransactionsRepository {
               categoryCode: true,
               categoryName: true,
               categoryType: true,
+              fundType: true,
+            },
+          },
+          cashAccount: {
+            select: {
+              id: true,
+              accountCode: true,
+              accountName: true,
+              fundType: true,
             },
           },
           creator: {
@@ -59,6 +68,7 @@ export class CashTransactionsRepository {
       where: { id, deletedAt: null },
       include: {
         category: true,
+        cashAccount: true,
         creator: true,
         approver: true,
       },
@@ -82,7 +92,7 @@ export class CashTransactionsRepository {
     const prisma = tx || this.prisma;
     return prisma.cashTransaction.create({
       data,
-      include: { category: true, creator: true, approver: true },
+      include: { category: true, cashAccount: true, creator: true, approver: true },
     });
   }
 
@@ -92,7 +102,7 @@ export class CashTransactionsRepository {
       return await prisma.cashTransaction.update({
         where: { id },
         data,
-        include: { category: true, creator: true, approver: true },
+        include: { category: true, cashAccount: true, creator: true, approver: true },
       });
     } catch (error) {
       if (error.code === 'P2025') {
@@ -157,6 +167,33 @@ export class CashTransactionsRepository {
     });
   }
 
+  /**
+   * Base where-clause for ledger queries. Consolidated reports must exclude
+   * inter-account transfers (they are internal movement, not real income/expense).
+   */
+  private baseLedgerWhere(opts: {
+    excludeTransfers?: boolean;
+    cashAccountId?: string;
+    categoryId?: string;
+    startDate?: Date;
+    endDate?: Date;
+  } = {}): any {
+    const where: any = { deletedAt: null };
+    if (opts.excludeTransfers) {
+      where.isInternalTransfer = false;
+    }
+    if (opts.cashAccountId) {
+      where.cashAccountId = opts.cashAccountId;
+    }
+    if (opts.categoryId) {
+      where.categoryId = opts.categoryId;
+    }
+    if (opts.startDate && opts.endDate) {
+      where.transactionDate = { gte: opts.startDate, lte: opts.endDate };
+    }
+    return where;
+  }
+
   async getTransactionStatistics(startDate?: Date, endDate?: Date, categoryId?: string): Promise<{
     totalTransactions: number;
     totalIncome: number;
@@ -164,13 +201,13 @@ export class CashTransactionsRepository {
     netAmount: number;
     pendingApproval: number;
   }> {
-    const where: any = { deletedAt: null };
-    if (categoryId) {
-      where.categoryId = categoryId;
-    }
-    if (startDate && endDate) {
-      where.transactionDate = { gte: startDate, lte: endDate };
-    }
+    // Consolidated view — exclude inter-account transfers.
+    const where = this.baseLedgerWhere({
+      excludeTransfers: true,
+      categoryId,
+      startDate,
+      endDate,
+    });
 
     const [transactions, totalTransactions, pendingApproval] = await Promise.all([
       this.prisma.cashTransaction.findMany({
@@ -261,34 +298,32 @@ export class CashTransactionsRepository {
   }
 
   /**
-   * Get IPL-specific statistics (income from IPL_PAYMENT, expenses from IPL_EXPENSE)
+   * Per-Kas statistics: all transactions on one cash account (excluding
+   * inter-account transfers), with income/expense/balance + expense
+   * breakdown by category.
    */
-  async getIplStatistics(startDate?: Date, endDate?: Date): Promise<{
+  async getStatisticsByAccount(
+    cashAccountId: string,
+    startDate?: Date,
+    endDate?: Date,
+  ): Promise<{
     totalIncome: number;
     totalExpense: number;
     balance: number;
     breakdownByCategory: Record<string, number>;
   }> {
-    const where: any = {
-      deletedAt: null,
-      OR: [
-        { referenceType: 'IPL_PAYMENT' },
-        { referenceType: 'IPL_EXPENSE' },
-      ],
-    };
-    if (startDate && endDate) {
-      where.transactionDate = { gte: startDate, lte: endDate };
-    }
+    const where = this.baseLedgerWhere({
+      excludeTransfers: true,
+      cashAccountId,
+      startDate,
+      endDate,
+    });
 
     const transactions = await this.prisma.cashTransaction.findMany({
       where,
       include: {
         category: {
-          select: {
-            id: true,
-            categoryCode: true,
-            categoryName: true,
-          },
+          select: { id: true, categoryCode: true, categoryName: true },
         },
       },
     });
@@ -296,75 +331,15 @@ export class CashTransactionsRepository {
     const income = transactions
       .filter((t) => t.transactionType === 'INCOME')
       .reduce((sum, t) => sum + Number(t.amount), 0);
-
     const expense = transactions
       .filter((t) => t.transactionType === 'EXPENSE')
       .reduce((sum, t) => sum + Number(t.amount), 0);
 
-    // Breakdown by category
     const breakdownByCategory: Record<string, number> = {};
     for (const t of transactions) {
       if (t.transactionType === 'EXPENSE' && t.category) {
-        const categoryName = t.category.categoryName;
-        breakdownByCategory[categoryName] = (breakdownByCategory[categoryName] || 0) + Number(t.amount);
-      }
-    }
-
-    return {
-      totalIncome: income,
-      totalExpense: expense,
-      balance: income - expense,
-      breakdownByCategory,
-    };
-  }
-
-  /**
-   * Get Kegiatan-specific statistics (income from KEGIATAN_PAYMENT, expenses from KEGIATAN_EXPENSE)
-   */
-  async getKegiatanStatistics(startDate?: Date, endDate?: Date): Promise<{
-    totalIncome: number;
-    totalExpense: number;
-    balance: number;
-    breakdownByCategory: Record<string, number>;
-  }> {
-    const where: any = {
-      deletedAt: null,
-      OR: [
-        { referenceType: 'KEGIATAN_PAYMENT' },
-        { referenceType: 'KEGIATAN_EXPENSE' },
-      ],
-    };
-    if (startDate && endDate) {
-      where.transactionDate = { gte: startDate, lte: endDate };
-    }
-
-    const transactions = await this.prisma.cashTransaction.findMany({
-      where,
-      include: {
-        category: {
-          select: {
-            id: true,
-            categoryCode: true,
-            categoryName: true,
-          },
-        },
-      },
-    });
-
-    const income = transactions
-      .filter((t) => t.transactionType === 'INCOME')
-      .reduce((sum, t) => sum + Number(t.amount), 0);
-
-    const expense = transactions
-      .filter((t) => t.transactionType === 'EXPENSE')
-      .reduce((sum, t) => sum + Number(t.amount), 0);
-
-    // Breakdown by category
-    const breakdownByCategory: Record<string, number> = {};
-    for (const t of transactions) {
-      if (t.transactionType === 'EXPENSE' && t.category) {
-        const categoryName = t.category.categoryName;
-        breakdownByCategory[categoryName] = (breakdownByCategory[categoryName] || 0) + Number(t.amount);
+        const name = t.category.categoryName;
+        breakdownByCategory[name] = (breakdownByCategory[name] || 0) + Number(t.amount);
       }
     }
 
@@ -378,11 +353,10 @@ export class CashTransactionsRepository {
 
   /**
    * Get full report data for Excel export: raw transactions + computed summary
-   * and per-category breakdown. Runs a single query covering all given
-   * reference types (e.g. IPL_PAYMENT + IPL_EXPENSE).
+   * and per-category breakdown, scoped to a single cash account (Kas).
    */
   async getReportData(
-    referenceTypes: string[],
+    cashAccountId: string,
     startDate?: Date,
     endDate?: Date,
   ): Promise<{
@@ -409,13 +383,12 @@ export class CashTransactionsRepository {
       totalAmount: number;
     }[];
   }> {
-    const where: any = {
-      deletedAt: null,
-      referenceType: { in: referenceTypes },
-    };
-    if (startDate && endDate) {
-      where.transactionDate = { gte: startDate, lte: endDate };
-    }
+    const where = this.baseLedgerWhere({
+      excludeTransfers: true,
+      cashAccountId,
+      startDate,
+      endDate,
+    });
 
     const rows = await this.prisma.cashTransaction.findMany({
       where,
@@ -506,5 +479,89 @@ export class CashTransactionsRepository {
       },
       breakdown: Array.from(breakdownMap.values()),
     };
+  }
+
+  // ---------- Cash accounts (Kas) ----------
+
+  async getCashAccounts() {
+    return this.prisma.cashAccount.findMany({
+      where: { deletedAt: null },
+      orderBy: { accountCode: 'asc' },
+    });
+  }
+
+  async findCashAccountByCode(accountCode: string) {
+    return this.prisma.cashAccount.findFirst({
+      where: { accountCode, deletedAt: null },
+    });
+  }
+
+  /**
+   * Per-account balances. `balance` is all-time (opening + Σincome − Σexpense,
+   * transfers included since they are normal legs). When a date range is given,
+   * `period*` fields additionally report the flow within that window.
+   */
+  async getAccountBalances(startDate?: Date, endDate?: Date) {
+    const accounts = await this.getCashAccounts();
+
+    const sumByAccount = async (dateFilter?: any) => {
+      const rows = await this.prisma.cashTransaction.findMany({
+        where: { deletedAt: null, ...(dateFilter ?? {}) },
+        select: { cashAccountId: true, transactionType: true, amount: true },
+      });
+      const map = new Map<string, { income: number; expense: number }>();
+      for (const t of rows) {
+        if (!t.cashAccountId) continue;
+        const acc = map.get(t.cashAccountId) ?? { income: 0, expense: 0 };
+        if (t.transactionType === 'INCOME') acc.income += Number(t.amount);
+        else if (t.transactionType === 'EXPENSE') acc.expense += Number(t.amount);
+        map.set(t.cashAccountId, acc);
+      }
+      return map;
+    };
+
+    const allByAccount = await sumByAccount();
+    const periodByAccount =
+      startDate && endDate ? await sumByAccount({ transactionDate: { gte: startDate, lte: endDate } }) : null;
+
+    return accounts.map((a) => {
+      const all = allByAccount.get(a.id) ?? { income: 0, expense: 0 };
+      const period = periodByAccount?.get(a.id) ?? { income: 0, expense: 0 };
+      return {
+        id: a.id,
+        accountCode: a.accountCode,
+        accountName: a.accountName,
+        fundType: a.fundType,
+        openingBalance: Number(a.openingBalance),
+        balance: Number(a.openingBalance) + all.income - all.expense,
+        periodIncome: period.income,
+        periodExpense: period.expense,
+        periodBalance: period.income - period.expense,
+        isActive: a.isActive,
+      };
+    });
+  }
+
+  async generateTransferGroupId(): Promise<string> {
+    const count = await this.prisma.cashTransaction.count({
+      where: { transferGroupId: { not: null } },
+    });
+    const timestamp = Date.now().toString().slice(-8);
+    return `TRF${timestamp}${String(count + 1).padStart(4, '0')}`;
+  }
+
+  /**
+   * Soft-delete both legs of a transfer atomically. Returns the affected count.
+   */
+  async softDeleteByTransferGroup(
+    transferGroupId: string,
+    tx?: PrismaTransactionalClient,
+  ): Promise<number> {
+    const prisma = tx || this.prisma;
+    const result = await prisma.cashTransaction.updateMany({
+      where: { transferGroupId, deletedAt: null },
+      data: { deletedAt: new Date() },
+    });
+    return result.count;
   }
 }

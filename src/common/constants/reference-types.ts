@@ -18,6 +18,10 @@ export const REFERENCE_TYPES = {
   SALARY: 'SALARY',
   EMPLOYEE_CASH_ADVANCE: 'EMPLOYEE_CASH_ADVANCE',
   EXPENSE_REQUEST: 'EXPENSE_REQUEST',
+
+  // Inter-account transfer (internal movement between Kas IPL & Kas Warga).
+  // Excluded from consolidated income/expense reports.
+  INTERNAL_TRANSFER: 'INTERNAL_TRANSFER',
 } as const;
 
 export type ReferenceType = typeof REFERENCE_TYPES[keyof typeof REFERENCE_TYPES];

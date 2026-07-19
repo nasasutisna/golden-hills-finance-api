@@ -20,6 +20,7 @@ import { Response } from 'express';
 import { CashTransactionsService } from './cash-transactions.service';
 import { CreateCashTransactionDto } from './dto/create-cash-transaction.dto';
 import { UpdateCashTransactionDto } from './dto/update-cash-transaction.dto';
+import { TransferCashTransactionDto } from './dto/transfer-cash-transaction.dto';
 import { QueryOptionsDto } from '../common/dto/query-options.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
@@ -56,6 +57,27 @@ export class CashTransactionsController {
     };
   }
 
+  @Post('transfer')
+  @Roles('ADMIN', 'ACCOUNTANT')
+  @ApiOperation({
+    summary: 'Transfer money between cash accounts (Kas)',
+    description:
+      'Move money between Kas IPL and Kas Warga. Records two paired legs (excluded from consolidated income/expense).',
+  })
+  @ApiResponseDecorators.created()
+  @ApiResponseDecorators.standard()
+  async transfer(
+    @Body() transferDto: TransferCashTransactionDto,
+    @CurrentUser() user: CurrentUserData,
+  ) {
+    const result = await this.cashTransactionsService.transfer(transferDto, user);
+    return {
+      statusCode: 201,
+      message: 'Transfer between cash accounts completed successfully',
+      data: result,
+    };
+  }
+
   @Get()
   @ApiOperation({
     summary: 'Get all cash transactions',
@@ -68,12 +90,14 @@ export class CashTransactionsController {
     @Query('startDate') startDate?: string,
     @Query('endDate') endDate?: string,
     @Query('categoryId') categoryId?: string,
+    @Query('cashAccountId') cashAccountId?: string,
   ) {
     const result = await this.cashTransactionsService.findAll(
       queryOptions,
       startDate,
       endDate,
       categoryId,
+      cashAccountId,
     );
     return {
       statusCode: 200,

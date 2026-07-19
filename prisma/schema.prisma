@@ -295,12 +295,41 @@ model FeeType {
   @@map("fee_types")
 }
 
+// ============================================================
+// CASH ACCOUNTS (KAS) — separate ledgers for IPL & iuran warga
+// ============================================================
+
+/// Jenis dana / fund type. Mirrors TransactionCategory.fundType so a cash
+/// transaction's account is derived from its category at write time.
+model CashAccount {
+  id             String   @id @default(uuid())
+  accountCode    String   @unique @map("account_code") @db.VarChar(30) // e.g. KAS_IPL, KAS_WARGA
+  accountName    String   @map("account_name") @db.VarChar(100)
+  fundType       String   @map("fund_type") @db.VarChar(20) // IPL | WARGA
+  openingBalance Decimal  @default(0) @map("opening_balance") @db.Decimal(15, 2)
+  isActive       Boolean  @default(true) @map("is_active")
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @updatedAt @map("updated_at")
+  deletedAt      DateTime? @map("deleted_at")
+
+  // Relations
+  transactions CashTransaction[]
+
+  @@index([accountCode])
+  @@index([fundType])
+  @@index([deletedAt])
+  @@map("cash_accounts")
+}
+
 model TransactionCategory {
   id           String    @id @default(uuid())
   categoryCode String    @unique @map("category_code") @db.VarChar(20)
   categoryName String    @map("category_name") @db.VarChar(100)
   description  String?   @db.Text
   categoryType String    @map("category_type") @db.VarChar(20)
+  /// Fund this category belongs to (IPL | WARGA). Drives which Kas a
+  /// transaction posts to. Nullable only during the migration backfill.
+  fundType     String?   @map("fund_type") @db.VarChar(20)
   isActive     Boolean   @default(true) @map("is_active")
   createdAt    DateTime  @default(now()) @map("created_at")
   updatedAt    DateTime  @updatedAt @map("updated_at")
@@ -311,6 +340,7 @@ model TransactionCategory {
   expenseRequests ExpenseRequest[]
 
   @@index([categoryCode])
+  @@index([fundType])
   @@index([deletedAt])
   @@map("transaction_categories")
 }
@@ -325,6 +355,16 @@ model CashTransaction {
   description       String?   @db.Text
   referenceType     String?   @map("reference_type") @db.VarChar(50)
   referenceId       String?   @map("reference_id")
+  /// Cash account (Kas) this transaction posts to. Derived from
+  /// category.fundType at write time and denormalized here so historical
+  /// rows stay correct even if a category's fundType changes later.
+  cashAccountId     String?   @map("cash_account_id")
+  /// True for the paired legs of an inter-account transfer. Excluded from
+  /// consolidated income/expense reports (internal movement only).
+  isInternalTransfer Boolean  @default(false) @map("is_internal_transfer")
+  /// Shared id linking the two legs (EXPENSE source + INCOME dest) of a
+  /// single inter-account transfer.
+  transferGroupId   String?   @map("transfer_group_id") @db.VarChar(50)
   status            String    @default("DRAFT") @db.VarChar(20)
   approvedBy        String?   @map("approved_by")
   approvedAt        DateTime? @map("approved_at")
@@ -338,12 +378,16 @@ model CashTransaction {
   creator   User                 @relation("CashTransactionCreator", fields: [createdBy], references: [id], onDelete: Restrict)
   approver  User?                @relation("CashTransactionApprover", fields: [approvedBy], references: [id], onDelete: SetNull)
   expenseRequest ExpenseRequest? @relation("ExpenseRequestCashTx")
+  cashAccount CashAccount?       @relation(fields: [cashAccountId], references: [id], onDelete: Restrict)
   // approvals ApprovalHistory[] - Removed: no corresponding relation on ApprovalHistory
 
   @@index([transactionNumber])
   @@index([transactionDate])
   @@index([transactionType])
   @@index([categoryId])
+  @@index([cashAccountId])
+  @@index([isInternalTransfer])
+  @@index([transferGroupId])
   @@index([deletedAt])
   @@map("cash_transactions")
 }

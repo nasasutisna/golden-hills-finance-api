@@ -28,6 +28,7 @@ import { CreateResidentPaymentDto } from './dto/create-resident-payment.dto';
 import { PaymentMethod } from './dto/create-resident-payment.dto';
 import { UpdateResidentPaymentDto } from './dto/update-resident-payment.dto';
 import { CreateBulkResidentPaymentDto } from './dto/create-bulk-resident-payment.dto';
+import { QueryResidentPaymentMatrixDto } from './dto/query-resident-payment-matrix.dto';
 import { QueryOptionsDto } from '../common/dto/query-options.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
@@ -216,6 +217,25 @@ export class ResidentPaymentsController {
       statusCode: 200,
       message: 'Payments retrieved successfully',
       data: payments,
+    };
+  }
+
+  @Get('matrix')
+  @Roles('ADMIN', 'ACCOUNTANT')
+  @ApiOperation({
+    summary: 'Get resident payment matrix (Admin/Accountant only)',
+    description:
+      'Read-only matrix of house unit x monthly resident-payment (Iuran Warga) status for a year, ' +
+      'aggregated by paymentDate month, with monthly and yearly totals.',
+  })
+  @ApiResponseDecorators.ok()
+  @ApiResponseDecorators.standard()
+  async getMatrix(@Query() query: QueryResidentPaymentMatrixDto) {
+    const data = await this.residentPaymentsService.getMatrix(query);
+    return {
+      statusCode: 200,
+      message: 'Resident payment matrix retrieved successfully',
+      data,
     };
   }
 

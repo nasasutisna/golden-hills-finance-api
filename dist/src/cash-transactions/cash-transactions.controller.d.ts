@@ -2,6 +2,7 @@ import { Response } from 'express';
 import { CashTransactionsService } from './cash-transactions.service';
 import { CreateCashTransactionDto } from './dto/create-cash-transaction.dto';
 import { UpdateCashTransactionDto } from './dto/update-cash-transaction.dto';
+import { TransferCashTransactionDto } from './dto/transfer-cash-transaction.dto';
 import { QueryOptionsDto } from '../common/dto/query-options.dto';
 import { CurrentUserData } from '../common/decorators/current-user.decorator';
 export declare class CashTransactionsController {
@@ -27,9 +28,62 @@ export declare class CashTransactionsController {
             categoryId: string | null;
             referenceType: string | null;
             referenceId: string | null;
+            cashAccountId: string | null;
+            isInternalTransfer: boolean;
+            transferGroupId: string | null;
         };
     }>;
-    findAll(queryOptions: QueryOptionsDto, startDate?: string, endDate?: string, categoryId?: string): Promise<{
+    transfer(transferDto: TransferCashTransactionDto, user: CurrentUserData): Promise<{
+        statusCode: number;
+        message: string;
+        data: {
+            transferGroupId: string;
+            fromAccount: {
+                id: string;
+                isActive: boolean;
+                createdAt: Date;
+                updatedAt: Date;
+                deletedAt: Date | null;
+                fundType: string;
+                accountCode: string;
+                accountName: string;
+                openingBalance: import("@prisma/client-runtime-utils").Decimal;
+            };
+            toAccount: {
+                id: string;
+                isActive: boolean;
+                createdAt: Date;
+                updatedAt: Date;
+                deletedAt: Date | null;
+                fundType: string;
+                accountCode: string;
+                accountName: string;
+                openingBalance: import("@prisma/client-runtime-utils").Decimal;
+            };
+            legs: {
+                id: string;
+                description: string | null;
+                createdAt: Date;
+                updatedAt: Date;
+                deletedAt: Date | null;
+                status: string;
+                approvedBy: string | null;
+                approvedAt: Date | null;
+                createdBy: string;
+                transactionNumber: string;
+                transactionDate: Date;
+                transactionType: string;
+                amount: import("@prisma/client-runtime-utils").Decimal;
+                categoryId: string | null;
+                referenceType: string | null;
+                referenceId: string | null;
+                cashAccountId: string | null;
+                isInternalTransfer: boolean;
+                transferGroupId: string | null;
+            }[];
+        };
+    }>;
+    findAll(queryOptions: QueryOptionsDto, startDate?: string, endDate?: string, categoryId?: string, cashAccountId?: string): Promise<{
         statusCode: number;
         message: string;
         data: {
@@ -49,6 +103,9 @@ export declare class CashTransactionsController {
             categoryId: string | null;
             referenceType: string | null;
             referenceId: string | null;
+            cashAccountId: string | null;
+            isInternalTransfer: boolean;
+            transferGroupId: string | null;
         }[];
         meta: {
             page: number;
@@ -101,6 +158,9 @@ export declare class CashTransactionsController {
             categoryId: string | null;
             referenceType: string | null;
             referenceId: string | null;
+            cashAccountId: string | null;
+            isInternalTransfer: boolean;
+            transferGroupId: string | null;
         }[];
     }>;
     getByCategory(categoryId: string): Promise<{
@@ -123,6 +183,9 @@ export declare class CashTransactionsController {
             categoryId: string | null;
             referenceType: string | null;
             referenceId: string | null;
+            cashAccountId: string | null;
+            isInternalTransfer: boolean;
+            transferGroupId: string | null;
         }[];
     }>;
     getByDateRange(startDate: string, endDate: string): Promise<{
@@ -145,6 +208,9 @@ export declare class CashTransactionsController {
             categoryId: string | null;
             referenceType: string | null;
             referenceId: string | null;
+            cashAccountId: string | null;
+            isInternalTransfer: boolean;
+            transferGroupId: string | null;
         }[];
     }>;
     getByApprovalStatus(approvalStatus: string): Promise<{
@@ -167,6 +233,9 @@ export declare class CashTransactionsController {
             categoryId: string | null;
             referenceType: string | null;
             referenceId: string | null;
+            cashAccountId: string | null;
+            isInternalTransfer: boolean;
+            transferGroupId: string | null;
         }[];
     }>;
     findOne(id: string): Promise<{
@@ -189,6 +258,9 @@ export declare class CashTransactionsController {
             categoryId: string | null;
             referenceType: string | null;
             referenceId: string | null;
+            cashAccountId: string | null;
+            isInternalTransfer: boolean;
+            transferGroupId: string | null;
         };
     }>;
     update(id: string, updateCashTransactionDto: UpdateCashTransactionDto): Promise<{
@@ -211,6 +283,9 @@ export declare class CashTransactionsController {
             categoryId: string | null;
             referenceType: string | null;
             referenceId: string | null;
+            cashAccountId: string | null;
+            isInternalTransfer: boolean;
+            transferGroupId: string | null;
         };
     }>;
     approveTransaction(id: string, user: CurrentUserData): Promise<{
@@ -233,6 +308,9 @@ export declare class CashTransactionsController {
             categoryId: string | null;
             referenceType: string | null;
             referenceId: string | null;
+            cashAccountId: string | null;
+            isInternalTransfer: boolean;
+            transferGroupId: string | null;
         };
     }>;
     rejectTransaction(id: string, reason: string, user: CurrentUserData): Promise<{
@@ -255,6 +333,9 @@ export declare class CashTransactionsController {
             categoryId: string | null;
             referenceType: string | null;
             referenceId: string | null;
+            cashAccountId: string | null;
+            isInternalTransfer: boolean;
+            transferGroupId: string | null;
         };
     }>;
     remove(id: string): Promise<{
@@ -277,6 +358,9 @@ export declare class CashTransactionsController {
             categoryId: string | null;
             referenceType: string | null;
             referenceId: string | null;
+            cashAccountId: string | null;
+            isInternalTransfer: boolean;
+            transferGroupId: string | null;
         };
     }>;
     getIplReport(startDate?: string, endDate?: string): Promise<{
@@ -321,6 +405,9 @@ export declare class CashTransactionsController {
             categoryId: string | null;
             referenceType: string | null;
             referenceId: string | null;
+            cashAccountId: string | null;
+            isInternalTransfer: boolean;
+            transferGroupId: string | null;
         }[];
     }>;
 }

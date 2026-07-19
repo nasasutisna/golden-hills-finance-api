@@ -18,6 +18,7 @@ export declare class TransactionCategoriesController {
             categoryCode: string;
             categoryName: string;
             categoryType: string;
+            fundType: string | null;
         };
     }>;
     findAll(queryOptions: QueryOptionsDto): Promise<{
@@ -33,6 +34,7 @@ export declare class TransactionCategoriesController {
             categoryCode: string;
             categoryName: string;
             categoryType: string;
+            fundType: string | null;
         }[];
         meta: {
             page: number;
@@ -56,6 +58,7 @@ export declare class TransactionCategoriesController {
             categoryCode: string;
             categoryName: string;
             categoryType: string;
+            fundType: string | null;
         }[];
     }>;
     getByType(categoryType: string): Promise<{
@@ -71,6 +74,7 @@ export declare class TransactionCategoriesController {
             categoryCode: string;
             categoryName: string;
             categoryType: string;
+            fundType: string | null;
         }[];
     }>;
     getParentCategories(): Promise<{
@@ -86,6 +90,7 @@ export declare class TransactionCategoriesController {
             categoryCode: string;
             categoryName: string;
             categoryType: string;
+            fundType: string | null;
         }[];
     }>;
     findOne(id: string): Promise<{
@@ -101,6 +106,7 @@ export declare class TransactionCategoriesController {
             categoryCode: string;
             categoryName: string;
             categoryType: string;
+            fundType: string | null;
         };
     }>;
     update(id: string, updateTransactionCategoryDto: UpdateTransactionCategoryDto): Promise<{
@@ -116,6 +122,7 @@ export declare class TransactionCategoriesController {
             categoryCode: string;
             categoryName: string;
             categoryType: string;
+            fundType: string | null;
         };
     }>;
     remove(id: string): Promise<{
@@ -131,6 +138,7 @@ export declare class TransactionCategoriesController {
             categoryCode: string;
             categoryName: string;
             categoryType: string;
+            fundType: string | null;
         };
     }>;
     restore(id: string): Promise<{
@@ -146,6 +154,7 @@ export declare class TransactionCategoriesController {
             categoryCode: string;
             categoryName: string;
             categoryType: string;
+            fundType: string | null;
         };
     }>;
 }

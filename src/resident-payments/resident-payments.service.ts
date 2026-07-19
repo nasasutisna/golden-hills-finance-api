@@ -3,6 +3,7 @@ import { QueryOptionsDto } from '../common/dto/query-options.dto';
 import { CreateResidentPaymentDto } from './dto/create-resident-payment.dto';
 import { UpdateResidentPaymentDto } from './dto/update-resident-payment.dto';
 import { CreateBulkResidentPaymentDto, BulkPaymentResultDto } from './dto/create-bulk-resident-payment.dto';
+import { QueryResidentPaymentMatrixDto } from './dto/query-resident-payment-matrix.dto';
 import { ResidentPaymentsRepository } from './resident-payments.repository';
 import { ResidentInvoicesRepository } from '../resident-invoices/resident-invoices.repository';
 import { PrismaService } from '../prisma/prisma.service';
@@ -357,5 +358,136 @@ export class ResidentPaymentsService {
         failureCount: failed.length,
       };
     });
+  }
+
+  /**
+   * Build the read-only house-unit x month resident-payment (Iuran Warga)
+   * matrix for a year. Each cell aggregates the resident payments of that unit
+   * whose paymentDate falls in the given month. Mirrors
+   * `IplPaymentsService.getMatrix`, but without the IPL-specific rate/obligation
+   * fields (resident payments have no fixed monthly rate).
+   */
+  async getMatrix(query: QueryResidentPaymentMatrixDto) {
+    const year = query.year ?? new Date().getFullYear();
+    const { units, payments } = await this.residentPaymentsRepository.getMatrixData(
+      year,
+      query.houseBlockId,
+    );
+
+    const MONTH_NAMES_SHORT = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
+      'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des',
+    ];
+
+    const toNum = (v: any): number => {
+      if (v == null) return 0;
+      if (typeof v === 'number') return v;
+      const n = Number(v);
+      return Number.isFinite(n) ? n : 0;
+    };
+
+    // paymentMap: houseUnitId -> month(1..12) -> { completed: [], pending: [] }
+    const paymentMap = new Map<string, Map<number, { completed: any[]; pending: any[] }>>();
+    for (const pm of payments) {
+      const unitId = pm.resident?.houseUnitId;
+      // A payment from a resident with no unit cannot be placed on a unit row.
+      if (!unitId) continue;
+      const month = new Date(pm.paymentDate).getMonth() + 1;
+      let perUnit = paymentMap.get(unitId);
+      if (!perUnit) {
+        perUnit = new Map<number, { completed: any[]; pending: any[] }>();
+        paymentMap.set(unitId, perUnit);
+      }
+      let perMonth = perUnit.get(month);
+      if (!perMonth) {
+        perMonth = { completed: [], pending: [] };
+        perUnit.set(month, perMonth);
+      }
+      if (pm.status === 'COMPLETED') perMonth.completed.push(pm);
+      else if (pm.status === 'PENDING') perMonth.pending.push(pm);
+    }
+
+    const monthTotals: number[] = new Array(12).fill(0);
+    let paidCellCount = 0;
+
+    // Stable, readable order: block code then numeric unit number.
+    const sortedUnits = [...units].sort((a: any, b: any) => {
+      const ba = a.houseBlock?.blockCode ?? '';
+      const bb = b.houseBlock?.blockCode ?? '';
+      if (ba !== bb) return ba.localeCompare(bb);
+      return (a.unitNumber ?? '').localeCompare(b.unitNumber ?? '', undefined, { numeric: true });
+    });
+
+    const rows = sortedUnits.map((unit: any, index: number) => {
+      const perUnit = paymentMap.get(unit.id);
+      let paidCount = 0;
+      let pendingCount = 0;
+
+      const cells: any[] = MONTH_NAMES_SHORT.map((monthName, i) => {
+        const month = i + 1;
+        const perMonth = perUnit?.get(month);
+        const completed = perMonth?.completed ?? [];
+        const pending = perMonth?.pending ?? [];
+
+        let status: 'PAID' | 'PENDING' | 'UNPAID' = 'UNPAID';
+        let amount: number | undefined;
+        let paymentId: string | null = null;
+
+        if (completed.length > 0) {
+          status = 'PAID';
+          amount = completed.reduce((sum, p) => sum + toNum(p.amount), 0);
+          paymentId = completed[0].id;
+        } else if (pending.length > 0) {
+          status = 'PENDING';
+          paymentId = pending[0].id;
+        }
+
+        if (status === 'PAID') {
+          paidCount++;
+          monthTotals[i] += amount ?? 0;
+        } else if (status === 'PENDING') {
+          pendingCount++;
+        }
+
+        const cell: any = { month, monthName, status, paymentId };
+        if (status === 'PAID') cell.amount = amount;
+        return cell;
+      });
+
+      const resident = unit.residents?.[0];
+      const residentName = resident
+        ? [resident.firstName, resident.lastName].filter(Boolean).join(' ').trim() || null
+        : null;
+
+      return {
+        no: index + 1,
+        unitId: unit.id,
+        unitCode: unit.unitCode,
+        unitNumber: unit.unitNumber,
+        blockCode: unit.houseBlock?.blockCode ?? null,
+        blockName: unit.houseBlock?.blockName ?? null,
+        landArea: toNum(unit.landArea),
+        buildingArea: toNum(unit.buildingArea),
+        residentId: resident?.id ?? null,
+        residentName,
+        phoneNumber: resident?.phoneNumber ?? null,
+        isActive: unit.isActive,
+        cells,
+        paidCount,
+        pendingCount,
+      };
+    });
+
+    paidCellCount = rows.reduce((sum, r) => sum + r.paidCount, 0);
+    const grandTotal = monthTotals.reduce((sum, v) => sum + v, 0);
+
+    return {
+      year,
+      unitCount: rows.length,
+      paidCellCount,
+      grandTotal,
+      monthTotals,
+      rows,
+    };
   }
 }

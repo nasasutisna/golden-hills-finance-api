@@ -23,6 +23,7 @@ const create_resident_payment_dto_1 = require("./dto/create-resident-payment.dto
 const create_resident_payment_dto_2 = require("./dto/create-resident-payment.dto");
 const update_resident_payment_dto_1 = require("./dto/update-resident-payment.dto");
 const create_bulk_resident_payment_dto_1 = require("./dto/create-bulk-resident-payment.dto");
+const query_resident_payment_matrix_dto_1 = require("./dto/query-resident-payment-matrix.dto");
 const query_options_dto_1 = require("../common/dto/query-options.dto");
 const jwt_auth_guard_1 = require("../common/guards/jwt-auth.guard");
 const roles_guard_1 = require("../common/guards/roles.guard");
@@ -111,6 +112,14 @@ let ResidentPaymentsController = class ResidentPaymentsController {
             statusCode: 200,
             message: 'Payments retrieved successfully',
             data: payments,
+        };
+    }
+    async getMatrix(query) {
+        const data = await this.residentPaymentsService.getMatrix(query);
+        return {
+            statusCode: 200,
+            message: 'Resident payment matrix retrieved successfully',
+            data,
         };
     }
     async findOne(id) {
@@ -260,6 +269,21 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], ResidentPaymentsController.prototype, "getByInvoice", null);
+__decorate([
+    (0, common_1.Get)('matrix'),
+    (0, roles_decorator_1.Roles)('ADMIN', 'ACCOUNTANT'),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Get resident payment matrix (Admin/Accountant only)',
+        description: 'Read-only matrix of house unit x monthly resident-payment (Iuran Warga) status for a year, ' +
+            'aggregated by paymentDate month, with monthly and yearly totals.',
+    }),
+    http_response_decorator_1.ApiResponseDecorators.ok(),
+    http_response_decorator_1.ApiResponseDecorators.standard(),
+    __param(0, (0, common_1.Query)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [query_resident_payment_matrix_dto_1.QueryResidentPaymentMatrixDto]),
+    __metadata("design:returntype", Promise)
+], ResidentPaymentsController.prototype, "getMatrix", null);
 __decorate([
     (0, common_1.Get)(':id'),
     (0, swagger_1.ApiOperation)({

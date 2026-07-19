@@ -9,6 +9,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.CashTransactionsModule = void 0;
 const common_1 = require("@nestjs/common");
 const cash_transactions_controller_1 = require("./cash-transactions.controller");
+const cash_accounts_controller_1 = require("./cash-accounts.controller");
 const cash_transactions_service_1 = require("./cash-transactions.service");
 const cash_transactions_repository_1 = require("./cash-transactions.repository");
 const prisma_module_1 = require("../prisma/prisma.module");
@@ -26,7 +27,7 @@ exports.CashTransactionsModule = CashTransactionsModule = __decorate([
             users_module_1.UsersModule,
             approval_histories_module_1.ApprovalHistoriesModule,
         ],
-        controllers: [cash_transactions_controller_1.CashTransactionsController],
+        controllers: [cash_transactions_controller_1.CashTransactionsController, cash_accounts_controller_1.CashAccountsController],
         providers: [cash_transactions_service_1.CashTransactionsService, cash_transactions_repository_1.CashTransactionsRepository],
         exports: [cash_transactions_service_1.CashTransactionsService, cash_transactions_repository_1.CashTransactionsRepository],
     })

@@ -18,6 +18,7 @@ const swagger_1 = require("@nestjs/swagger");
 const cash_transactions_service_1 = require("./cash-transactions.service");
 const create_cash_transaction_dto_1 = require("./dto/create-cash-transaction.dto");
 const update_cash_transaction_dto_1 = require("./dto/update-cash-transaction.dto");
+const transfer_cash_transaction_dto_1 = require("./dto/transfer-cash-transaction.dto");
 const query_options_dto_1 = require("../common/dto/query-options.dto");
 const jwt_auth_guard_1 = require("../common/guards/jwt-auth.guard");
 const roles_guard_1 = require("../common/guards/roles.guard");
@@ -37,8 +38,16 @@ let CashTransactionsController = class CashTransactionsController {
             data: transaction,
         };
     }
-    async findAll(queryOptions, startDate, endDate, categoryId) {
-        const result = await this.cashTransactionsService.findAll(queryOptions, startDate, endDate, categoryId);
+    async transfer(transferDto, user) {
+        const result = await this.cashTransactionsService.transfer(transferDto, user);
+        return {
+            statusCode: 201,
+            message: 'Transfer between cash accounts completed successfully',
+            data: result,
+        };
+    }
+    async findAll(queryOptions, startDate, endDate, categoryId, cashAccountId) {
+        const result = await this.cashTransactionsService.findAll(queryOptions, startDate, endDate, categoryId, cashAccountId);
         return {
             statusCode: 200,
             message: 'Cash transactions retrieved successfully',
@@ -192,6 +201,21 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], CashTransactionsController.prototype, "create", null);
 __decorate([
+    (0, common_1.Post)('transfer'),
+    (0, roles_decorator_1.Roles)('ADMIN', 'ACCOUNTANT'),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Transfer money between cash accounts (Kas)',
+        description: 'Move money between Kas IPL and Kas Warga. Records two paired legs (excluded from consolidated income/expense).',
+    }),
+    http_response_decorator_1.ApiResponseDecorators.created(),
+    http_response_decorator_1.ApiResponseDecorators.standard(),
+    __param(0, (0, common_1.Body)()),
+    __param(1, (0, current_user_decorator_1.CurrentUser)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [transfer_cash_transaction_dto_1.TransferCashTransactionDto, Object]),
+    __metadata("design:returntype", Promise)
+], CashTransactionsController.prototype, "transfer", null);
+__decorate([
     (0, common_1.Get)(),
     (0, swagger_1.ApiOperation)({
         summary: 'Get all cash transactions',
@@ -203,8 +227,9 @@ __decorate([
     __param(1, (0, common_1.Query)('startDate')),
     __param(2, (0, common_1.Query)('endDate')),
     __param(3, (0, common_1.Query)('categoryId')),
+    __param(4, (0, common_1.Query)('cashAccountId')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [query_options_dto_1.QueryOptionsDto, String, String, String]),
+    __metadata("design:paramtypes", [query_options_dto_1.QueryOptionsDto, String, String, String, String]),
     __metadata("design:returntype", Promise)
 ], CashTransactionsController.prototype, "findAll", null);
 __decorate([

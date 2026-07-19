@@ -17,6 +17,7 @@ export declare class TransactionCategoriesService {
             categoryCode: string;
             categoryName: string;
             categoryType: string;
+            fundType: string | null;
         }[];
         meta: {
             page: number;
@@ -37,6 +38,7 @@ export declare class TransactionCategoriesService {
         categoryCode: string;
         categoryName: string;
         categoryType: string;
+        fundType: string | null;
     }>;
     create(createTransactionCategoryDto: CreateTransactionCategoryDto): Promise<{
         id: string;
@@ -48,6 +50,7 @@ export declare class TransactionCategoriesService {
         categoryCode: string;
         categoryName: string;
         categoryType: string;
+        fundType: string | null;
     }>;
     update(id: string, updateTransactionCategoryDto: UpdateTransactionCategoryDto): Promise<{
         id: string;
@@ -59,6 +62,7 @@ export declare class TransactionCategoriesService {
         categoryCode: string;
         categoryName: string;
         categoryType: string;
+        fundType: string | null;
     }>;
     softDelete(id: string): Promise<{
         id: string;
@@ -70,6 +74,7 @@ export declare class TransactionCategoriesService {
         categoryCode: string;
         categoryName: string;
         categoryType: string;
+        fundType: string | null;
     }>;
     restore(id: string): Promise<{
         id: string;
@@ -81,6 +86,7 @@ export declare class TransactionCategoriesService {
         categoryCode: string;
         categoryName: string;
         categoryType: string;
+        fundType: string | null;
     }>;
     getByType(categoryType: string): Promise<{
         id: string;
@@ -92,6 +98,7 @@ export declare class TransactionCategoriesService {
         categoryCode: string;
         categoryName: string;
         categoryType: string;
+        fundType: string | null;
     }[]>;
     getActiveCategories(): Promise<{
         id: string;
@@ -103,6 +110,7 @@ export declare class TransactionCategoriesService {
         categoryCode: string;
         categoryName: string;
         categoryType: string;
+        fundType: string | null;
     }[]>;
     getParentCategories(): Promise<{
         id: string;
@@ -114,6 +122,7 @@ export declare class TransactionCategoriesService {
         categoryCode: string;
         categoryName: string;
         categoryType: string;
+        fundType: string | null;
     }[]>;
     count(where?: any): Promise<number>;
     exists(id: string): Promise<boolean>;

@@ -4,6 +4,7 @@ import { FileAttachmentsService } from '../file-attachments/file-attachments.ser
 import { CreateResidentPaymentDto } from './dto/create-resident-payment.dto';
 import { UpdateResidentPaymentDto } from './dto/update-resident-payment.dto';
 import { CreateBulkResidentPaymentDto } from './dto/create-bulk-resident-payment.dto';
+import { QueryResidentPaymentMatrixDto } from './dto/query-resident-payment-matrix.dto';
 import { QueryOptionsDto } from '../common/dto/query-options.dto';
 import { CurrentUserData } from '../common/decorators/current-user.decorator';
 export declare class ResidentPaymentsController {
@@ -124,6 +125,34 @@ export declare class ResidentPaymentsController {
             verifiedBy: string | null;
             verifiedAt: Date | null;
         }[];
+    }>;
+    getMatrix(query: QueryResidentPaymentMatrixDto): Promise<{
+        statusCode: number;
+        message: string;
+        data: {
+            year: number;
+            unitCount: number;
+            paidCellCount: number;
+            grandTotal: number;
+            monthTotals: number[];
+            rows: {
+                no: number;
+                unitId: any;
+                unitCode: any;
+                unitNumber: any;
+                blockCode: any;
+                blockName: any;
+                landArea: number;
+                buildingArea: number;
+                residentId: any;
+                residentName: string | null;
+                phoneNumber: any;
+                isActive: any;
+                cells: any[];
+                paidCount: number;
+                pendingCount: number;
+            }[];
+        };
     }>;
     findOne(id: string): Promise<{
         statusCode: number;

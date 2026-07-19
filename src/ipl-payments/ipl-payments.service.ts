@@ -1,5 +1,6 @@
 import { Injectable, Logger, ForbiddenException, BadRequestException, Inject } from '@nestjs/common';
 import { QueryIplPaymentsDto } from './dto/query-ipl-payments.dto';
+import { QueryIplPaymentMatrixDto } from './dto/query-ipl-payment-matrix.dto';
 import { CreateIplPaymentDto } from './dto/create-ipl-payment.dto';
 import { UpdateIplPaymentDto } from './dto/update-ipl-payment.dto';
 import { ApproveIplPaymentDto } from './dto/approve-ipl-payment.dto';
@@ -1085,5 +1086,146 @@ export class IplPaymentsService {
         status: toStatus, // Map toStatus to status field
       },
     });
+  }
+
+  /**
+   * Build the read-only house-unit x month payment matrix for a year.
+   * Composes periods + units + payments from the repository into the matrix
+   * shape the frontend renders directly (no further client-side join).
+   */
+  async getMatrix(query: QueryIplPaymentMatrixDto) {
+    const year = query.year ?? new Date().getFullYear();
+    const { periods, units, payments } = await this.iplPaymentsRepository.getMatrixData(
+      year,
+      query.houseBlockId,
+    );
+
+    const MONTH_NAMES_SHORT = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
+      'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des',
+    ];
+
+    const toNum = (v: any): number => {
+      if (v == null) return 0;
+      if (typeof v === 'number') return v;
+      const n = Number(v);
+      return Number.isFinite(n) ? n : 0;
+    };
+
+    // month -> period
+    const periodByMonth = new Map<number, any>();
+    for (const p of periods) periodByMonth.set(p.month, p);
+
+    // Base rate fallback for the monthly-rate estimate (earliest period).
+    const baseRate = toNum(periods[0]?.baseRate);
+
+    const rankStatus = (s: string): number =>
+      s === 'APPROVED' ? 3 : s === 'PENDING' ? 2 : s === 'REJECTED' ? 1 : 0;
+
+    // paymentMap: houseUnitId -> periodId -> best-status payment
+    const paymentMap = new Map<string, Map<string, any>>();
+    for (const pm of payments) {
+      if (!pm.houseUnitId || !pm.periodId) continue;
+      let perUnit = paymentMap.get(pm.houseUnitId);
+      if (!perUnit) {
+        perUnit = new Map<string, any>();
+        paymentMap.set(pm.houseUnitId, perUnit);
+      }
+      const existing = perUnit.get(pm.periodId);
+      if (!existing || rankStatus(pm.status) > rankStatus(existing.status)) {
+        perUnit.set(pm.periodId, pm);
+      }
+    }
+
+    const monthTotals: number[] = new Array(12).fill(0);
+    let paidCellCount = 0;
+
+    // Stable, readable order: block code then numeric unit number.
+    const sortedUnits = [...units].sort((a: any, b: any) => {
+      const ba = a.houseBlock?.blockCode ?? '';
+      const bb = b.houseBlock?.blockCode ?? '';
+      if (ba !== bb) return ba.localeCompare(bb);
+      return (a.unitNumber ?? '').localeCompare(b.unitNumber ?? '', undefined, { numeric: true });
+    });
+
+    const rows = sortedUnits.map((unit: any, index: number) => {
+      const perUnit = paymentMap.get(unit.id);
+      const iplPercentage = toNum(unit.iplPercentage ?? 100);
+      let paidCount = 0;
+      let pendingCount = 0;
+
+      const cells: any[] = MONTH_NAMES_SHORT.map((monthName, i) => {
+        const month = i + 1;
+        const period = periodByMonth.get(month);
+        const pm = period ? perUnit?.get(period.id) : undefined;
+        const paymentId = pm?.id ?? null;
+        let status: 'PAID' | 'PENDING' | 'UNPAID' = 'UNPAID';
+        if (pm) {
+          if (pm.status === 'APPROVED') status = 'PAID';
+          else if (pm.status === 'PENDING') status = 'PENDING';
+        }
+
+        if (status === 'PAID') {
+          paidCount++;
+          const amount = toNum(pm?.calculatedAmount);
+          monthTotals[i] += amount;
+          return { month, monthName, periodId: period?.id ?? null, status, amount, paymentId };
+        }
+        if (status === 'PENDING') pendingCount++;
+        return { month, monthName, periodId: period?.id ?? null, status, paymentId };
+      });
+
+      // Prefer the unit's real paid amount; fall back to the official formula
+      // landArea x baseRate x iplPercentage/100 (see calculateIplAmount).
+      const firstPaidAmount = cells.find((c) => c.status === 'PAID')?.amount;
+      const monthlyRate =
+        firstPaidAmount ?? Math.round(toNum(unit.landArea) * baseRate * (iplPercentage / 100));
+
+      const resident = unit.residents?.[0];
+      const residentName = resident
+        ? [resident.firstName, resident.lastName].filter(Boolean).join(' ').trim() || null
+        : null;
+
+      const noteParts: string[] = [];
+      if (unit.isBankBuyback) noteParts.push('Rumah bank/buyback');
+      if (unit.occupancyNotes) noteParts.push(unit.occupancyNotes);
+
+      const obligationLabel =
+        iplPercentage >= 100 ? 'FULL' : iplPercentage <= 0 ? '0%' : `SETENGAH (${iplPercentage}%)`;
+
+      return {
+        no: index + 1,
+        unitId: unit.id,
+        unitCode: unit.unitCode,
+        unitNumber: unit.unitNumber,
+        blockCode: unit.houseBlock?.blockCode ?? null,
+        blockName: unit.houseBlock?.blockName ?? null,
+        landArea: toNum(unit.landArea),
+        buildingArea: toNum(unit.buildingArea),
+        residentId: resident?.id ?? null,
+        residentName,
+        phoneNumber: resident?.phoneNumber ?? null,
+        iplPercentage,
+        obligationLabel,
+        notes: noteParts.length ? noteParts.join(' · ') : null,
+        monthlyRate,
+        isActive: unit.isActive,
+        cells,
+        paidCount,
+        pendingCount,
+      };
+    });
+
+    paidCellCount = rows.reduce((sum, r) => sum + r.paidCount, 0);
+    const grandTotal = monthTotals.reduce((sum, v) => sum + v, 0);
+
+    return {
+      year,
+      unitCount: rows.length,
+      paidCellCount,
+      grandTotal,
+      monthTotals,
+      rows,
+    };
   }
 }

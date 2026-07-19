@@ -2,6 +2,7 @@ import { QueryOptionsDto } from '../common/dto/query-options.dto';
 import { CreateResidentPaymentDto } from './dto/create-resident-payment.dto';
 import { UpdateResidentPaymentDto } from './dto/update-resident-payment.dto';
 import { CreateBulkResidentPaymentDto, BulkPaymentResultDto } from './dto/create-bulk-resident-payment.dto';
+import { QueryResidentPaymentMatrixDto } from './dto/query-resident-payment-matrix.dto';
 import { ResidentPaymentsRepository } from './resident-payments.repository';
 import { ResidentInvoicesRepository } from '../resident-invoices/resident-invoices.repository';
 import { PrismaService } from '../prisma/prisma.service';
@@ -192,4 +193,28 @@ export declare class ResidentPaymentsService {
     count(where?: any): Promise<number>;
     exists(id: string): Promise<boolean>;
     createBulk(createBulkDto: CreateBulkResidentPaymentDto): Promise<BulkPaymentResultDto>;
+    getMatrix(query: QueryResidentPaymentMatrixDto): Promise<{
+        year: number;
+        unitCount: number;
+        paidCellCount: number;
+        grandTotal: number;
+        monthTotals: number[];
+        rows: {
+            no: number;
+            unitId: any;
+            unitCode: any;
+            unitNumber: any;
+            blockCode: any;
+            blockName: any;
+            landArea: number;
+            buildingArea: number;
+            residentId: any;
+            residentName: string | null;
+            phoneNumber: any;
+            isActive: any;
+            cells: any[];
+            paidCount: number;
+            pendingCount: number;
+        }[];
+    }>;
 }

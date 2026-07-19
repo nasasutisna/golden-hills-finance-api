@@ -18,6 +18,7 @@ const approval_histories_service_1 = require("../approval-histories/approval-his
 const create_approval_history_dto_1 = require("../approval-histories/dto/create-approval-history.dto");
 const prisma_service_1 = require("../prisma/prisma.service");
 const reference_types_1 = require("../common/constants/reference-types");
+const cash_accounts_1 = require("../common/constants/cash-accounts");
 const cash_transactions_export_1 = require("./cash-transactions.export");
 let CashTransactionsService = CashTransactionsService_1 = class CashTransactionsService {
     constructor(cashTransactionsRepository, transactionCategoriesRepository, approvalHistoriesService, prisma) {
@@ -27,12 +28,15 @@ let CashTransactionsService = CashTransactionsService_1 = class CashTransactions
         this.prisma = prisma;
         this.logger = new common_1.Logger(CashTransactionsService_1.name);
     }
-    async findAll(queryOptions, startDate, endDate, categoryId) {
+    async findAll(queryOptions, startDate, endDate, categoryId, cashAccountId) {
         const { page = 1, limit = 10, sortBy = 'transactionDate', sortOrder = 'desc', search, searchFields, filters } = queryOptions;
         const skip = (page - 1) * limit;
         let where = {};
         if (categoryId) {
             where.categoryId = categoryId;
+        }
+        if (cashAccountId) {
+            where.cashAccountId = cashAccountId;
         }
         if (startDate || endDate) {
             where.transactionDate = {};
@@ -74,12 +78,32 @@ let CashTransactionsService = CashTransactionsService_1 = class CashTransactions
     async findById(id) {
         return await this.cashTransactionsRepository.findById(id);
     }
+    async resolveCashAccountId(categoryId, tx) {
+        if (!categoryId) {
+            throw new common_1.BadRequestException('Category is required to determine the cash account (Kas)');
+        }
+        const client = tx || this.prisma;
+        const category = await client.transactionCategory.findFirst({
+            where: { id: categoryId, deletedAt: null },
+            select: { id: true, categoryCode: true, fundType: true },
+        });
+        if (!category) {
+            throw new common_1.BadRequestException(`Transaction category ${categoryId} not found`);
+        }
+        const accountId = (0, cash_accounts_1.accountIdForFund)(category.fundType);
+        if (!accountId) {
+            throw new common_1.BadRequestException(`Category "${category.categoryCode}" has no fundType; cannot determine Kas. Tag the category fundType (IPL/WARGA).`);
+        }
+        return accountId;
+    }
     async create(createCashTransactionDto, user) {
         return await this.prisma.executeInTransaction(async (tx) => {
+            const cashAccountId = await this.resolveCashAccountId(createCashTransactionDto.categoryId, tx);
             const transactionNumber = await this.cashTransactionsRepository.generateTransactionNumber(createCashTransactionDto.transactionType);
             const transaction = await this.cashTransactionsRepository.create({
                 ...createCashTransactionDto,
                 transactionNumber,
+                cashAccountId,
                 createdBy: user.id,
                 status: createCashTransactionDto.requiresApproval ? 'PENDING' : 'APPROVED',
             }, tx);
@@ -107,12 +131,14 @@ let CashTransactionsService = CashTransactionsService_1 = class CashTransactions
         }
         const transactionNumber = await this.cashTransactionsRepository.generateTransactionNumber('EXPENSE');
         const description = `Pengeluaran ${request.requestNumber} - ${request.title}`;
+        const cashAccountId = await this.resolveCashAccountId(categoryId, tx);
         const cashTx = await this.cashTransactionsRepository.create({
             transactionNumber,
             transactionDate: request.transactionDate,
             transactionType: 'EXPENSE',
             amount: request.amount,
             categoryId,
+            cashAccountId,
             description,
             referenceType: reference_types_1.REFERENCE_TYPES.EXPENSE_REQUEST,
             referenceId: request.id,
@@ -183,9 +209,77 @@ let CashTransactionsService = CashTransactionsService_1 = class CashTransactions
         }
     }
     async softDelete(id) {
+        const existing = await this.cashTransactionsRepository.findById(id);
+        if (existing.transferGroupId) {
+            const count = await this.prisma.executeInTransaction(async (tx) => {
+                return this.cashTransactionsRepository.softDeleteByTransferGroup(existing.transferGroupId, tx);
+            });
+            this.logger.log(`Transfer group ${existing.transferGroupId} soft deleted (${count} legs)`);
+            return existing;
+        }
         const transaction = await this.cashTransactionsRepository.softDelete(id);
         this.logger.log(`Cash transaction soft deleted: ${transaction.transactionNumber}`);
         return transaction;
+    }
+    async transfer(dto, user) {
+        if (dto.fromAccountCode === dto.toAccountCode) {
+            throw new common_1.BadRequestException('Source and destination account must differ');
+        }
+        if (!dto.amount || dto.amount <= 0) {
+            throw new common_1.BadRequestException('Transfer amount must be greater than 0');
+        }
+        const [fromAccount, toAccount] = await Promise.all([
+            this.cashTransactionsRepository.findCashAccountByCode(dto.fromAccountCode),
+            this.cashTransactionsRepository.findCashAccountByCode(dto.toAccountCode),
+        ]);
+        if (!fromAccount || !fromAccount.isActive) {
+            throw new common_1.BadRequestException(`Source account ${dto.fromAccountCode} not found or inactive`);
+        }
+        if (!toAccount || !toAccount.isActive) {
+            throw new common_1.BadRequestException(`Destination account ${dto.toAccountCode} not found or inactive`);
+        }
+        const transactionDate = new Date(dto.transactionDate);
+        const description = dto.description?.trim() ||
+            `Transfer ${fromAccount.accountName} → ${toAccount.accountName}`;
+        return await this.prisma.executeInTransaction(async (tx) => {
+            const transferGroupId = await this.cashTransactionsRepository.generateTransferGroupId();
+            const expenseNo = await this.cashTransactionsRepository.generateTransactionNumber('EXPENSE');
+            const incomeNo = await this.cashTransactionsRepository.generateTransactionNumber('INCOME');
+            const common = {
+                amount: dto.amount,
+                transactionDate,
+                description,
+                referenceType: reference_types_1.REFERENCE_TYPES.INTERNAL_TRANSFER,
+                isInternalTransfer: true,
+                transferGroupId,
+                status: 'APPROVED',
+                approvedBy: user.id,
+                approvedAt: new Date(),
+                createdBy: user.id,
+            };
+            const outLeg = await this.cashTransactionsRepository.create({
+                transactionNumber: expenseNo,
+                transactionType: 'EXPENSE',
+                cashAccountId: fromAccount.id,
+                ...common,
+            }, tx);
+            const inLeg = await this.cashTransactionsRepository.create({
+                transactionNumber: incomeNo,
+                transactionType: 'INCOME',
+                cashAccountId: toAccount.id,
+                ...common,
+            }, tx);
+            this.logger.log(`Transfer ${transferGroupId}: ${fromAccount.accountCode} → ${toAccount.accountCode} @ ${dto.amount}`);
+            return { transferGroupId, fromAccount, toAccount, legs: [outLeg, inLeg] };
+        });
+    }
+    async getCashAccounts() {
+        return this.cashTransactionsRepository.getCashAccounts();
+    }
+    async getAccountBalances(startDate, endDate) {
+        const start = startDate ? new Date(startDate) : undefined;
+        const end = endDate ? new Date(endDate) : undefined;
+        return this.cashTransactionsRepository.getAccountBalances(start, end);
     }
     async getByType(transactionType) {
         return await this.cashTransactionsRepository.getByType(transactionType);
@@ -226,6 +320,7 @@ let CashTransactionsService = CashTransactionsService_1 = class CashTransactions
                 transactionType: 'INCOME',
                 amount: iplPayment.calculatedAmount,
                 categoryId: category.id,
+                cashAccountId: (0, cash_accounts_1.accountIdForFund)(category.fundType) ?? cash_accounts_1.CASH_ACCOUNT_IDS.KAS_IPL,
                 description: `IPL Payment ${iplPayment.paymentNumber} - ${iplPayment.resident?.firstName || ''} ${iplPayment.resident?.lastName || ''} (Ref: ${iplPayment.referenceNumber})`,
                 referenceType: reference_types_1.REFERENCE_TYPES.IPL_PAYMENT,
                 referenceId: iplPayment.id,
@@ -256,6 +351,7 @@ let CashTransactionsService = CashTransactionsService_1 = class CashTransactions
                 transactionType: 'INCOME',
                 amount: residentPayment.amount,
                 categoryId: category.id,
+                cashAccountId: (0, cash_accounts_1.accountIdForFund)(category.fundType) ?? cash_accounts_1.CASH_ACCOUNT_IDS.KAS_WARGA,
                 description: `Iuran Kegiatan Warga - ${residentPayment.resident?.firstName || ''} ${residentPayment.resident?.lastName || ''} (Ref: ${residentPayment.referenceNumber})`,
                 referenceType: reference_types_1.REFERENCE_TYPES.KEGIATAN_PAYMENT,
                 referenceId: residentPayment.id,
@@ -286,6 +382,7 @@ let CashTransactionsService = CashTransactionsService_1 = class CashTransactions
                 transactionType: 'INCOME',
                 amount: residentPayment.amount,
                 categoryId: category.id,
+                cashAccountId: (0, cash_accounts_1.accountIdForFund)(category.fundType) ?? cash_accounts_1.CASH_ACCOUNT_IDS.KAS_WARGA,
                 description: `Resident Payment ${residentPayment.paymentNumber} - ${residentPayment.resident?.firstName || ''} ${residentPayment.resident?.lastName || ''} (Ref: ${residentPayment.referenceNumber})`,
                 referenceType: reference_types_1.REFERENCE_TYPES.RESIDENT_PAYMENT,
                 referenceId: residentPayment.id,
@@ -305,17 +402,17 @@ let CashTransactionsService = CashTransactionsService_1 = class CashTransactions
     async getIplReport(startDate, endDate) {
         const start = startDate ? new Date(startDate) : undefined;
         const end = endDate ? new Date(endDate) : undefined;
-        return await this.cashTransactionsRepository.getIplStatistics(start, end);
+        return await this.cashTransactionsRepository.getStatisticsByAccount(cash_accounts_1.CASH_ACCOUNT_IDS.KAS_IPL, start, end);
     }
     async getKegiatanReport(startDate, endDate) {
         const start = startDate ? new Date(startDate) : undefined;
         const end = endDate ? new Date(endDate) : undefined;
-        return await this.cashTransactionsRepository.getKegiatanStatistics(start, end);
+        return await this.cashTransactionsRepository.getStatisticsByAccount(cash_accounts_1.CASH_ACCOUNT_IDS.KAS_WARGA, start, end);
     }
-    async buildReportExport(reportLabel, referenceTypes, startDate, endDate) {
+    async buildReportExport(reportLabel, cashAccountId, startDate, endDate) {
         const start = startDate ? new Date(startDate) : undefined;
         const end = endDate ? new Date(endDate) : undefined;
-        const { transactions, summary, breakdown } = await this.cashTransactionsRepository.getReportData(referenceTypes, start, end);
+        const { transactions, summary, breakdown } = await this.cashTransactionsRepository.getReportData(cashAccountId, start, end);
         const buffer = await (0, cash_transactions_export_1.buildReportWorkbook)({
             title: `Laporan ${reportLabel}`,
             period: { startDate, endDate },
@@ -328,10 +425,10 @@ let CashTransactionsService = CashTransactionsService_1 = class CashTransactions
         return { buffer, filename };
     }
     async exportIplReport(startDate, endDate) {
-        return this.buildReportExport('IPL', [reference_types_1.REFERENCE_TYPES.IPL_PAYMENT, reference_types_1.REFERENCE_TYPES.IPL_EXPENSE], startDate, endDate);
+        return this.buildReportExport('IPL', cash_accounts_1.CASH_ACCOUNT_IDS.KAS_IPL, startDate, endDate);
     }
     async exportKegiatanReport(startDate, endDate) {
-        return this.buildReportExport('Kegiatan', [reference_types_1.REFERENCE_TYPES.KEGIATAN_PAYMENT, reference_types_1.REFERENCE_TYPES.KEGIATAN_EXPENSE], startDate, endDate);
+        return this.buildReportExport('Kegiatan', cash_accounts_1.CASH_ACCOUNT_IDS.KAS_WARGA, startDate, endDate);
     }
     async getByReferenceType(referenceType, startDate, endDate) {
         const start = startDate ? new Date(startDate) : undefined;

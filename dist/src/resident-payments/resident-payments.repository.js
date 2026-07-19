@@ -169,6 +169,45 @@ let ResidentPaymentsRepository = class ResidentPaymentsRepository {
         }
         return createdPayments;
     }
+    async getMatrixData(year, houseBlockId) {
+        const units = await this.prisma.houseUnit.findMany({
+            where: { deletedAt: null, ...(houseBlockId ? { houseBlockId } : {}) },
+            select: {
+                id: true,
+                unitCode: true,
+                unitNumber: true,
+                landArea: true,
+                buildingArea: true,
+                occupancyStatus: true,
+                isActive: true,
+                houseBlock: { select: { blockCode: true, blockName: true } },
+                residents: {
+                    where: { deletedAt: null, isActive: true },
+                    select: { id: true, firstName: true, lastName: true, phoneNumber: true },
+                    take: 1,
+                    orderBy: { createdAt: 'asc' },
+                },
+            },
+        });
+        const payments = await this.prisma.residentPayment.findMany({
+            where: {
+                deletedAt: null,
+                paymentDate: {
+                    gte: new Date(year, 0, 1),
+                    lt: new Date(year + 1, 0, 1),
+                },
+                ...(houseBlockId ? { resident: { houseBlockId } } : {}),
+            },
+            select: {
+                id: true,
+                paymentDate: true,
+                amount: true,
+                status: true,
+                resident: { select: { houseUnitId: true } },
+            },
+        });
+        return { units, payments };
+    }
 };
 exports.ResidentPaymentsRepository = ResidentPaymentsRepository;
 exports.ResidentPaymentsRepository = ResidentPaymentsRepository = __decorate([

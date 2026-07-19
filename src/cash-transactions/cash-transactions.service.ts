@@ -9,6 +9,12 @@ import { ApprovalAction } from '../approval-histories/dto/create-approval-histor
 import { PrismaService, PrismaTransactionalClient } from '../prisma/prisma.service';
 import { CurrentUserData } from '../common/decorators/current-user.decorator';
 import { REFERENCE_TYPES } from '../common/constants/reference-types';
+import {
+  CASH_ACCOUNT_IDS,
+  accountIdForFund,
+  FundType,
+} from '../common/constants/cash-accounts';
+import { TransferCashTransactionDto } from './dto/transfer-cash-transaction.dto';
 import { buildReportWorkbook } from './cash-transactions.export';
 
 @Injectable()
@@ -27,6 +33,7 @@ export class CashTransactionsService {
     startDate?: string,
     endDate?: string,
     categoryId?: string,
+    cashAccountId?: string,
   ) {
     const { page = 1, limit = 10, sortBy = 'transactionDate', sortOrder = 'desc', search, searchFields, filters } = queryOptions;
 
@@ -37,6 +44,11 @@ export class CashTransactionsService {
     // Filter by category if provided
     if (categoryId) {
       where.categoryId = categoryId;
+    }
+
+    // Filter by cash account (Kas) if provided
+    if (cashAccountId) {
+      where.cashAccountId = cashAccountId;
     }
 
     // Add date range filter if provided
@@ -87,8 +99,42 @@ export class CashTransactionsService {
     return await this.cashTransactionsRepository.findById(id);
   }
 
+  /**
+   * Resolve the cash account (Kas) a transaction should post to, from the
+   * fundType of its category. Throws if the category or its fundType is missing.
+   */
+  private async resolveCashAccountId(
+    categoryId: string | null | undefined,
+    tx?: PrismaTransactionalClient,
+  ): Promise<string> {
+    if (!categoryId) {
+      throw new BadRequestException('Category is required to determine the cash account (Kas)');
+    }
+    const client: any = tx || this.prisma;
+    const category = await client.transactionCategory.findFirst({
+      where: { id: categoryId, deletedAt: null },
+      select: { id: true, categoryCode: true, fundType: true },
+    });
+    if (!category) {
+      throw new BadRequestException(`Transaction category ${categoryId} not found`);
+    }
+    const accountId = accountIdForFund(category.fundType as FundType | null);
+    if (!accountId) {
+      throw new BadRequestException(
+        `Category "${category.categoryCode}" has no fundType; cannot determine Kas. Tag the category fundType (IPL/WARGA).`,
+      );
+    }
+    return accountId;
+  }
+
   async create(createCashTransactionDto: CreateCashTransactionDto, user: CurrentUserData) {
     return await this.prisma.executeInTransaction(async (tx) => {
+      // Resolve which Kas this transaction posts to (from category fundType)
+      const cashAccountId = await this.resolveCashAccountId(
+        createCashTransactionDto.categoryId,
+        tx as any,
+      );
+
       // Generate transaction number
       const transactionNumber = await this.cashTransactionsRepository.generateTransactionNumber(
         createCashTransactionDto.transactionType,
@@ -99,6 +145,7 @@ export class CashTransactionsService {
         {
           ...createCashTransactionDto,
           transactionNumber,
+          cashAccountId,
           createdBy: user.id,
           status: createCashTransactionDto.requiresApproval ? 'PENDING' : 'APPROVED',
         },
@@ -159,6 +206,9 @@ export class CashTransactionsService {
 
     const description = `Pengeluaran ${request.requestNumber} - ${request.title}`;
 
+    // Resolve which Kas this expense posts to from the request category fundType.
+    const cashAccountId = await this.resolveCashAccountId(categoryId, tx);
+
     const cashTx = await this.cashTransactionsRepository.create(
       {
         transactionNumber,
@@ -166,6 +216,7 @@ export class CashTransactionsService {
         transactionType: 'EXPENSE',
         amount: request.amount,
         categoryId,
+        cashAccountId,
         description,
         referenceType: REFERENCE_TYPES.EXPENSE_REQUEST,
         referenceId: request.id,
@@ -268,9 +319,120 @@ export class CashTransactionsService {
   }
 
   async softDelete(id: string) {
+    const existing = await this.cashTransactionsRepository.findById(id);
+
+    // If this row is one leg of an inter-account transfer, soft-delete BOTH
+    // legs atomically so the two kas balances stay consistent.
+    if (existing.transferGroupId) {
+      const count = await this.prisma.executeInTransaction(async (tx) => {
+        return this.cashTransactionsRepository.softDeleteByTransferGroup(
+          existing.transferGroupId as string,
+          tx,
+        );
+      });
+      this.logger.log(
+        `Transfer group ${existing.transferGroupId} soft deleted (${count} legs)`,
+      );
+      return existing;
+    }
+
     const transaction = await this.cashTransactionsRepository.softDelete(id);
     this.logger.log(`Cash transaction soft deleted: ${transaction.transactionNumber}`);
     return transaction;
+  }
+
+  /**
+   * Transfer money between two cash accounts (Kas). Creates two paired legs
+   * (EXPENSE on source, INCOME on destination) sharing a transferGroupId and
+   * flagged isInternalTransfer. Consolidated reports exclude these legs.
+   */
+  async transfer(dto: TransferCashTransactionDto, user: CurrentUserData) {
+    if (dto.fromAccountCode === dto.toAccountCode) {
+      throw new BadRequestException('Source and destination account must differ');
+    }
+    if (!dto.amount || dto.amount <= 0) {
+      throw new BadRequestException('Transfer amount must be greater than 0');
+    }
+
+    const [fromAccount, toAccount] = await Promise.all([
+      this.cashTransactionsRepository.findCashAccountByCode(dto.fromAccountCode),
+      this.cashTransactionsRepository.findCashAccountByCode(dto.toAccountCode),
+    ]);
+    if (!fromAccount || !fromAccount.isActive) {
+      throw new BadRequestException(`Source account ${dto.fromAccountCode} not found or inactive`);
+    }
+    if (!toAccount || !toAccount.isActive) {
+      throw new BadRequestException(
+        `Destination account ${dto.toAccountCode} not found or inactive`,
+      );
+    }
+
+    const transactionDate = new Date(dto.transactionDate);
+    const description =
+      dto.description?.trim() ||
+      `Transfer ${fromAccount.accountName} → ${toAccount.accountName}`;
+
+    return await this.prisma.executeInTransaction(async (tx) => {
+      const transferGroupId = await this.cashTransactionsRepository.generateTransferGroupId();
+      const expenseNo = await this.cashTransactionsRepository.generateTransactionNumber('EXPENSE');
+      const incomeNo = await this.cashTransactionsRepository.generateTransactionNumber('INCOME');
+
+      const common = {
+        amount: dto.amount,
+        transactionDate,
+        description,
+        referenceType: REFERENCE_TYPES.INTERNAL_TRANSFER,
+        isInternalTransfer: true,
+        transferGroupId,
+        status: 'APPROVED' as const,
+        approvedBy: user.id,
+        approvedAt: new Date(),
+        createdBy: user.id,
+      };
+
+      // Leg A: money leaves the source Kas
+      const outLeg = await this.cashTransactionsRepository.create(
+        {
+          transactionNumber: expenseNo,
+          transactionType: 'EXPENSE',
+          cashAccountId: fromAccount.id,
+          ...common,
+        },
+        tx,
+      );
+
+      // Leg B: money lands in the destination Kas
+      const inLeg = await this.cashTransactionsRepository.create(
+        {
+          transactionNumber: incomeNo,
+          transactionType: 'INCOME',
+          cashAccountId: toAccount.id,
+          ...common,
+        },
+        tx,
+      );
+
+      this.logger.log(
+        `Transfer ${transferGroupId}: ${fromAccount.accountCode} → ${toAccount.accountCode} @ ${dto.amount}`,
+      );
+      return { transferGroupId, fromAccount, toAccount, legs: [outLeg, inLeg] };
+    });
+  }
+
+  /**
+   * List all cash accounts (Kas).
+   */
+  async getCashAccounts() {
+    return this.cashTransactionsRepository.getCashAccounts();
+  }
+
+  /**
+   * Per-account balances (opening + income − expense) with optional date range.
+   */
+  async getAccountBalances(startDate?: string, endDate?: string) {
+    const start = startDate ? new Date(startDate) : undefined;
+    const end = endDate ? new Date(endDate) : undefined;
+    return this.cashTransactionsRepository.getAccountBalances(start, end);
   }
 
   async getByType(transactionType: string) {
@@ -328,6 +490,7 @@ export class CashTransactionsService {
         transactionType: 'INCOME',
         amount: iplPayment.calculatedAmount,
         categoryId: category.id,
+        cashAccountId: accountIdForFund(category.fundType) ?? CASH_ACCOUNT_IDS.KAS_IPL,
         description: `IPL Payment ${iplPayment.paymentNumber} - ${iplPayment.resident?.firstName || ''} ${iplPayment.resident?.lastName || ''} (Ref: ${iplPayment.referenceNumber})`,
         referenceType: REFERENCE_TYPES.IPL_PAYMENT,
         referenceId: iplPayment.id,
@@ -368,6 +531,7 @@ export class CashTransactionsService {
         transactionType: 'INCOME',
         amount: residentPayment.amount,
         categoryId: category.id,
+        cashAccountId: accountIdForFund(category.fundType) ?? CASH_ACCOUNT_IDS.KAS_WARGA,
         description: `Iuran Kegiatan Warga - ${residentPayment.resident?.firstName || ''} ${residentPayment.resident?.lastName || ''} (Ref: ${residentPayment.referenceNumber})`,
         referenceType: REFERENCE_TYPES.KEGIATAN_PAYMENT,
         referenceId: residentPayment.id,
@@ -408,6 +572,7 @@ export class CashTransactionsService {
         transactionType: 'INCOME',
         amount: residentPayment.amount,
         categoryId: category.id,
+        cashAccountId: accountIdForFund(category.fundType) ?? CASH_ACCOUNT_IDS.KAS_WARGA,
         description: `Resident Payment ${residentPayment.paymentNumber} - ${residentPayment.resident?.firstName || ''} ${residentPayment.resident?.lastName || ''} (Ref: ${residentPayment.referenceNumber})`,
         referenceType: REFERENCE_TYPES.RESIDENT_PAYMENT,
         referenceId: residentPayment.id,
@@ -426,31 +591,39 @@ export class CashTransactionsService {
   }
 
   /**
-   * Get IPL-specific report
+   * Get Kas IPL report (income IPL + operational/salary/IPL expenses).
    */
   async getIplReport(startDate?: string, endDate?: string) {
     const start = startDate ? new Date(startDate) : undefined;
     const end = endDate ? new Date(endDate) : undefined;
-    return await this.cashTransactionsRepository.getIplStatistics(start, end);
+    return await this.cashTransactionsRepository.getStatisticsByAccount(
+      CASH_ACCOUNT_IDS.KAS_IPL,
+      start,
+      end,
+    );
   }
 
   /**
-   * Get Kegiatan-specific report
+   * Get Kas Warga report (iuran rutin + kegiatan income + warga/kegiatan expenses).
    */
   async getKegiatanReport(startDate?: string, endDate?: string) {
     const start = startDate ? new Date(startDate) : undefined;
     const end = endDate ? new Date(endDate) : undefined;
-    return await this.cashTransactionsRepository.getKegiatanStatistics(start, end);
+    return await this.cashTransactionsRepository.getStatisticsByAccount(
+      CASH_ACCOUNT_IDS.KAS_WARGA,
+      start,
+      end,
+    );
   }
 
   /**
-   * Build an Excel (.xlsx) buffer + filename for a financial report.
+   * Build an Excel (.xlsx) buffer + filename for a per-Kas financial report.
    * @param reportLabel - short label used in the title and filename (e.g. "IPL")
-   * @param referenceTypes - reference types that scope the report transactions
+   * @param cashAccountId - cash account id that scopes the report transactions
    */
   private async buildReportExport(
     reportLabel: string,
-    referenceTypes: string[],
+    cashAccountId: string,
     startDate?: string,
     endDate?: string,
   ): Promise<{ buffer: Buffer; filename: string }> {
@@ -458,7 +631,7 @@ export class CashTransactionsService {
     const end = endDate ? new Date(endDate) : undefined;
 
     const { transactions, summary, breakdown } =
-      await this.cashTransactionsRepository.getReportData(referenceTypes, start, end);
+      await this.cashTransactionsRepository.getReportData(cashAccountId, start, end);
 
     const buffer = await buildReportWorkbook({
       title: `Laporan ${reportLabel}`,
@@ -475,33 +648,23 @@ export class CashTransactionsService {
   }
 
   /**
-   * Export IPL report to Excel (.xlsx)
+   * Export Kas IPL report to Excel (.xlsx)
    */
   async exportIplReport(
     startDate?: string,
     endDate?: string,
   ): Promise<{ buffer: Buffer; filename: string }> {
-    return this.buildReportExport(
-      'IPL',
-      [REFERENCE_TYPES.IPL_PAYMENT, REFERENCE_TYPES.IPL_EXPENSE],
-      startDate,
-      endDate,
-    );
+    return this.buildReportExport('IPL', CASH_ACCOUNT_IDS.KAS_IPL, startDate, endDate);
   }
 
   /**
-   * Export Kegiatan report to Excel (.xlsx)
+   * Export Kas Warga report to Excel (.xlsx)
    */
   async exportKegiatanReport(
     startDate?: string,
     endDate?: string,
   ): Promise<{ buffer: Buffer; filename: string }> {
-    return this.buildReportExport(
-      'Kegiatan',
-      [REFERENCE_TYPES.KEGIATAN_PAYMENT, REFERENCE_TYPES.KEGIATAN_EXPENSE],
-      startDate,
-      endDate,
-    );
+    return this.buildReportExport('Kegiatan', CASH_ACCOUNT_IDS.KAS_WARGA, startDate, endDate);
   }
 
   /**

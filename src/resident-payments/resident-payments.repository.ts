@@ -200,4 +200,52 @@ export class ResidentPaymentsRepository {
 
     return createdPayments;
   }
+
+  /**
+   * Raw data for the resident payment (Iuran Warga) matrix: all active units
+   * (with their first resident + block) and every resident payment in the
+   * given year. The service reduces these into the final unit x month matrix.
+   * Mirrors `IplPaymentsRepository.getMatrixData`.
+   */
+  async getMatrixData(year: number, houseBlockId?: string) {
+    const units = await this.prisma.houseUnit.findMany({
+      where: { deletedAt: null, ...(houseBlockId ? { houseBlockId } : {}) },
+      select: {
+        id: true,
+        unitCode: true,
+        unitNumber: true,
+        landArea: true,
+        buildingArea: true,
+        occupancyStatus: true,
+        isActive: true,
+        houseBlock: { select: { blockCode: true, blockName: true } },
+        residents: {
+          where: { deletedAt: null, isActive: true },
+          select: { id: true, firstName: true, lastName: true, phoneNumber: true },
+          take: 1,
+          orderBy: { createdAt: 'asc' },
+        },
+      },
+    });
+
+    const payments = await this.prisma.residentPayment.findMany({
+      where: {
+        deletedAt: null,
+        paymentDate: {
+          gte: new Date(year, 0, 1),
+          lt: new Date(year + 1, 0, 1),
+        },
+        ...(houseBlockId ? { resident: { houseBlockId } } : {}),
+      },
+      select: {
+        id: true,
+        paymentDate: true,
+        amount: true,
+        status: true,
+        resident: { select: { houseUnitId: true } },
+      },
+    });
+
+    return { units, payments };
+  }
 }

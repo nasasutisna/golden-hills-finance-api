@@ -31,6 +31,15 @@ let CashTransactionsRepository = class CashTransactionsRepository {
                             categoryCode: true,
                             categoryName: true,
                             categoryType: true,
+                            fundType: true,
+                        },
+                    },
+                    cashAccount: {
+                        select: {
+                            id: true,
+                            accountCode: true,
+                            accountName: true,
+                            fundType: true,
                         },
                     },
                     creator: {
@@ -60,6 +69,7 @@ let CashTransactionsRepository = class CashTransactionsRepository {
             where: { id, deletedAt: null },
             include: {
                 category: true,
+                cashAccount: true,
                 creator: true,
                 approver: true,
             },
@@ -79,7 +89,7 @@ let CashTransactionsRepository = class CashTransactionsRepository {
         const prisma = tx || this.prisma;
         return prisma.cashTransaction.create({
             data,
-            include: { category: true, creator: true, approver: true },
+            include: { category: true, cashAccount: true, creator: true, approver: true },
         });
     }
     async update(id, data, tx) {
@@ -88,7 +98,7 @@ let CashTransactionsRepository = class CashTransactionsRepository {
             return await prisma.cashTransaction.update({
                 where: { id },
                 data,
-                include: { category: true, creator: true, approver: true },
+                include: { category: true, cashAccount: true, creator: true, approver: true },
             });
         }
         catch (error) {
@@ -146,14 +156,29 @@ let CashTransactionsRepository = class CashTransactionsRepository {
             orderBy: { transactionDate: 'desc' },
         });
     }
-    async getTransactionStatistics(startDate, endDate, categoryId) {
+    baseLedgerWhere(opts = {}) {
         const where = { deletedAt: null };
-        if (categoryId) {
-            where.categoryId = categoryId;
+        if (opts.excludeTransfers) {
+            where.isInternalTransfer = false;
         }
-        if (startDate && endDate) {
-            where.transactionDate = { gte: startDate, lte: endDate };
+        if (opts.cashAccountId) {
+            where.cashAccountId = opts.cashAccountId;
         }
+        if (opts.categoryId) {
+            where.categoryId = opts.categoryId;
+        }
+        if (opts.startDate && opts.endDate) {
+            where.transactionDate = { gte: opts.startDate, lte: opts.endDate };
+        }
+        return where;
+    }
+    async getTransactionStatistics(startDate, endDate, categoryId) {
+        const where = this.baseLedgerWhere({
+            excludeTransfers: true,
+            categoryId,
+            startDate,
+            endDate,
+        });
         const [transactions, totalTransactions, pendingApproval] = await Promise.all([
             this.prisma.cashTransaction.findMany({
                 where,
@@ -222,26 +247,18 @@ let CashTransactionsRepository = class CashTransactionsRepository {
             orderBy: { transactionDate: 'desc' },
         });
     }
-    async getIplStatistics(startDate, endDate) {
-        const where = {
-            deletedAt: null,
-            OR: [
-                { referenceType: 'IPL_PAYMENT' },
-                { referenceType: 'IPL_EXPENSE' },
-            ],
-        };
-        if (startDate && endDate) {
-            where.transactionDate = { gte: startDate, lte: endDate };
-        }
+    async getStatisticsByAccount(cashAccountId, startDate, endDate) {
+        const where = this.baseLedgerWhere({
+            excludeTransfers: true,
+            cashAccountId,
+            startDate,
+            endDate,
+        });
         const transactions = await this.prisma.cashTransaction.findMany({
             where,
             include: {
                 category: {
-                    select: {
-                        id: true,
-                        categoryCode: true,
-                        categoryName: true,
-                    },
+                    select: { id: true, categoryCode: true, categoryName: true },
                 },
             },
         });
@@ -254,8 +271,8 @@ let CashTransactionsRepository = class CashTransactionsRepository {
         const breakdownByCategory = {};
         for (const t of transactions) {
             if (t.transactionType === 'EXPENSE' && t.category) {
-                const categoryName = t.category.categoryName;
-                breakdownByCategory[categoryName] = (breakdownByCategory[categoryName] || 0) + Number(t.amount);
+                const name = t.category.categoryName;
+                breakdownByCategory[name] = (breakdownByCategory[name] || 0) + Number(t.amount);
             }
         }
         return {
@@ -265,57 +282,13 @@ let CashTransactionsRepository = class CashTransactionsRepository {
             breakdownByCategory,
         };
     }
-    async getKegiatanStatistics(startDate, endDate) {
-        const where = {
-            deletedAt: null,
-            OR: [
-                { referenceType: 'KEGIATAN_PAYMENT' },
-                { referenceType: 'KEGIATAN_EXPENSE' },
-            ],
-        };
-        if (startDate && endDate) {
-            where.transactionDate = { gte: startDate, lte: endDate };
-        }
-        const transactions = await this.prisma.cashTransaction.findMany({
-            where,
-            include: {
-                category: {
-                    select: {
-                        id: true,
-                        categoryCode: true,
-                        categoryName: true,
-                    },
-                },
-            },
+    async getReportData(cashAccountId, startDate, endDate) {
+        const where = this.baseLedgerWhere({
+            excludeTransfers: true,
+            cashAccountId,
+            startDate,
+            endDate,
         });
-        const income = transactions
-            .filter((t) => t.transactionType === 'INCOME')
-            .reduce((sum, t) => sum + Number(t.amount), 0);
-        const expense = transactions
-            .filter((t) => t.transactionType === 'EXPENSE')
-            .reduce((sum, t) => sum + Number(t.amount), 0);
-        const breakdownByCategory = {};
-        for (const t of transactions) {
-            if (t.transactionType === 'EXPENSE' && t.category) {
-                const categoryName = t.category.categoryName;
-                breakdownByCategory[categoryName] = (breakdownByCategory[categoryName] || 0) + Number(t.amount);
-            }
-        }
-        return {
-            totalIncome: income,
-            totalExpense: expense,
-            balance: income - expense,
-            breakdownByCategory,
-        };
-    }
-    async getReportData(referenceTypes, startDate, endDate) {
-        const where = {
-            deletedAt: null,
-            referenceType: { in: referenceTypes },
-        };
-        if (startDate && endDate) {
-            where.transactionDate = { gte: startDate, lte: endDate };
-        }
         const rows = await this.prisma.cashTransaction.findMany({
             where,
             include: {
@@ -393,6 +366,71 @@ let CashTransactionsRepository = class CashTransactionsRepository {
             },
             breakdown: Array.from(breakdownMap.values()),
         };
+    }
+    async getCashAccounts() {
+        return this.prisma.cashAccount.findMany({
+            where: { deletedAt: null },
+            orderBy: { accountCode: 'asc' },
+        });
+    }
+    async findCashAccountByCode(accountCode) {
+        return this.prisma.cashAccount.findFirst({
+            where: { accountCode, deletedAt: null },
+        });
+    }
+    async getAccountBalances(startDate, endDate) {
+        const accounts = await this.getCashAccounts();
+        const sumByAccount = async (dateFilter) => {
+            const rows = await this.prisma.cashTransaction.findMany({
+                where: { deletedAt: null, ...(dateFilter ?? {}) },
+                select: { cashAccountId: true, transactionType: true, amount: true },
+            });
+            const map = new Map();
+            for (const t of rows) {
+                if (!t.cashAccountId)
+                    continue;
+                const acc = map.get(t.cashAccountId) ?? { income: 0, expense: 0 };
+                if (t.transactionType === 'INCOME')
+                    acc.income += Number(t.amount);
+                else if (t.transactionType === 'EXPENSE')
+                    acc.expense += Number(t.amount);
+                map.set(t.cashAccountId, acc);
+            }
+            return map;
+        };
+        const allByAccount = await sumByAccount();
+        const periodByAccount = startDate && endDate ? await sumByAccount({ transactionDate: { gte: startDate, lte: endDate } }) : null;
+        return accounts.map((a) => {
+            const all = allByAccount.get(a.id) ?? { income: 0, expense: 0 };
+            const period = periodByAccount?.get(a.id) ?? { income: 0, expense: 0 };
+            return {
+                id: a.id,
+                accountCode: a.accountCode,
+                accountName: a.accountName,
+                fundType: a.fundType,
+                openingBalance: Number(a.openingBalance),
+                balance: Number(a.openingBalance) + all.income - all.expense,
+                periodIncome: period.income,
+                periodExpense: period.expense,
+                periodBalance: period.income - period.expense,
+                isActive: a.isActive,
+            };
+        });
+    }
+    async generateTransferGroupId() {
+        const count = await this.prisma.cashTransaction.count({
+            where: { transferGroupId: { not: null } },
+        });
+        const timestamp = Date.now().toString().slice(-8);
+        return `TRF${timestamp}${String(count + 1).padStart(4, '0')}`;
+    }
+    async softDeleteByTransferGroup(transferGroupId, tx) {
+        const prisma = tx || this.prisma;
+        const result = await prisma.cashTransaction.updateMany({
+            where: { transferGroupId, deletedAt: null },
+            data: { deletedAt: new Date() },
+        });
+        return result.count;
     }
 };
 exports.CashTransactionsRepository = CashTransactionsRepository;

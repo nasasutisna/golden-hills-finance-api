@@ -32,4 +32,34 @@ export declare class ResidentPaymentsRepository {
         }>;
     }>;
     createManyInTransaction(payments: any[], tx: PrismaTransactionalClient): Promise<ResidentPayment[]>;
+    getMatrixData(year: number, houseBlockId?: string): Promise<{
+        units: {
+            id: string;
+            isActive: boolean;
+            houseBlock: {
+                blockCode: string;
+                blockName: string;
+            };
+            residents: {
+                id: string;
+                firstName: string;
+                lastName: string;
+                phoneNumber: string | null;
+            }[];
+            unitCode: string;
+            unitNumber: string;
+            landArea: import("@prisma/client-runtime-utils").Decimal;
+            buildingArea: import("@prisma/client-runtime-utils").Decimal;
+            occupancyStatus: string;
+        }[];
+        payments: {
+            id: string;
+            resident: {
+                houseUnitId: string | null;
+            };
+            status: string;
+            amount: import("@prisma/client-runtime-utils").Decimal;
+            paymentDate: Date;
+        }[];
+    }>;
 }

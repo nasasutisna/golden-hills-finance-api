@@ -758,107 +758,189 @@ async function main() {
   const categories = await Promise.all([
     prisma.transactionCategory.upsert({
       where: { categoryCode: 'CAT001' },
-      update: {},
+      update: { fundType: 'WARGA' },
       create: {
         categoryCode: 'CAT001',
         categoryName: 'Service Fee Income',
         description: 'Income from service fees',
         categoryType: 'INCOME',
+        fundType: 'WARGA',
         isActive: true,
       },
     }),
     prisma.transactionCategory.upsert({
       where: { categoryCode: 'CAT002' },
-      update: {},
+      update: { fundType: 'IPL' },
       create: {
         categoryCode: 'CAT002',
         categoryName: 'Utility Payment',
         description: 'Payments for utilities',
         categoryType: 'EXPENSE',
+        fundType: 'IPL',
         isActive: true,
       },
     }),
     prisma.transactionCategory.upsert({
       where: { categoryCode: 'CAT003' },
-      update: {},
+      update: { fundType: 'IPL' },
       create: {
         categoryCode: 'CAT003',
         categoryName: 'Salary Payment',
         description: 'Employee salary payments',
         categoryType: 'EXPENSE',
+        fundType: 'IPL',
         isActive: true,
       },
     }),
     prisma.transactionCategory.upsert({
       where: { categoryCode: 'CAT004' },
-      update: {},
+      update: { fundType: 'IPL' },
       create: {
         categoryCode: 'CAT004',
         categoryName: 'Maintenance Expense',
         description: 'Building and facility maintenance',
         categoryType: 'EXPENSE',
+        fundType: 'IPL',
         isActive: true,
       },
     }),
     prisma.transactionCategory.upsert({
       where: { categoryCode: 'CAT005' },
-      update: {},
+      update: { fundType: 'IPL' },
       create: {
         categoryCode: 'CAT005',
         categoryName: 'Office Supplies',
         description: 'Office supplies and equipment',
         categoryType: 'EXPENSE',
+        fundType: 'IPL',
         isActive: true,
       },
     }),
     // IPL and Kegiatan income categories for auto cash transaction creation
     prisma.transactionCategory.upsert({
       where: { categoryCode: 'IPL-MASUK' },
-      update: {},
+      update: { fundType: 'IPL' },
       create: {
         categoryCode: 'IPL-MASUK',
         categoryName: 'IPL Payment Income',
         description: 'Income from IPL (Iuran Pemeliharaan Lingkungan) payments',
         categoryType: 'INCOME',
+        fundType: 'IPL',
         isActive: true,
       },
     }),
     prisma.transactionCategory.upsert({
       where: { categoryCode: 'KEGIATAN-MASUK' },
-      update: {},
+      update: { fundType: 'WARGA' },
       create: {
         categoryCode: 'KEGIATAN-MASUK',
         categoryName: 'Kegiatan Payment Income',
         description: 'Income from community activity (Iuran Kegiatan Warga) payments',
         categoryType: 'INCOME',
+        fundType: 'WARGA',
         isActive: true,
       },
     }),
     prisma.transactionCategory.upsert({
       where: { categoryCode: 'RESIDENT-MASUK' },
-      update: {},
+      update: { fundType: 'WARGA' },
       create: {
         categoryCode: 'RESIDENT-MASUK',
         categoryName: 'Resident Payment Income',
         description: 'Income from manual resident payments (tagihan warga)',
         categoryType: 'INCOME',
+        fundType: 'WARGA',
         isActive: true,
       },
     }),
     prisma.transactionCategory.upsert({
       where: { categoryCode: 'PENGELUARAN-WARGA' },
-      update: {},
+      update: { fundType: 'WARGA' },
       create: {
         categoryCode: 'PENGELUARAN-WARGA',
         categoryName: 'Pengeluaran Warga/Pengurus',
         description: 'Default category for expense requests submitted by pengurus/warga',
         categoryType: 'EXPENSE',
+        fundType: 'WARGA',
+        isActive: true,
+      },
+    }),
+    // Expense categories for the separate Kas (Kas IPL / Kas Warga)
+    prisma.transactionCategory.upsert({
+      where: { categoryCode: 'OPERASIONAL-IPL' },
+      update: { fundType: 'IPL' },
+      create: {
+        categoryCode: 'OPERASIONAL-IPL',
+        categoryName: 'Operasional IPL',
+        description: 'Pengeluaran operasional paguyuban yang ditanggung Kas IPL',
+        categoryType: 'EXPENSE',
+        fundType: 'IPL',
+        isActive: true,
+      },
+    }),
+    prisma.transactionCategory.upsert({
+      where: { categoryCode: 'GAJI' },
+      update: { fundType: 'IPL' },
+      create: {
+        categoryCode: 'GAJI',
+        categoryName: 'Gaji / Upah',
+        description: 'Pembayaran gaji/upah (satpam, dll) yang ditanggung Kas IPL',
+        categoryType: 'EXPENSE',
+        fundType: 'IPL',
+        isActive: true,
+      },
+    }),
+    prisma.transactionCategory.upsert({
+      where: { categoryCode: 'KEGIATAN-KELUAR' },
+      update: { fundType: 'WARGA' },
+      create: {
+        categoryCode: 'KEGIATAN-KELUAR',
+        categoryName: 'Pengeluaran Kegiatan Warga',
+        description: 'Pengeluaran kegiatan warga (cth. 17 Agustusan) dari Kas Warga',
+        categoryType: 'EXPENSE',
+        fundType: 'WARGA',
         isActive: true,
       },
     }),
   ]);
 
   console.log(`✓ Created ${categories.length} transaction categories`);
+
+  // ============================================================
+  // 9b. CASH ACCOUNTS (Kas IPL & Kas Warga) — stable IDs so the
+  // split-kas backfill SQL and this seed converge across envs.
+  // ============================================================
+  const KAS_IPL_ID = '11111111-1111-1111-1111-111111111101';
+  const KAS_WARGA_ID = '11111111-1111-1111-1111-111111111102';
+
+  const cashAccounts = await Promise.all([
+    prisma.cashAccount.upsert({
+      where: { accountCode: 'KAS_IPL' },
+      update: { accountName: 'Kas IPL', fundType: 'IPL' },
+      create: {
+        id: KAS_IPL_ID,
+        accountCode: 'KAS_IPL',
+        accountName: 'Kas IPL',
+        fundType: 'IPL',
+        openingBalance: 0,
+        isActive: true,
+      },
+    }),
+    prisma.cashAccount.upsert({
+      where: { accountCode: 'KAS_WARGA' },
+      update: { accountName: 'Kas Warga', fundType: 'WARGA' },
+      create: {
+        id: KAS_WARGA_ID,
+        accountCode: 'KAS_WARGA',
+        accountName: 'Kas Warga',
+        fundType: 'WARGA',
+        openingBalance: 0,
+        isActive: true,
+      },
+    }),
+  ]);
+
+  console.log(`✓ Upserted ${cashAccounts.length} cash accounts (Kas IPL, Kas Warga)`);
 
   // ============================================================
   // 10. CREATE SALARY COMPONENTS

@@ -24,6 +24,7 @@ export declare class CashTransactionsRepository {
     getByCategory(categoryId: string): Promise<CashTransaction[]>;
     getByDateRange(startDate: Date, endDate: Date): Promise<CashTransaction[]>;
     getByApprovalStatus(status: string): Promise<CashTransaction[]>;
+    private baseLedgerWhere;
     getTransactionStatistics(startDate?: Date, endDate?: Date, categoryId?: string): Promise<{
         totalTransactions: number;
         totalIncome: number;
@@ -34,19 +35,13 @@ export declare class CashTransactionsRepository {
     updateApprovalStatus(transactionId: string, status: string, approvedBy?: string, tx?: PrismaTransactionalClient): Promise<CashTransaction>;
     generateTransactionNumber(transactionType: string): Promise<string>;
     getByReferenceType(referenceType: string, startDate?: Date, endDate?: Date): Promise<CashTransaction[]>;
-    getIplStatistics(startDate?: Date, endDate?: Date): Promise<{
+    getStatisticsByAccount(cashAccountId: string, startDate?: Date, endDate?: Date): Promise<{
         totalIncome: number;
         totalExpense: number;
         balance: number;
         breakdownByCategory: Record<string, number>;
     }>;
-    getKegiatanStatistics(startDate?: Date, endDate?: Date): Promise<{
-        totalIncome: number;
-        totalExpense: number;
-        balance: number;
-        breakdownByCategory: Record<string, number>;
-    }>;
-    getReportData(referenceTypes: string[], startDate?: Date, endDate?: Date): Promise<{
+    getReportData(cashAccountId: string, startDate?: Date, endDate?: Date): Promise<{
         transactions: Array<{
             transactionNumber: string;
             transactionDate: Date;
@@ -77,4 +72,40 @@ export declare class CashTransactionsRepository {
             totalAmount: number;
         }[];
     }>;
+    getCashAccounts(): Promise<{
+        id: string;
+        isActive: boolean;
+        createdAt: Date;
+        updatedAt: Date;
+        deletedAt: Date | null;
+        fundType: string;
+        accountCode: string;
+        accountName: string;
+        openingBalance: import("@prisma/client-runtime-utils").Decimal;
+    }[]>;
+    findCashAccountByCode(accountCode: string): Promise<{
+        id: string;
+        isActive: boolean;
+        createdAt: Date;
+        updatedAt: Date;
+        deletedAt: Date | null;
+        fundType: string;
+        accountCode: string;
+        accountName: string;
+        openingBalance: import("@prisma/client-runtime-utils").Decimal;
+    } | null>;
+    getAccountBalances(startDate?: Date, endDate?: Date): Promise<{
+        id: string;
+        accountCode: string;
+        accountName: string;
+        fundType: string;
+        openingBalance: number;
+        balance: number;
+        periodIncome: number;
+        periodExpense: number;
+        periodBalance: number;
+        isActive: boolean;
+    }[]>;
+    generateTransferGroupId(): Promise<string>;
+    softDeleteByTransferGroup(transferGroupId: string, tx?: PrismaTransactionalClient): Promise<number>;
 }

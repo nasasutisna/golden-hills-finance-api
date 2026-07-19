@@ -732,4 +732,53 @@ export class IplPaymentsRepository {
 
     return paymentsWithFiles;
   }
+
+  /**
+   * Raw data for the payment matrix: the year's periods, all active units
+   * (with their first resident + block), and every payment in that year.
+   * The service reduces these into the final matrix shape.
+   */
+  async getMatrixData(year: number, houseBlockId?: string) {
+    const periods = await this.prisma.iplPeriod.findMany({
+      where: { year, deletedAt: null },
+      orderBy: { month: 'asc' },
+      select: { id: true, month: true, year: true, baseRate: true },
+    });
+
+    const units = await this.prisma.houseUnit.findMany({
+      where: { deletedAt: null, ...(houseBlockId ? { houseBlockId } : {}) },
+      select: {
+        id: true,
+        unitCode: true,
+        unitNumber: true,
+        landArea: true,
+        buildingArea: true,
+        iplPercentage: true,
+        occupancyStatus: true,
+        occupancyNotes: true,
+        isBankBuyback: true,
+        isActive: true,
+        houseBlock: { select: { blockCode: true, blockName: true } },
+        residents: {
+          where: { deletedAt: null, isActive: true },
+          select: { id: true, firstName: true, lastName: true, phoneNumber: true },
+          take: 1,
+          orderBy: { createdAt: 'asc' },
+        },
+      },
+    });
+
+    const payments = await this.prisma.iplPayment.findMany({
+      where: { period: { year }, deletedAt: null },
+      select: {
+        id: true,
+        houseUnitId: true,
+        periodId: true,
+        status: true,
+        calculatedAmount: true,
+      },
+    });
+
+    return { periods, units, payments };
+  }
 }

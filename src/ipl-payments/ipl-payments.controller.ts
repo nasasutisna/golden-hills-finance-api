@@ -29,6 +29,7 @@ import { UpdateIplPaymentDto } from './dto/update-ipl-payment.dto';
 import { ApproveIplPaymentDto } from './dto/approve-ipl-payment.dto';
 import { RejectIplPaymentDto } from './dto/reject-ipl-payment.dto';
 import { QueryIplPaymentsDto } from './dto/query-ipl-payments.dto';
+import { QueryIplPaymentMatrixDto } from './dto/query-ipl-payment-matrix.dto';
 import { PaymentMethod } from './dto/enums';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
@@ -223,6 +224,23 @@ export class IplPaymentsController {
       statusCode: 200,
       message: 'IPL payment statistics retrieved successfully',
       data: stats,
+    };
+  }
+
+  @Get('matrix')
+  @Roles('ADMIN', 'ACCOUNTANT')
+  @ApiOperation({
+    summary: 'Get IPL payment matrix (Admin/Accountant only)',
+    description: 'Read-only matrix of house unit x monthly payment status for a year, with monthly and yearly totals.',
+  })
+  @ApiResponseDecorators.ok()
+  @ApiResponseDecorators.standard()
+  async getMatrix(@Query() query: QueryIplPaymentMatrixDto) {
+    const data = await this.iplPaymentsService.getMatrix(query);
+    return {
+      statusCode: 200,
+      message: 'IPL payment matrix retrieved successfully',
+      data,
     };
   }
 

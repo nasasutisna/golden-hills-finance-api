@@ -249,6 +249,117 @@ let ResidentPaymentsService = ResidentPaymentsService_1 = class ResidentPayments
             };
         });
     }
+    async getMatrix(query) {
+        const year = query.year ?? new Date().getFullYear();
+        const { units, payments } = await this.residentPaymentsRepository.getMatrixData(year, query.houseBlockId);
+        const MONTH_NAMES_SHORT = [
+            'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
+            'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des',
+        ];
+        const toNum = (v) => {
+            if (v == null)
+                return 0;
+            if (typeof v === 'number')
+                return v;
+            const n = Number(v);
+            return Number.isFinite(n) ? n : 0;
+        };
+        const paymentMap = new Map();
+        for (const pm of payments) {
+            const unitId = pm.resident?.houseUnitId;
+            if (!unitId)
+                continue;
+            const month = new Date(pm.paymentDate).getMonth() + 1;
+            let perUnit = paymentMap.get(unitId);
+            if (!perUnit) {
+                perUnit = new Map();
+                paymentMap.set(unitId, perUnit);
+            }
+            let perMonth = perUnit.get(month);
+            if (!perMonth) {
+                perMonth = { completed: [], pending: [] };
+                perUnit.set(month, perMonth);
+            }
+            if (pm.status === 'COMPLETED')
+                perMonth.completed.push(pm);
+            else if (pm.status === 'PENDING')
+                perMonth.pending.push(pm);
+        }
+        const monthTotals = new Array(12).fill(0);
+        let paidCellCount = 0;
+        const sortedUnits = [...units].sort((a, b) => {
+            const ba = a.houseBlock?.blockCode ?? '';
+            const bb = b.houseBlock?.blockCode ?? '';
+            if (ba !== bb)
+                return ba.localeCompare(bb);
+            return (a.unitNumber ?? '').localeCompare(b.unitNumber ?? '', undefined, { numeric: true });
+        });
+        const rows = sortedUnits.map((unit, index) => {
+            const perUnit = paymentMap.get(unit.id);
+            let paidCount = 0;
+            let pendingCount = 0;
+            const cells = MONTH_NAMES_SHORT.map((monthName, i) => {
+                const month = i + 1;
+                const perMonth = perUnit?.get(month);
+                const completed = perMonth?.completed ?? [];
+                const pending = perMonth?.pending ?? [];
+                let status = 'UNPAID';
+                let amount;
+                let paymentId = null;
+                if (completed.length > 0) {
+                    status = 'PAID';
+                    amount = completed.reduce((sum, p) => sum + toNum(p.amount), 0);
+                    paymentId = completed[0].id;
+                }
+                else if (pending.length > 0) {
+                    status = 'PENDING';
+                    paymentId = pending[0].id;
+                }
+                if (status === 'PAID') {
+                    paidCount++;
+                    monthTotals[i] += amount ?? 0;
+                }
+                else if (status === 'PENDING') {
+                    pendingCount++;
+                }
+                const cell = { month, monthName, status, paymentId };
+                if (status === 'PAID')
+                    cell.amount = amount;
+                return cell;
+            });
+            const resident = unit.residents?.[0];
+            const residentName = resident
+                ? [resident.firstName, resident.lastName].filter(Boolean).join(' ').trim() || null
+                : null;
+            return {
+                no: index + 1,
+                unitId: unit.id,
+                unitCode: unit.unitCode,
+                unitNumber: unit.unitNumber,
+                blockCode: unit.houseBlock?.blockCode ?? null,
+                blockName: unit.houseBlock?.blockName ?? null,
+                landArea: toNum(unit.landArea),
+                buildingArea: toNum(unit.buildingArea),
+                residentId: resident?.id ?? null,
+                residentName,
+                phoneNumber: resident?.phoneNumber ?? null,
+                isActive: unit.isActive,
+                cells,
+                paidCount,
+                pendingCount,
+            };
+        });
+        paidCellCount = rows.reduce((sum, r) => sum + r.paidCount, 0);
+        const grandTotal = monthTotals.reduce((sum, v) => sum + v, 0);
+        return {
+            year,
+            unitCount: rows.length,
+            paidCellCount,
+            grandTotal,
+            monthTotals,
+            rows,
+        };
+    }
 };
 exports.ResidentPaymentsService = ResidentPaymentsService;
 exports.ResidentPaymentsService = ResidentPaymentsService = ResidentPaymentsService_1 = __decorate([

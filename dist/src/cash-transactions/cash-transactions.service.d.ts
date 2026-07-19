@@ -6,6 +6,7 @@ import { TransactionCategoriesRepository } from '../transaction-categories/trans
 import { ApprovalHistoriesService } from '../approval-histories/approval-histories.service';
 import { PrismaService, PrismaTransactionalClient } from '../prisma/prisma.service';
 import { CurrentUserData } from '../common/decorators/current-user.decorator';
+import { TransferCashTransactionDto } from './dto/transfer-cash-transaction.dto';
 export declare class CashTransactionsService {
     private readonly cashTransactionsRepository;
     private readonly transactionCategoriesRepository;
@@ -13,7 +14,7 @@ export declare class CashTransactionsService {
     private readonly prisma;
     private readonly logger;
     constructor(cashTransactionsRepository: CashTransactionsRepository, transactionCategoriesRepository: TransactionCategoriesRepository, approvalHistoriesService: ApprovalHistoriesService, prisma: PrismaService);
-    findAll(queryOptions: QueryOptionsDto, startDate?: string, endDate?: string, categoryId?: string): Promise<{
+    findAll(queryOptions: QueryOptionsDto, startDate?: string, endDate?: string, categoryId?: string, cashAccountId?: string): Promise<{
         data: {
             id: string;
             description: string | null;
@@ -31,6 +32,9 @@ export declare class CashTransactionsService {
             categoryId: string | null;
             referenceType: string | null;
             referenceId: string | null;
+            cashAccountId: string | null;
+            isInternalTransfer: boolean;
+            transferGroupId: string | null;
         }[];
         meta: {
             page: number;
@@ -58,7 +62,11 @@ export declare class CashTransactionsService {
         categoryId: string | null;
         referenceType: string | null;
         referenceId: string | null;
+        cashAccountId: string | null;
+        isInternalTransfer: boolean;
+        transferGroupId: string | null;
     }>;
+    private resolveCashAccountId;
     create(createCashTransactionDto: CreateCashTransactionDto, user: CurrentUserData): Promise<{
         id: string;
         description: string | null;
@@ -76,6 +84,9 @@ export declare class CashTransactionsService {
         categoryId: string | null;
         referenceType: string | null;
         referenceId: string | null;
+        cashAccountId: string | null;
+        isInternalTransfer: boolean;
+        transferGroupId: string | null;
     }>;
     createFromExpenseRequest(request: {
         id: string;
@@ -102,6 +113,9 @@ export declare class CashTransactionsService {
         categoryId: string | null;
         referenceType: string | null;
         referenceId: string | null;
+        cashAccountId: string | null;
+        isInternalTransfer: boolean;
+        transferGroupId: string | null;
     }>;
     approveTransaction(id: string, user: CurrentUserData): Promise<{
         id: string;
@@ -120,6 +134,9 @@ export declare class CashTransactionsService {
         categoryId: string | null;
         referenceType: string | null;
         referenceId: string | null;
+        cashAccountId: string | null;
+        isInternalTransfer: boolean;
+        transferGroupId: string | null;
     }>;
     rejectTransaction(id: string, reason: string, user: CurrentUserData): Promise<{
         id: string;
@@ -138,6 +155,9 @@ export declare class CashTransactionsService {
         categoryId: string | null;
         referenceType: string | null;
         referenceId: string | null;
+        cashAccountId: string | null;
+        isInternalTransfer: boolean;
+        transferGroupId: string | null;
     }>;
     update(id: string, updateCashTransactionDto: UpdateCashTransactionDto): Promise<{
         id: string;
@@ -156,6 +176,9 @@ export declare class CashTransactionsService {
         categoryId: string | null;
         referenceType: string | null;
         referenceId: string | null;
+        cashAccountId: string | null;
+        isInternalTransfer: boolean;
+        transferGroupId: string | null;
     }>;
     softDelete(id: string): Promise<{
         id: string;
@@ -174,7 +197,79 @@ export declare class CashTransactionsService {
         categoryId: string | null;
         referenceType: string | null;
         referenceId: string | null;
+        cashAccountId: string | null;
+        isInternalTransfer: boolean;
+        transferGroupId: string | null;
     }>;
+    transfer(dto: TransferCashTransactionDto, user: CurrentUserData): Promise<{
+        transferGroupId: string;
+        fromAccount: {
+            id: string;
+            isActive: boolean;
+            createdAt: Date;
+            updatedAt: Date;
+            deletedAt: Date | null;
+            fundType: string;
+            accountCode: string;
+            accountName: string;
+            openingBalance: import("@prisma/client-runtime-utils").Decimal;
+        };
+        toAccount: {
+            id: string;
+            isActive: boolean;
+            createdAt: Date;
+            updatedAt: Date;
+            deletedAt: Date | null;
+            fundType: string;
+            accountCode: string;
+            accountName: string;
+            openingBalance: import("@prisma/client-runtime-utils").Decimal;
+        };
+        legs: {
+            id: string;
+            description: string | null;
+            createdAt: Date;
+            updatedAt: Date;
+            deletedAt: Date | null;
+            status: string;
+            approvedBy: string | null;
+            approvedAt: Date | null;
+            createdBy: string;
+            transactionNumber: string;
+            transactionDate: Date;
+            transactionType: string;
+            amount: import("@prisma/client-runtime-utils").Decimal;
+            categoryId: string | null;
+            referenceType: string | null;
+            referenceId: string | null;
+            cashAccountId: string | null;
+            isInternalTransfer: boolean;
+            transferGroupId: string | null;
+        }[];
+    }>;
+    getCashAccounts(): Promise<{
+        id: string;
+        isActive: boolean;
+        createdAt: Date;
+        updatedAt: Date;
+        deletedAt: Date | null;
+        fundType: string;
+        accountCode: string;
+        accountName: string;
+        openingBalance: import("@prisma/client-runtime-utils").Decimal;
+    }[]>;
+    getAccountBalances(startDate?: string, endDate?: string): Promise<{
+        id: string;
+        accountCode: string;
+        accountName: string;
+        fundType: string;
+        openingBalance: number;
+        balance: number;
+        periodIncome: number;
+        periodExpense: number;
+        periodBalance: number;
+        isActive: boolean;
+    }[]>;
     getByType(transactionType: string): Promise<{
         id: string;
         description: string | null;
@@ -192,6 +287,9 @@ export declare class CashTransactionsService {
         categoryId: string | null;
         referenceType: string | null;
         referenceId: string | null;
+        cashAccountId: string | null;
+        isInternalTransfer: boolean;
+        transferGroupId: string | null;
     }[]>;
     getByCategory(categoryId: string): Promise<{
         id: string;
@@ -210,6 +308,9 @@ export declare class CashTransactionsService {
         categoryId: string | null;
         referenceType: string | null;
         referenceId: string | null;
+        cashAccountId: string | null;
+        isInternalTransfer: boolean;
+        transferGroupId: string | null;
     }[]>;
     getByDateRange(startDate: string, endDate: string): Promise<{
         id: string;
@@ -228,6 +329,9 @@ export declare class CashTransactionsService {
         categoryId: string | null;
         referenceType: string | null;
         referenceId: string | null;
+        cashAccountId: string | null;
+        isInternalTransfer: boolean;
+        transferGroupId: string | null;
     }[]>;
     getByApprovalStatus(status: string): Promise<{
         id: string;
@@ -246,6 +350,9 @@ export declare class CashTransactionsService {
         categoryId: string | null;
         referenceType: string | null;
         referenceId: string | null;
+        cashAccountId: string | null;
+        isInternalTransfer: boolean;
+        transferGroupId: string | null;
     }[]>;
     getTransactionStatistics(startDate?: string, endDate?: string, categoryId?: string): Promise<{
         totalTransactions: number;
@@ -297,5 +404,8 @@ export declare class CashTransactionsService {
         categoryId: string | null;
         referenceType: string | null;
         referenceId: string | null;
+        cashAccountId: string | null;
+        isInternalTransfer: boolean;
+        transferGroupId: string | null;
     }[]>;
 }

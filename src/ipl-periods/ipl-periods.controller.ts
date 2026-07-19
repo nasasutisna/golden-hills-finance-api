@@ -19,6 +19,7 @@ import { IplPeriodsService } from './ipl-periods.service';
 import { CreateIplPeriodDto } from './dto/create-ipl-period.dto';
 import { UpdateIplPeriodDto } from './dto/update-ipl-period.dto';
 import { QueryIplPeriodsDto } from './dto/query-ipl-periods.dto';
+import { GenerateIplPeriodsDto } from './dto/generate-ipl-periods.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -46,6 +47,25 @@ export class IplPeriodsController {
       statusCode: 201,
       message: 'IPL period created successfully',
       data: period,
+    };
+  }
+
+  @Post('generate')
+  @Roles('ADMIN', 'ACCOUNTANT')
+  @ApiOperation({
+    summary: 'Generate IPL periods for a full year (Jan-Dec)',
+    description:
+      'Create all 12 monthly periods for the given year in one transaction. ' +
+      'Months that already exist are skipped. Optionally derive a per-month dueDate from a dueDay.',
+  })
+  @ApiResponseDecorators.created()
+  @ApiResponseDecorators.standard()
+  async generate(@Body() generateDto: GenerateIplPeriodsDto) {
+    const result = await this.iplPeriodsService.generateYear(generateDto);
+    return {
+      statusCode: 201,
+      message: 'IPL periods generated successfully',
+      data: result,
     };
   }
 
