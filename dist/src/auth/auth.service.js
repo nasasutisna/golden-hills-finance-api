@@ -63,7 +63,7 @@ let AuthService = AuthService_1 = class AuthService {
         const tokens = await this.generateTokens(user);
         await this.usersService.update(user.id, {
             refreshToken: tokens.refreshToken,
-            refreshTokenExpiry: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+            refreshTokenExpiry: this.getRefreshTokenExpiryDate(),
             lastLoginAt: new Date(),
         });
         this.logger.log(`User logged in: ${user.username}`);
@@ -154,7 +154,7 @@ let AuthService = AuthService_1 = class AuthService {
             const tokens = await this.generateTokens(user);
             await this.usersService.update(user.id, {
                 refreshToken: tokens.refreshToken,
-                refreshTokenExpiry: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+                refreshTokenExpiry: this.getRefreshTokenExpiryDate(),
             });
             return tokens;
         }
@@ -228,6 +228,11 @@ let AuthService = AuthService_1 = class AuthService {
             d: 86400,
         };
         return value * (multipliers[unit] || 3600);
+    }
+    getRefreshTokenExpiryDate() {
+        const expiration = this.configService.get('jwt.refreshExpiresIn') || '7d';
+        const expiresInSeconds = this.parseExpirationToSeconds(expiration);
+        return new Date(Date.now() + expiresInSeconds * 1000);
     }
     async validateToken(token) {
         try {

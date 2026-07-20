@@ -32,6 +32,7 @@ import { FileAttachmentsModule } from './file-attachments/file-attachments.modul
 import { IplPeriodsModule } from './ipl-periods/ipl-periods.module';
 import { IplPaymentsModule } from './ipl-payments/ipl-payments.module';
 import { ExpenseRequestsModule } from './expense-requests/expense-requests.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 
 @Module({
   imports: [
@@ -93,6 +94,9 @@ import { ExpenseRequestsModule } from './expense-requests/expense-requests.modul
     CommunityEventsModule,
     NotificationsModule,
     FileAttachmentsModule,
+
+    // Dashboard (aggregated overview)
+    DashboardModule,
 
     // All modules completed successfully
   ],

@@ -3,7 +3,10 @@ import { EmployeeSalaryHeadersRepository } from './employee-salary-headers.repos
 import { CreateEmployeeSalaryHeaderDto } from './dto/create-employee-salary-header.dto';
 import { UpdateEmployeeSalaryHeaderDto } from './dto/update-employee-salary-header.dto';
 import { QueryEmployeeSalaryHeadersDto } from './dto/query-employee-salary-headers.dto';
+import { CreateSimplePayrollDto } from './dto/create-simple-payroll.dto';
 import { PrismaService } from '../prisma/prisma.service';
+import { CashTransactionsService } from '../cash-transactions/cash-transactions.service';
+import { REFERENCE_TYPES } from '../common/constants/reference-types';
 import { PayrollStatus } from './dto/create-employee-salary-header.dto';
 
 @Injectable()
@@ -11,6 +14,7 @@ export class EmployeeSalaryHeadersService {
   constructor(
     private readonly repository: EmployeeSalaryHeadersRepository,
     private readonly prisma: PrismaService,
+    private readonly cashTransactionsService: CashTransactionsService,
   ) {}
 
   async create(createEmployeeSalaryHeaderDto: CreateEmployeeSalaryHeaderDto) {
@@ -87,7 +91,33 @@ export class EmployeeSalaryHeadersService {
     if (!header) {
       throw new NotFoundException(`Employee salary header with ID ${id} not found`);
     }
-    return header;
+
+    // Attach the linked Kas IPL expense posted when this payroll was paid
+    // (polymorphic link: referenceType=SALARY + referenceId=header id).
+    const cashTransaction = await this.prisma.cashTransaction.findFirst({
+      where: {
+        referenceType: REFERENCE_TYPES.SALARY,
+        referenceId: id,
+        deletedAt: null,
+      },
+      select: {
+        id: true,
+        transactionNumber: true,
+        transactionDate: true,
+        transactionType: true,
+        amount: true,
+        status: true,
+        description: true,
+        category: {
+          select: { id: true, categoryCode: true, categoryName: true, fundType: true },
+        },
+        cashAccount: {
+          select: { id: true, accountCode: true, accountName: true },
+        },
+      },
+    });
+
+    return { ...header, cashTransaction };
   }
 
   async update(id: string, updateEmployeeSalaryHeaderDto: UpdateEmployeeSalaryHeaderDto) {
@@ -227,16 +257,181 @@ export class EmployeeSalaryHeadersService {
     return updated;
   }
 
-  async markAsPaid(id: string, paymentDate?: Date) {
-    const header = await this.findById(id);
-
-    if (header.status !== PayrollStatus.APPROVED) {
-      throw new ConflictException('Can only mark approved payroll as paid');
+  /**
+   * Simple flat-amount payroll: create a PAID salary header AND post the
+   * matching IPL EXPENSE (category GAJI → Kas IPL) in one atomic transaction.
+   * payrollNumber is auto-generated; the form only collects employee, period,
+   * net salary, payment date, and optional notes.
+   */
+  async createSimplePayroll(dto: CreateSimplePayrollDto, userId: string) {
+    const employee = await this.prisma.employee.findFirst({
+      where: { id: dto.employeeId, deletedAt: null },
+      include: { position: true },
+    });
+    if (!employee) {
+      throw new NotFoundException(`Employee with ID ${dto.employeeId} not found`);
     }
 
-    return this.repository.update(id, {
-      status: PayrollStatus.PAID,
-      paymentDate: paymentDate || new Date(),
+    const existing = await this.repository.findByEmployeeAndPeriod(
+      dto.employeeId,
+      dto.payPeriod,
+    );
+    if (existing && existing.status !== PayrollStatus.CANCELLED) {
+      throw new ConflictException(
+        `Gaji untuk karyawan ini di periode ${dto.payPeriod} sudah ada`,
+      );
+    }
+
+    // payrollNumber must be unique even if a cancelled payroll for the same
+    // employee+period exists (undo → re-pay scenario). Append -2, -3, ... as needed.
+    const base = `PAY-${dto.payPeriod}-${employee.employeeCode}`;
+    let payrollNumber = base;
+    let seq = 2;
+    while (await this.repository.findByPayrollNumber(payrollNumber)) {
+      payrollNumber = `${base}-${seq++}`;
+    }
+
+    return await this.prisma.executeInTransaction(async (tx) => {
+      const header = await tx.employeeSalaryHeader.create({
+        data: {
+          payrollNumber,
+          employeeId: dto.employeeId,
+          payPeriod: dto.payPeriod,
+          paymentDate: dto.paymentDate ? new Date(dto.paymentDate) : new Date(),
+          basicSalary: dto.netSalary,
+          totalAllowances: 0,
+          totalDeductions: 0,
+          netSalary: dto.netSalary,
+          status: PayrollStatus.PAID,
+          locked: true,
+          notes: dto.notes,
+          createdBy: userId,
+        },
+        include: { employee: { include: { position: true } } },
+      });
+
+      // Post the IPL expense (Kas IPL) atomically with the header create.
+      const cashTransaction = await this.cashTransactionsService.createFromSalaryHeader(
+        header,
+        userId,
+        tx as any,
+      );
+
+      return { ...header, cashTransaction };
+    });
+  }
+
+  async markAsPaid(id: string, paymentDate?: Date, paidBy?: string) {
+    return await this.prisma.executeInTransaction(async (tx) => {
+      const header = await tx.employeeSalaryHeader.findFirst({
+        where: { id, deletedAt: null },
+        include: {
+          employee: { include: { position: true } },
+          details: { include: { component: true } },
+        },
+      });
+      if (!header) {
+        throw new NotFoundException(`Employee salary header with ID ${id} not found`);
+      }
+
+      if (header.status !== PayrollStatus.APPROVED) {
+        throw new ConflictException('Can only mark approved payroll as paid');
+      }
+
+      const updated = await tx.employeeSalaryHeader.update({
+        where: { id },
+        data: {
+          status: PayrollStatus.PAID,
+          paymentDate: paymentDate || new Date(),
+        },
+        include: {
+          employee: { include: { position: true } },
+          details: { include: { component: true } },
+        },
+      });
+
+      // Post the IPL expense (Kas IPL) atomically with the status flip.
+      if (paidBy) {
+        await this.cashTransactionsService.createFromSalaryHeader(
+          updated,
+          paidBy,
+          tx as any,
+        );
+      }
+
+      return updated;
+    });
+  }
+
+  /**
+   * Undo a paid payroll: mark the header CANCELLED (audit trail preserved)
+   * and soft-delete the linked Kas IPL expense in one atomic transaction.
+   * Soft-deleting the expense removes it from the Kas IPL report and restores
+   * the saldo (reports filter deletedAt: null via baseLedgerWhere).
+   */
+  async cancelPayroll(id: string, cancelledBy: string, reason?: string) {
+    return await this.prisma.executeInTransaction(async (tx) => {
+      const header = await tx.employeeSalaryHeader.findFirst({
+        where: { id, deletedAt: null },
+        include: {
+          employee: { include: { position: true } },
+          details: { include: { component: true } },
+        },
+      });
+      if (!header) {
+        throw new NotFoundException(`Employee salary header with ID ${id} not found`);
+      }
+      if (header.status === PayrollStatus.CANCELLED) {
+        throw new ConflictException('Penggajian sudah dibatalkan');
+      }
+      if (header.status !== PayrollStatus.PAID) {
+        throw new ConflictException('Hanya penggajian berstatus PAID yang bisa dibatalkan');
+      }
+
+      // Find & soft-delete the linked Kas IPL expense (atomic).
+      const cashTx = await tx.cashTransaction.findFirst({
+        where: { referenceType: REFERENCE_TYPES.SALARY, referenceId: id, deletedAt: null },
+        select: { id: true, transactionNumber: true },
+      });
+      if (cashTx) {
+        await tx.cashTransaction.update({
+          where: { id: cashTx.id },
+          data: { deletedAt: new Date() },
+        });
+      }
+
+      // Mark header cancelled.
+      const updated = await tx.employeeSalaryHeader.update({
+        where: { id },
+        data: { status: PayrollStatus.CANCELLED, locked: true },
+        include: {
+          employee: { include: { position: true } },
+          details: { include: { component: true } },
+        },
+      });
+
+      // Audit history.
+      await tx.approvalHistory.create({
+        data: {
+          entityType: 'EMPLOYEE_SALARY',
+          entityId: id,
+          action: 'CANCEL',
+          status: 'CANCELLED',
+          approvedBy: cancelledBy,
+          approvedAt: new Date(),
+          comments:
+            reason?.trim() ||
+            (cashTx
+              ? `Pembatalan penggajian; transaksi Kas IPL ${cashTx.transactionNumber} dihapus`
+              : 'Pembatalan penggajian'),
+          createdBy: cancelledBy,
+        },
+      });
+
+      return {
+        ...updated,
+        cancelledCashTransactionNumber: cashTx?.transactionNumber ?? null,
+      };
     });
   }
 }

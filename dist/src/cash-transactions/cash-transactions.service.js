@@ -150,6 +150,35 @@ let CashTransactionsService = CashTransactionsService_1 = class CashTransactions
         this.logger.log(`Cash transaction ${cashTx.transactionNumber} created from expense request ${request.requestNumber}`);
         return cashTx;
     }
+    async createFromSalaryHeader(header, paidBy, tx) {
+        const category = await this.transactionCategoriesRepository.findByCategoryCode('GAJI');
+        if (!category) {
+            throw new common_1.BadRequestException("Expense category 'GAJI' not found. Please seed transaction categories.");
+        }
+        const transactionNumber = await this.cashTransactionsRepository.generateTransactionNumber('EXPENSE');
+        const empName = header.employee
+            ? `${header.employee.firstName ?? ''} ${header.employee.lastName ?? ''}`.trim()
+            : '';
+        const description = `Gaji ${header.payPeriod}${empName ? ' — ' + empName : ''}`;
+        const cashAccountId = await this.resolveCashAccountId(category.id, tx);
+        const cashTx = await this.cashTransactionsRepository.create({
+            transactionNumber,
+            transactionDate: header.paymentDate || new Date(),
+            transactionType: 'EXPENSE',
+            amount: header.netSalary,
+            categoryId: category.id,
+            cashAccountId,
+            description,
+            referenceType: reference_types_1.REFERENCE_TYPES.SALARY,
+            referenceId: header.id,
+            status: 'APPROVED',
+            approvedBy: paidBy,
+            approvedAt: new Date(),
+            createdBy: paidBy,
+        }, tx);
+        this.logger.log(`Cash transaction ${cashTx.transactionNumber} created from salary ${header.payrollNumber}`);
+        return cashTx;
+    }
     async approveTransaction(id, user) {
         return await this.prisma.executeInTransaction(async (tx) => {
             const transaction = await this.cashTransactionsRepository.findById(id);

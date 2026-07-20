@@ -25,6 +25,7 @@ export declare class CreateEmployeeDto {
     hireDate: string;
     probationEndDate?: string;
     employmentStatus: EmploymentStatus;
+    basicSalary?: number;
     bankName?: string;
     bankAccountNumber?: string;
     bankAccountName?: string;

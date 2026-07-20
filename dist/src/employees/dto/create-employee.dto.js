@@ -12,6 +12,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.CreateEmployeeDto = exports.EmploymentStatus = void 0;
 const swagger_1 = require("@nestjs/swagger");
 const class_validator_1 = require("class-validator");
+const class_transformer_1 = require("class-transformer");
 const validators_1 = require("../../common/validators");
 var EmploymentStatus;
 (function (EmploymentStatus) {
@@ -236,6 +237,18 @@ __decorate([
     (0, class_validator_1.IsEnum)(EmploymentStatus, { message: 'Invalid employment status' }),
     __metadata("design:type", String)
 ], CreateEmployeeDto.prototype, "employmentStatus", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({
+        description: 'Basic salary (monthly, in IDR)',
+        example: 1500000,
+        required: false,
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsNumber)({ allowNaN: false }, { message: 'Basic salary must be a number' }),
+    (0, class_validator_1.Min)(0, { message: 'Basic salary cannot be negative' }),
+    __metadata("design:type", Number)
+], CreateEmployeeDto.prototype, "basicSalary", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({
         description: 'Bank name',

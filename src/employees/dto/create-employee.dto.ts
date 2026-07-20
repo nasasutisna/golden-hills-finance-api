@@ -7,9 +7,12 @@ import {
   IsPhoneNumber,
   IsDateString,
   IsEnum,
+  IsNumber,
+  Min,
   MinLength,
   MaxLength,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 import { IsValidEmail } from '../../common/validators';
 
 export enum EmploymentStatus {
@@ -209,6 +212,17 @@ export class CreateEmployeeDto {
   @IsNotEmpty({ message: 'Employment status is required' })
   @IsEnum(EmploymentStatus, { message: 'Invalid employment status' })
   employmentStatus: EmploymentStatus;
+
+  @ApiProperty({
+    description: 'Basic salary (monthly, in IDR)',
+    example: 1500000,
+    required: false,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber({ allowNaN: false }, { message: 'Basic salary must be a number' })
+  @Min(0, { message: 'Basic salary cannot be negative' })
+  basicSalary?: number;
 
   @ApiProperty({
     description: 'Bank name',

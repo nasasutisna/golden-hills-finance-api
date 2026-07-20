@@ -13,11 +13,14 @@ exports.EmployeeSalaryHeadersService = void 0;
 const common_1 = require("@nestjs/common");
 const employee_salary_headers_repository_1 = require("./employee-salary-headers.repository");
 const prisma_service_1 = require("../prisma/prisma.service");
+const cash_transactions_service_1 = require("../cash-transactions/cash-transactions.service");
+const reference_types_1 = require("../common/constants/reference-types");
 const create_employee_salary_header_dto_1 = require("./dto/create-employee-salary-header.dto");
 let EmployeeSalaryHeadersService = class EmployeeSalaryHeadersService {
-    constructor(repository, prisma) {
+    constructor(repository, prisma, cashTransactionsService) {
         this.repository = repository;
         this.prisma = prisma;
+        this.cashTransactionsService = cashTransactionsService;
     }
     async create(createEmployeeSalaryHeaderDto) {
         const existing = await this.repository.findByPayrollNumber(createEmployeeSalaryHeaderDto.payrollNumber);
@@ -72,7 +75,29 @@ let EmployeeSalaryHeadersService = class EmployeeSalaryHeadersService {
         if (!header) {
             throw new common_1.NotFoundException(`Employee salary header with ID ${id} not found`);
         }
-        return header;
+        const cashTransaction = await this.prisma.cashTransaction.findFirst({
+            where: {
+                referenceType: reference_types_1.REFERENCE_TYPES.SALARY,
+                referenceId: id,
+                deletedAt: null,
+            },
+            select: {
+                id: true,
+                transactionNumber: true,
+                transactionDate: true,
+                transactionType: true,
+                amount: true,
+                status: true,
+                description: true,
+                category: {
+                    select: { id: true, categoryCode: true, categoryName: true, fundType: true },
+                },
+                cashAccount: {
+                    select: { id: true, accountCode: true, accountName: true },
+                },
+            },
+        });
+        return { ...header, cashTransaction };
     }
     async update(id, updateEmployeeSalaryHeaderDto) {
         const header = await this.findById(id);
@@ -176,14 +201,133 @@ let EmployeeSalaryHeadersService = class EmployeeSalaryHeadersService {
         });
         return updated;
     }
-    async markAsPaid(id, paymentDate) {
-        const header = await this.findById(id);
-        if (header.status !== create_employee_salary_header_dto_1.PayrollStatus.APPROVED) {
-            throw new common_1.ConflictException('Can only mark approved payroll as paid');
+    async createSimplePayroll(dto, userId) {
+        const employee = await this.prisma.employee.findFirst({
+            where: { id: dto.employeeId, deletedAt: null },
+            include: { position: true },
+        });
+        if (!employee) {
+            throw new common_1.NotFoundException(`Employee with ID ${dto.employeeId} not found`);
         }
-        return this.repository.update(id, {
-            status: create_employee_salary_header_dto_1.PayrollStatus.PAID,
-            paymentDate: paymentDate || new Date(),
+        const existing = await this.repository.findByEmployeeAndPeriod(dto.employeeId, dto.payPeriod);
+        if (existing && existing.status !== create_employee_salary_header_dto_1.PayrollStatus.CANCELLED) {
+            throw new common_1.ConflictException(`Gaji untuk karyawan ini di periode ${dto.payPeriod} sudah ada`);
+        }
+        const base = `PAY-${dto.payPeriod}-${employee.employeeCode}`;
+        let payrollNumber = base;
+        let seq = 2;
+        while (await this.repository.findByPayrollNumber(payrollNumber)) {
+            payrollNumber = `${base}-${seq++}`;
+        }
+        return await this.prisma.executeInTransaction(async (tx) => {
+            const header = await tx.employeeSalaryHeader.create({
+                data: {
+                    payrollNumber,
+                    employeeId: dto.employeeId,
+                    payPeriod: dto.payPeriod,
+                    paymentDate: dto.paymentDate ? new Date(dto.paymentDate) : new Date(),
+                    basicSalary: dto.netSalary,
+                    totalAllowances: 0,
+                    totalDeductions: 0,
+                    netSalary: dto.netSalary,
+                    status: create_employee_salary_header_dto_1.PayrollStatus.PAID,
+                    locked: true,
+                    notes: dto.notes,
+                    createdBy: userId,
+                },
+                include: { employee: { include: { position: true } } },
+            });
+            const cashTransaction = await this.cashTransactionsService.createFromSalaryHeader(header, userId, tx);
+            return { ...header, cashTransaction };
+        });
+    }
+    async markAsPaid(id, paymentDate, paidBy) {
+        return await this.prisma.executeInTransaction(async (tx) => {
+            const header = await tx.employeeSalaryHeader.findFirst({
+                where: { id, deletedAt: null },
+                include: {
+                    employee: { include: { position: true } },
+                    details: { include: { component: true } },
+                },
+            });
+            if (!header) {
+                throw new common_1.NotFoundException(`Employee salary header with ID ${id} not found`);
+            }
+            if (header.status !== create_employee_salary_header_dto_1.PayrollStatus.APPROVED) {
+                throw new common_1.ConflictException('Can only mark approved payroll as paid');
+            }
+            const updated = await tx.employeeSalaryHeader.update({
+                where: { id },
+                data: {
+                    status: create_employee_salary_header_dto_1.PayrollStatus.PAID,
+                    paymentDate: paymentDate || new Date(),
+                },
+                include: {
+                    employee: { include: { position: true } },
+                    details: { include: { component: true } },
+                },
+            });
+            if (paidBy) {
+                await this.cashTransactionsService.createFromSalaryHeader(updated, paidBy, tx);
+            }
+            return updated;
+        });
+    }
+    async cancelPayroll(id, cancelledBy, reason) {
+        return await this.prisma.executeInTransaction(async (tx) => {
+            const header = await tx.employeeSalaryHeader.findFirst({
+                where: { id, deletedAt: null },
+                include: {
+                    employee: { include: { position: true } },
+                    details: { include: { component: true } },
+                },
+            });
+            if (!header) {
+                throw new common_1.NotFoundException(`Employee salary header with ID ${id} not found`);
+            }
+            if (header.status === create_employee_salary_header_dto_1.PayrollStatus.CANCELLED) {
+                throw new common_1.ConflictException('Penggajian sudah dibatalkan');
+            }
+            if (header.status !== create_employee_salary_header_dto_1.PayrollStatus.PAID) {
+                throw new common_1.ConflictException('Hanya penggajian berstatus PAID yang bisa dibatalkan');
+            }
+            const cashTx = await tx.cashTransaction.findFirst({
+                where: { referenceType: reference_types_1.REFERENCE_TYPES.SALARY, referenceId: id, deletedAt: null },
+                select: { id: true, transactionNumber: true },
+            });
+            if (cashTx) {
+                await tx.cashTransaction.update({
+                    where: { id: cashTx.id },
+                    data: { deletedAt: new Date() },
+                });
+            }
+            const updated = await tx.employeeSalaryHeader.update({
+                where: { id },
+                data: { status: create_employee_salary_header_dto_1.PayrollStatus.CANCELLED, locked: true },
+                include: {
+                    employee: { include: { position: true } },
+                    details: { include: { component: true } },
+                },
+            });
+            await tx.approvalHistory.create({
+                data: {
+                    entityType: 'EMPLOYEE_SALARY',
+                    entityId: id,
+                    action: 'CANCEL',
+                    status: 'CANCELLED',
+                    approvedBy: cancelledBy,
+                    approvedAt: new Date(),
+                    comments: reason?.trim() ||
+                        (cashTx
+                            ? `Pembatalan penggajian; transaksi Kas IPL ${cashTx.transactionNumber} dihapus`
+                            : 'Pembatalan penggajian'),
+                    createdBy: cancelledBy,
+                },
+            });
+            return {
+                ...updated,
+                cancelledCashTransactionNumber: cashTx?.transactionNumber ?? null,
+            };
         });
     }
 };
@@ -191,6 +335,7 @@ exports.EmployeeSalaryHeadersService = EmployeeSalaryHeadersService;
 exports.EmployeeSalaryHeadersService = EmployeeSalaryHeadersService = __decorate([
     (0, common_1.Injectable)(),
     __metadata("design:paramtypes", [employee_salary_headers_repository_1.EmployeeSalaryHeadersRepository,
-        prisma_service_1.PrismaService])
+        prisma_service_1.PrismaService,
+        cash_transactions_service_1.CashTransactionsService])
 ], EmployeeSalaryHeadersService);
 //# sourceMappingURL=employee-salary-headers.service.js.map

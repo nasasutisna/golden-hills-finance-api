@@ -117,6 +117,37 @@ export declare class CashTransactionsService {
         isInternalTransfer: boolean;
         transferGroupId: string | null;
     }>;
+    createFromSalaryHeader(header: {
+        id: string;
+        payrollNumber: string;
+        payPeriod: string;
+        netSalary: any;
+        paymentDate: Date | null;
+        employee?: {
+            firstName?: string | null;
+            lastName?: string | null;
+        } | null;
+    }, paidBy: string, tx?: PrismaTransactionalClient): Promise<{
+        id: string;
+        description: string | null;
+        createdAt: Date;
+        updatedAt: Date;
+        deletedAt: Date | null;
+        status: string;
+        approvedBy: string | null;
+        approvedAt: Date | null;
+        createdBy: string;
+        transactionNumber: string;
+        transactionDate: Date;
+        transactionType: string;
+        amount: import("@prisma/client-runtime-utils").Decimal;
+        categoryId: string | null;
+        referenceType: string | null;
+        referenceId: string | null;
+        cashAccountId: string | null;
+        isInternalTransfer: boolean;
+        transferGroupId: string | null;
+    }>;
     approveTransaction(id: string, user: CurrentUserData): Promise<{
         id: string;
         description: string | null;

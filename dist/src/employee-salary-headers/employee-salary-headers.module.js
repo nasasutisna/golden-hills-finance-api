@@ -11,11 +11,13 @@ const common_1 = require("@nestjs/common");
 const employee_salary_headers_controller_1 = require("./employee-salary-headers.controller");
 const employee_salary_headers_service_1 = require("./employee-salary-headers.service");
 const employee_salary_headers_repository_1 = require("./employee-salary-headers.repository");
+const cash_transactions_module_1 = require("../cash-transactions/cash-transactions.module");
 let EmployeeSalaryHeadersModule = class EmployeeSalaryHeadersModule {
 };
 exports.EmployeeSalaryHeadersModule = EmployeeSalaryHeadersModule;
 exports.EmployeeSalaryHeadersModule = EmployeeSalaryHeadersModule = __decorate([
     (0, common_1.Module)({
+        imports: [cash_transactions_module_1.CashTransactionsModule],
         controllers: [employee_salary_headers_controller_1.EmployeeSalaryHeadersController],
         providers: [employee_salary_headers_service_1.EmployeeSalaryHeadersService, employee_salary_headers_repository_1.EmployeeSalaryHeadersRepository],
         exports: [employee_salary_headers_service_1.EmployeeSalaryHeadersService, employee_salary_headers_repository_1.EmployeeSalaryHeadersRepository],

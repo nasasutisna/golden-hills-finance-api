@@ -44,5 +44,6 @@ export declare class AuthService {
     verifyEmail(token: string): Promise<void>;
     generateTokens(user: any): Promise<AuthTokens>;
     private parseExpirationToSeconds;
+    private getRefreshTokenExpiryDate;
     validateToken(token: string): Promise<JwtPayload>;
 }

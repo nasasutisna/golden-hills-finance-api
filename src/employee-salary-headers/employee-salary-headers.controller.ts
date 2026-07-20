@@ -12,6 +12,7 @@ import {
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { EmployeeSalaryHeadersService } from './employee-salary-headers.service';
 import { CreateEmployeeSalaryHeaderDto } from './dto/create-employee-salary-header.dto';
+import { CreateSimplePayrollDto } from './dto/create-simple-payroll.dto';
 import { UpdateEmployeeSalaryHeaderDto } from './dto/update-employee-salary-header.dto';
 import { QueryEmployeeSalaryHeadersDto } from './dto/query-employee-salary-headers.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
@@ -34,6 +35,21 @@ export class EmployeeSalaryHeadersController {
   @ApiResponse({ status: 409, description: 'Payroll number already exists' })
   create(@Body() createEmployeeSalaryHeaderDto: CreateEmployeeSalaryHeaderDto) {
     return this.employeeSalaryHeadersService.create(createEmployeeSalaryHeaderDto);
+  }
+
+  @Post('simple')
+  @Roles('ADMIN', 'ACCOUNTANT')
+  @ApiOperation({
+    summary: 'Penggajian sederhana: catat gaji (1 angka) & langsung posting pengeluaran Kas IPL',
+  })
+  @ApiResponse({ status: 201, description: 'Payroll created and IPL expense posted' })
+  @ApiResponse({ status: 400, description: 'Bad request' })
+  @ApiResponse({ status: 409, description: 'Salary for this employee/period already exists' })
+  createSimplePayroll(
+    @Body() dto: CreateSimplePayrollDto,
+    @CurrentUser('id') userId: string,
+  ) {
+    return this.employeeSalaryHeadersService.createSimplePayroll(dto, userId);
   }
 
   @Get()
@@ -87,8 +103,32 @@ export class EmployeeSalaryHeadersController {
   @ApiResponse({ status: 200, description: 'Employee salary marked as paid successfully' })
   @ApiResponse({ status: 404, description: 'Employee salary header not found' })
   @ApiResponse({ status: 409, description: 'Cannot mark as paid with invalid status' })
-  markAsPaid(@Param('id') id: string, @Body('paymentDate') paymentDate?: string) {
-    return this.employeeSalaryHeadersService.markAsPaid(id, paymentDate ? new Date(paymentDate) : undefined);
+  markAsPaid(
+    @Param('id') id: string,
+    @CurrentUser('id') userId: string,
+    @Body('paymentDate') paymentDate?: string,
+  ) {
+    return this.employeeSalaryHeadersService.markAsPaid(
+      id,
+      paymentDate ? new Date(paymentDate) : undefined,
+      userId,
+    );
+  }
+
+  @Patch(':id/cancel')
+  @Roles('ADMIN')
+  @ApiOperation({
+    summary: 'Batalkan penggajian (CANCELLED) & hapus transaksi Kas IPL tertaut',
+  })
+  @ApiResponse({ status: 200, description: 'Payroll cancelled, IPL expense removed' })
+  @ApiResponse({ status: 404, description: 'Employee salary header not found' })
+  @ApiResponse({ status: 409, description: 'Only PAID payroll can be cancelled' })
+  cancelPayroll(
+    @Param('id') id: string,
+    @CurrentUser('id') userId: string,
+    @Body('reason') reason?: string,
+  ) {
+    return this.employeeSalaryHeadersService.cancelPayroll(id, userId, reason);
   }
 
   @Delete(':id')

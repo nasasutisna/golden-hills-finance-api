@@ -17,6 +17,7 @@ const common_1 = require("@nestjs/common");
 const swagger_1 = require("@nestjs/swagger");
 const employee_salary_headers_service_1 = require("./employee-salary-headers.service");
 const create_employee_salary_header_dto_1 = require("./dto/create-employee-salary-header.dto");
+const create_simple_payroll_dto_1 = require("./dto/create-simple-payroll.dto");
 const update_employee_salary_header_dto_1 = require("./dto/update-employee-salary-header.dto");
 const query_employee_salary_headers_dto_1 = require("./dto/query-employee-salary-headers.dto");
 const jwt_auth_guard_1 = require("../common/guards/jwt-auth.guard");
@@ -29,6 +30,9 @@ let EmployeeSalaryHeadersController = class EmployeeSalaryHeadersController {
     }
     create(createEmployeeSalaryHeaderDto) {
         return this.employeeSalaryHeadersService.create(createEmployeeSalaryHeaderDto);
+    }
+    createSimplePayroll(dto, userId) {
+        return this.employeeSalaryHeadersService.createSimplePayroll(dto, userId);
     }
     findAll(queryDto) {
         return this.employeeSalaryHeadersService.findAll(queryDto);
@@ -45,8 +49,11 @@ let EmployeeSalaryHeadersController = class EmployeeSalaryHeadersController {
     approveSalary(id, approverId) {
         return this.employeeSalaryHeadersService.approveSalary(id, approverId);
     }
-    markAsPaid(id, paymentDate) {
-        return this.employeeSalaryHeadersService.markAsPaid(id, paymentDate ? new Date(paymentDate) : undefined);
+    markAsPaid(id, userId, paymentDate) {
+        return this.employeeSalaryHeadersService.markAsPaid(id, paymentDate ? new Date(paymentDate) : undefined, userId);
+    }
+    cancelPayroll(id, userId, reason) {
+        return this.employeeSalaryHeadersService.cancelPayroll(id, userId, reason);
     }
     remove(id) {
         return this.employeeSalaryHeadersService.remove(id);
@@ -65,6 +72,21 @@ __decorate([
     __metadata("design:paramtypes", [create_employee_salary_header_dto_1.CreateEmployeeSalaryHeaderDto]),
     __metadata("design:returntype", void 0)
 ], EmployeeSalaryHeadersController.prototype, "create", null);
+__decorate([
+    (0, common_1.Post)('simple'),
+    (0, roles_decorator_1.Roles)('ADMIN', 'ACCOUNTANT'),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Penggajian sederhana: catat gaji (1 angka) & langsung posting pengeluaran Kas IPL',
+    }),
+    (0, swagger_1.ApiResponse)({ status: 201, description: 'Payroll created and IPL expense posted' }),
+    (0, swagger_1.ApiResponse)({ status: 400, description: 'Bad request' }),
+    (0, swagger_1.ApiResponse)({ status: 409, description: 'Salary for this employee/period already exists' }),
+    __param(0, (0, common_1.Body)()),
+    __param(1, (0, current_user_decorator_1.CurrentUser)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [create_simple_payroll_dto_1.CreateSimplePayrollDto, String]),
+    __metadata("design:returntype", void 0)
+], EmployeeSalaryHeadersController.prototype, "createSimplePayroll", null);
 __decorate([
     (0, common_1.Get)(),
     (0, swagger_1.ApiOperation)({ summary: 'Get all employee salary headers with pagination' }),
@@ -130,11 +152,28 @@ __decorate([
     (0, swagger_1.ApiResponse)({ status: 404, description: 'Employee salary header not found' }),
     (0, swagger_1.ApiResponse)({ status: 409, description: 'Cannot mark as paid with invalid status' }),
     __param(0, (0, common_1.Param)('id')),
-    __param(1, (0, common_1.Body)('paymentDate')),
+    __param(1, (0, current_user_decorator_1.CurrentUser)('id')),
+    __param(2, (0, common_1.Body)('paymentDate')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:paramtypes", [String, String, String]),
     __metadata("design:returntype", void 0)
 ], EmployeeSalaryHeadersController.prototype, "markAsPaid", null);
+__decorate([
+    (0, common_1.Patch)(':id/cancel'),
+    (0, roles_decorator_1.Roles)('ADMIN'),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Batalkan penggajian (CANCELLED) & hapus transaksi Kas IPL tertaut',
+    }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Payroll cancelled, IPL expense removed' }),
+    (0, swagger_1.ApiResponse)({ status: 404, description: 'Employee salary header not found' }),
+    (0, swagger_1.ApiResponse)({ status: 409, description: 'Only PAID payroll can be cancelled' }),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, current_user_decorator_1.CurrentUser)('id')),
+    __param(2, (0, common_1.Body)('reason')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, String]),
+    __metadata("design:returntype", void 0)
+], EmployeeSalaryHeadersController.prototype, "cancelPayroll", null);
 __decorate([
     (0, common_1.Delete)(':id'),
     (0, roles_decorator_1.Roles)('ADMIN'),

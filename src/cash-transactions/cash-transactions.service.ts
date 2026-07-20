@@ -234,6 +234,69 @@ export class CashTransactionsService {
     return cashTx;
   }
 
+  /**
+   * Create an EXPENSE CashTransaction from a paid EmployeeSalaryHeader.
+   * Posts to the Kas whose fundType matches the 'GAJI' category (Kas IPL).
+   * tx-aware so the caller (markAsPaid / createSimplePayroll) can keep the
+   * status flip + ledger post atomic. Mirrors createFromExpenseRequest.
+   * Additive only — does not affect existing flows.
+   */
+  async createFromSalaryHeader(
+    header: {
+      id: string;
+      payrollNumber: string;
+      payPeriod: string;
+      netSalary: any;
+      paymentDate: Date | null;
+      employee?: { firstName?: string | null; lastName?: string | null } | null;
+    },
+    paidBy: string,
+    tx?: PrismaTransactionalClient,
+  ) {
+    const category = await this.transactionCategoriesRepository.findByCategoryCode('GAJI');
+    if (!category) {
+      throw new BadRequestException(
+        "Expense category 'GAJI' not found. Please seed transaction categories.",
+      );
+    }
+
+    const transactionNumber = await this.cashTransactionsRepository.generateTransactionNumber(
+      'EXPENSE',
+    );
+
+    const empName = header.employee
+      ? `${header.employee.firstName ?? ''} ${header.employee.lastName ?? ''}`.trim()
+      : '';
+    const description = `Gaji ${header.payPeriod}${empName ? ' — ' + empName : ''}`;
+
+    // GAJI category has fundType IPL → resolves to Kas IPL.
+    const cashAccountId = await this.resolveCashAccountId(category.id, tx);
+
+    const cashTx = await this.cashTransactionsRepository.create(
+      {
+        transactionNumber,
+        transactionDate: header.paymentDate || new Date(),
+        transactionType: 'EXPENSE',
+        amount: header.netSalary,
+        categoryId: category.id,
+        cashAccountId,
+        description,
+        referenceType: REFERENCE_TYPES.SALARY,
+        referenceId: header.id,
+        status: 'APPROVED',
+        approvedBy: paidBy,
+        approvedAt: new Date(),
+        createdBy: paidBy,
+      } as any,
+      tx,
+    );
+
+    this.logger.log(
+      `Cash transaction ${cashTx.transactionNumber} created from salary ${header.payrollNumber}`,
+    );
+    return cashTx;
+  }
+
   async approveTransaction(id: string, user: CurrentUserData) {
     return await this.prisma.executeInTransaction(async (tx) => {
       const transaction = await this.cashTransactionsRepository.findById(id);

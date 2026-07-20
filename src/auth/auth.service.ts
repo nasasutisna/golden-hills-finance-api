@@ -98,7 +98,7 @@ export class AuthService {
     // Update refresh token and last login
     await this.usersService.update(user.id, {
       refreshToken: tokens.refreshToken,
-      refreshTokenExpiry: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+      refreshTokenExpiry: this.getRefreshTokenExpiryDate(),
       lastLoginAt: new Date(),
     });
 
@@ -219,7 +219,7 @@ export class AuthService {
       // Update refresh token
       await this.usersService.update(user.id, {
         refreshToken: tokens.refreshToken,
-        refreshTokenExpiry: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        refreshTokenExpiry: this.getRefreshTokenExpiryDate(),
       });
 
       return tokens;
@@ -312,6 +312,18 @@ export class AuthService {
     };
 
     return value * (multipliers[unit] || 3600);
+  }
+
+  /**
+   * Build the refresh token DB expiry from the same config value used to sign
+   * the JWT (`jwt.refreshExpiresIn`), so the stored expiry always matches the
+   * token's real lifetime.
+   */
+  private getRefreshTokenExpiryDate(): Date {
+    const expiration =
+      this.configService.get<string>('jwt.refreshExpiresIn') || '7d';
+    const expiresInSeconds = this.parseExpirationToSeconds(expiration);
+    return new Date(Date.now() + expiresInSeconds * 1000);
   }
 
   async validateToken(token: string): Promise<JwtPayload> {

@@ -35,6 +35,7 @@ export declare class EmployeesService {
             hireDate: Date;
             probationEndDate: Date | null;
             employmentStatus: string;
+            basicSalary: import("@prisma/client-runtime-utils").Decimal | null;
             bankName: string | null;
             bankAccountNumber: string | null;
             bankAccountName: string | null;
@@ -79,6 +80,7 @@ export declare class EmployeesService {
         hireDate: Date;
         probationEndDate: Date | null;
         employmentStatus: string;
+        basicSalary: import("@prisma/client-runtime-utils").Decimal | null;
         bankName: string | null;
         bankAccountNumber: string | null;
         bankAccountName: string | null;
@@ -114,6 +116,7 @@ export declare class EmployeesService {
         hireDate: Date;
         probationEndDate: Date | null;
         employmentStatus: string;
+        basicSalary: import("@prisma/client-runtime-utils").Decimal | null;
         bankName: string | null;
         bankAccountNumber: string | null;
         bankAccountName: string | null;
@@ -149,6 +152,7 @@ export declare class EmployeesService {
         hireDate: Date;
         probationEndDate: Date | null;
         employmentStatus: string;
+        basicSalary: import("@prisma/client-runtime-utils").Decimal | null;
         bankName: string | null;
         bankAccountNumber: string | null;
         bankAccountName: string | null;
@@ -184,6 +188,7 @@ export declare class EmployeesService {
         hireDate: Date;
         probationEndDate: Date | null;
         employmentStatus: string;
+        basicSalary: import("@prisma/client-runtime-utils").Decimal | null;
         bankName: string | null;
         bankAccountNumber: string | null;
         bankAccountName: string | null;
@@ -219,6 +224,7 @@ export declare class EmployeesService {
         hireDate: Date;
         probationEndDate: Date | null;
         employmentStatus: string;
+        basicSalary: import("@prisma/client-runtime-utils").Decimal | null;
         bankName: string | null;
         bankAccountNumber: string | null;
         bankAccountName: string | null;
@@ -254,6 +260,7 @@ export declare class EmployeesService {
         hireDate: Date;
         probationEndDate: Date | null;
         employmentStatus: string;
+        basicSalary: import("@prisma/client-runtime-utils").Decimal | null;
         bankName: string | null;
         bankAccountNumber: string | null;
         bankAccountName: string | null;
@@ -289,6 +296,7 @@ export declare class EmployeesService {
         hireDate: Date;
         probationEndDate: Date | null;
         employmentStatus: string;
+        basicSalary: import("@prisma/client-runtime-utils").Decimal | null;
         bankName: string | null;
         bankAccountNumber: string | null;
         bankAccountName: string | null;
@@ -324,6 +332,7 @@ export declare class EmployeesService {
         hireDate: Date;
         probationEndDate: Date | null;
         employmentStatus: string;
+        basicSalary: import("@prisma/client-runtime-utils").Decimal | null;
         bankName: string | null;
         bankAccountNumber: string | null;
         bankAccountName: string | null;
@@ -359,6 +368,7 @@ export declare class EmployeesService {
         hireDate: Date;
         probationEndDate: Date | null;
         employmentStatus: string;
+        basicSalary: import("@prisma/client-runtime-utils").Decimal | null;
         bankName: string | null;
         bankAccountNumber: string | null;
         bankAccountName: string | null;
@@ -394,6 +404,7 @@ export declare class EmployeesService {
         hireDate: Date;
         probationEndDate: Date | null;
         employmentStatus: string;
+        basicSalary: import("@prisma/client-runtime-utils").Decimal | null;
         bankName: string | null;
         bankAccountNumber: string | null;
         bankAccountName: string | null;
@@ -429,6 +440,7 @@ export declare class EmployeesService {
         hireDate: Date;
         probationEndDate: Date | null;
         employmentStatus: string;
+        basicSalary: import("@prisma/client-runtime-utils").Decimal | null;
         bankName: string | null;
         bankAccountNumber: string | null;
         bankAccountName: string | null;

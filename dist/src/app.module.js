@@ -41,6 +41,7 @@ const file_attachments_module_1 = require("./file-attachments/file-attachments.m
 const ipl_periods_module_1 = require("./ipl-periods/ipl-periods.module");
 const ipl_payments_module_1 = require("./ipl-payments/ipl-payments.module");
 const expense_requests_module_1 = require("./expense-requests/expense-requests.module");
+const dashboard_module_1 = require("./dashboard/dashboard.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -85,6 +86,7 @@ exports.AppModule = AppModule = __decorate([
             community_events_module_1.CommunityEventsModule,
             notifications_module_1.NotificationsModule,
             file_attachments_module_1.FileAttachmentsModule,
+            dashboard_module_1.DashboardModule,
         ],
         controllers: [app_controller_1.AppController],
         providers: [
