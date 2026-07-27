@@ -14,6 +14,7 @@ const jwt_config_1 = require("./jwt.config");
 const app_config_1 = require("./app.config");
 const file_upload_config_1 = require("./file-upload.config");
 const pagination_config_1 = require("./pagination.config");
+const whatsapp_config_1 = require("./whatsapp.config");
 let AppConfigModule = class AppConfigModule {
 };
 exports.AppConfigModule = AppConfigModule;
@@ -28,6 +29,7 @@ exports.AppConfigModule = AppConfigModule = __decorate([
                     app_config_1.appConfig,
                     file_upload_config_1.fileUploadConfig,
                     pagination_config_1.paginationConfig,
+                    whatsapp_config_1.whatsappConfig,
                 ],
             }),
         ],

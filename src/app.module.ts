@@ -33,6 +33,7 @@ import { IplPeriodsModule } from './ipl-periods/ipl-periods.module';
 import { IplPaymentsModule } from './ipl-payments/ipl-payments.module';
 import { ExpenseRequestsModule } from './expense-requests/expense-requests.module';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { WhatsappBlastModule } from './whatsapp-blast/whatsapp-blast.module';
 
 @Module({
   imports: [
@@ -94,6 +95,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
     CommunityEventsModule,
     NotificationsModule,
     FileAttachmentsModule,
+    WhatsappBlastModule,
 
     // Dashboard (aggregated overview)
     DashboardModule,

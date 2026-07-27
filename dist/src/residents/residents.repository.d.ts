@@ -24,5 +24,6 @@ export declare class ResidentsRepository {
     exists(id: string): Promise<boolean>;
     getActiveResidentsCount(): Promise<number>;
     getByHouseBlock(houseBlockId: string): Promise<Resident[]>;
+    getByHouseUnit(houseUnitId: string): Promise<Resident[]>;
     updateBalance(residentId: string): Promise<void>;
 }

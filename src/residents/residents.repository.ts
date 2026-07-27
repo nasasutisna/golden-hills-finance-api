@@ -31,6 +31,16 @@ export class ResidentsRepository {
               address: true,
             },
           },
+          houseUnit: {
+            select: {
+              id: true,
+              unitCode: true,
+              unitNumber: true,
+              unitType: true,
+              occupancyStatus: true,
+              houseBlockId: true,
+            },
+          },
         },
       }),
       this.prisma.resident.count({ where: { ...where, deletedAt: null } }),
@@ -44,6 +54,7 @@ export class ResidentsRepository {
       where: { id, deletedAt: null },
       include: include || {
         houseBlock: true,
+        houseUnit: true,
         invoices: {
           where: { deletedAt: null },
           take: 5,
@@ -67,7 +78,7 @@ export class ResidentsRepository {
   async findByResidentCode(residentCode: string): Promise<Resident | null> {
     return this.prisma.resident.findFirst({
       where: { residentCode, deletedAt: null },
-      include: { houseBlock: true },
+      include: { houseBlock: true, houseUnit: true },
     });
   }
 
@@ -83,7 +94,7 @@ export class ResidentsRepository {
   async create(data: any): Promise<Resident> {
     return this.prisma.resident.create({
       data,
-      include: { houseBlock: true },
+      include: { houseBlock: true, houseUnit: true },
     });
   }
 
@@ -92,7 +103,7 @@ export class ResidentsRepository {
       return await this.prisma.resident.update({
         where: { id },
         data,
-        include: { houseBlock: true },
+        include: { houseBlock: true, houseUnit: true },
       });
     } catch (error) {
       if (error.code === 'P2025') {
@@ -113,7 +124,7 @@ export class ResidentsRepository {
     return this.prisma.resident.update({
       where: { id },
       data: { deletedAt: null, isActive: true },
-      include: { houseBlock: true },
+      include: { houseBlock: true, houseUnit: true },
     });
   }
 
@@ -139,8 +150,16 @@ export class ResidentsRepository {
   async getByHouseBlock(houseBlockId: string): Promise<Resident[]> {
     return this.prisma.resident.findMany({
       where: { houseBlockId, deletedAt: null },
-      include: { houseBlock: true },
+      include: { houseBlock: true, houseUnit: true },
       orderBy: { unitNumber: 'asc' },
+    });
+  }
+
+  async getByHouseUnit(houseUnitId: string): Promise<Resident[]> {
+    return this.prisma.resident.findMany({
+      where: { houseUnitId, deletedAt: null },
+      include: { houseBlock: true, houseUnit: true },
+      orderBy: { createdAt: 'asc' },
     });
   }
 

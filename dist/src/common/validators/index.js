@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.IsPhoneNumber = IsPhoneNumber;
 exports.IsStrongPassword = IsStrongPassword;
+exports.IsIndonesianPhone = IsIndonesianPhone;
 exports.IsFutureDate = IsFutureDate;
 exports.IsNotInFuture = IsNotInFuture;
 exports.IsAdult = IsAdult;
@@ -44,6 +45,31 @@ function IsStrongPassword(validationOptions) {
                 },
                 defaultMessage(args) {
                     return `${args.property} must contain at least 8 characters, including uppercase, lowercase, number, and special character`;
+                },
+            },
+        });
+    };
+}
+function IsIndonesianPhone(validationOptions) {
+    return function (object, propertyName) {
+        (0, class_validator_1.registerDecorator)({
+            name: 'isIndonesianPhone',
+            target: object.constructor,
+            propertyName: propertyName,
+            options: validationOptions,
+            validator: {
+                validate(value) {
+                    if (!value)
+                        return true;
+                    if (typeof value !== 'string')
+                        return false;
+                    if (value.length > 20)
+                        return false;
+                    const digits = value.replace(/[\s\-()]/g, '');
+                    return /^\+?\d{8,15}$/.test(digits);
+                },
+                defaultMessage(args) {
+                    return `${args.property} must be a valid phone number (contoh: 0812xxxx atau +62812xxxx)`;
                 },
             },
         });

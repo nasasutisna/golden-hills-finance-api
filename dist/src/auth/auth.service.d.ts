@@ -39,8 +39,23 @@ export declare class AuthService {
     register(registerDto: RegisterDto): Promise<AuthTokens & {
         user: any;
     }>;
+    getMe(userId: string): Promise<{
+        id: any;
+        username: any;
+        email: any;
+        firstName: any;
+        lastName: any;
+        roleId: any;
+        role: {
+            id: any;
+            name: any;
+            description: any;
+        } | null;
+    }>;
+    private buildUserResponse;
     refreshTokens(refreshTokenDto: RefreshTokenDto): Promise<AuthTokens>;
     logout(userId: string): Promise<void>;
+    changePassword(userId: string, currentPassword: string, newPassword: string): Promise<void>;
     verifyEmail(token: string): Promise<void>;
     generateTokens(user: any): Promise<AuthTokens>;
     private parseExpirationToSeconds;

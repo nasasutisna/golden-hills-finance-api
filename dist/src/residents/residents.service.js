@@ -119,6 +119,9 @@ let ResidentsService = ResidentsService_1 = class ResidentsService {
     async getByHouseBlock(houseBlockId) {
         return await this.residentsRepository.getByHouseBlock(houseBlockId);
     }
+    async getByHouseUnit(houseUnitId) {
+        return await this.residentsRepository.getByHouseUnit(houseUnitId);
+    }
     async getActiveResidentsCount() {
         return await this.residentsRepository.getActiveResidentsCount();
     }

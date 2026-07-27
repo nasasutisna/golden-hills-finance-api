@@ -16,8 +16,8 @@ export declare class ResidentInvoicesService {
             deletedAt: Date | null;
             notes: string | null;
             status: string;
-            createdBy: string;
             residentId: string;
+            createdBy: string;
             invoiceNumber: string;
             invoiceDate: Date;
             dueDate: Date;
@@ -44,8 +44,8 @@ export declare class ResidentInvoicesService {
         deletedAt: Date | null;
         notes: string | null;
         status: string;
-        createdBy: string;
         residentId: string;
+        createdBy: string;
         invoiceNumber: string;
         invoiceDate: Date;
         dueDate: Date;
@@ -63,8 +63,8 @@ export declare class ResidentInvoicesService {
         deletedAt: Date | null;
         notes: string | null;
         status: string;
-        createdBy: string;
         residentId: string;
+        createdBy: string;
         invoiceNumber: string;
         invoiceDate: Date;
         dueDate: Date;
@@ -82,8 +82,8 @@ export declare class ResidentInvoicesService {
         deletedAt: Date | null;
         notes: string | null;
         status: string;
-        createdBy: string;
         residentId: string;
+        createdBy: string;
         invoiceNumber: string;
         invoiceDate: Date;
         dueDate: Date;
@@ -101,8 +101,8 @@ export declare class ResidentInvoicesService {
         deletedAt: Date | null;
         notes: string | null;
         status: string;
-        createdBy: string;
         residentId: string;
+        createdBy: string;
         invoiceNumber: string;
         invoiceDate: Date;
         dueDate: Date;
@@ -120,8 +120,8 @@ export declare class ResidentInvoicesService {
         deletedAt: Date | null;
         notes: string | null;
         status: string;
-        createdBy: string;
         residentId: string;
+        createdBy: string;
         invoiceNumber: string;
         invoiceDate: Date;
         dueDate: Date;
@@ -139,8 +139,8 @@ export declare class ResidentInvoicesService {
         deletedAt: Date | null;
         notes: string | null;
         status: string;
-        createdBy: string;
         residentId: string;
+        createdBy: string;
         invoiceNumber: string;
         invoiceDate: Date;
         dueDate: Date;
@@ -158,8 +158,8 @@ export declare class ResidentInvoicesService {
         deletedAt: Date | null;
         notes: string | null;
         status: string;
-        createdBy: string;
         residentId: string;
+        createdBy: string;
         invoiceNumber: string;
         invoiceDate: Date;
         dueDate: Date;
@@ -186,8 +186,8 @@ export declare class ResidentInvoicesService {
         deletedAt: Date | null;
         notes: string | null;
         status: string;
-        createdBy: string;
         residentId: string;
+        createdBy: string;
         invoiceNumber: string;
         invoiceDate: Date;
         dueDate: Date;
@@ -205,8 +205,8 @@ export declare class ResidentInvoicesService {
         deletedAt: Date | null;
         notes: string | null;
         status: string;
-        createdBy: string;
         residentId: string;
+        createdBy: string;
         invoiceNumber: string;
         invoiceDate: Date;
         dueDate: Date;
@@ -224,8 +224,8 @@ export declare class ResidentInvoicesService {
         deletedAt: Date | null;
         notes: string | null;
         status: string;
-        createdBy: string;
         residentId: string;
+        createdBy: string;
         invoiceNumber: string;
         invoiceDate: Date;
         dueDate: Date;

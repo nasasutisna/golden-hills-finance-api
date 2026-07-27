@@ -3,6 +3,7 @@ import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { CurrentUserData } from '../common/decorators/current-user.decorator';
 export declare class AuthController {
     private readonly authService;
@@ -33,7 +34,23 @@ export declare class AuthController {
     getCurrentUser(user: CurrentUserData): Promise<{
         statusCode: HttpStatus;
         message: string;
-        data: CurrentUserData;
+        data: {
+            id: any;
+            username: any;
+            email: any;
+            firstName: any;
+            lastName: any;
+            roleId: any;
+            role: {
+                id: any;
+                name: any;
+                description: any;
+            } | null;
+        };
+    }>;
+    changePassword(user: CurrentUserData, dto: ChangePasswordDto): Promise<{
+        statusCode: HttpStatus;
+        message: string;
     }>;
     verifyEmail(token: string): Promise<{
         statusCode: HttpStatus;

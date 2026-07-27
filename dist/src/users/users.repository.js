@@ -12,29 +12,34 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.UsersRepository = void 0;
 const common_1 = require("@nestjs/common");
 const prisma_service_1 = require("../prisma/prisma.service");
+const DEFAULT_USER_INCLUDE = {
+    role: {
+        select: {
+            id: true,
+            name: true,
+            description: true,
+        },
+    },
+    resident: {
+        select: {
+            id: true,
+            residentCode: true,
+            firstName: true,
+            lastName: true,
+            phoneNumber: true,
+            houseBlock: {
+                select: {
+                    id: true,
+                    blockCode: true,
+                    blockName: true,
+                },
+            },
+        },
+    },
+};
 let UsersRepository = class UsersRepository {
     constructor(prisma) {
         this.prisma = prisma;
-    }
-    mapLegacyUser(row) {
-        if (!row) {
-            return null;
-        }
-        return {
-            id: row.id ? String(row.id) : undefined,
-            username: row.username,
-            email: row.email ?? `${row.username}@local`,
-            password: row.password ?? row.password ?? null,
-            firstName: row.first_name ?? row.firstName ?? '',
-            lastName: row.last_name ?? row.lastName ?? '',
-            isActive: row.is_active !== undefined ? Boolean(row.is_active) : Boolean(row.isActive),
-            roleId: row.role_id ? String(row.role_id) : row.roleId ? String(row.roleId) : null,
-            lastLoginAt: row.last_login_at ?? row.lastLoginAt ?? null,
-            refreshToken: row.refresh_token ?? row.refreshToken ?? null,
-            refreshTokenExpiry: row.refresh_token_expiry ?? row.refreshTokenExpiry ?? null,
-            createdAt: row.created_at ?? row.createdAt ?? null,
-            updatedAt: row.updated_at ?? row.updatedAt ?? null,
-        };
     }
     async findAll(params) {
         const { skip, take, where, orderBy, include } = params;
@@ -44,51 +49,33 @@ let UsersRepository = class UsersRepository {
                 skip,
                 take,
                 orderBy,
-                include: include || {
-                    role: {
-                        select: {
-                            id: true,
-                            name: true,
-                            description: true,
-                        },
-                    },
-                },
+                include: include || DEFAULT_USER_INCLUDE,
             }),
             this.prisma.user.count({ where: { ...where, deletedAt: null } }),
         ]);
         return { users, total };
     }
     async findById(id, include) {
-        if (include) {
-            const user = await this.prisma.user.findFirst({
-                where: { id, deletedAt: null },
-                include,
-            });
-            if (!user) {
-                throw new common_1.NotFoundException('User not found');
-            }
-            return user;
-        }
-        const rows = await this.prisma.$queryRawUnsafe('SELECT id, username, email, password, first_name, last_name, is_active, role_id, last_login_at, refresh_token, refresh_token_expiry, created_at, updated_at FROM users WHERE id = ? LIMIT 1', String(id));
-        const user = this.mapLegacyUser(rows[0]);
+        const user = await this.prisma.user.findFirst({
+            where: { id, deletedAt: null },
+            include: include || DEFAULT_USER_INCLUDE,
+        });
         if (!user) {
             throw new common_1.NotFoundException('User not found');
         }
         return user;
     }
     async findByUsername(username, include) {
-        if (include) {
-            return await this.prisma.user.findFirst({
-                where: { username, deletedAt: null },
-                include,
-            });
-        }
-        const rows = await this.prisma.$queryRawUnsafe('SELECT id, username, email, password, first_name, last_name, is_active, role_id, last_login_at, refresh_token, refresh_token_expiry, created_at, updated_at FROM users WHERE username = ? LIMIT 1', username);
-        return this.mapLegacyUser(rows[0]);
+        return this.prisma.user.findFirst({
+            where: { username, deletedAt: null },
+            include: include || undefined,
+        });
     }
-    async findByEmail(email) {
-        const rows = await this.prisma.$queryRawUnsafe('SELECT id, username, email, password, first_name, last_name, is_active, role_id, last_login_at, refresh_token, refresh_token_expiry, created_at, updated_at FROM users WHERE email = ? LIMIT 1', email);
-        return this.mapLegacyUser(rows[0]);
+    async findByEmail(email, include) {
+        return this.prisma.user.findFirst({
+            where: { email, deletedAt: null },
+            include: include || undefined,
+        });
     }
     async create(data) {
         try {
@@ -114,53 +101,140 @@ let UsersRepository = class UsersRepository {
         }
     }
     async update(id, data) {
-        const updates = [];
-        const values = [];
-        if (data.lastLoginAt !== undefined) {
-            updates.push('last_login_at = ?');
-            values.push(data.lastLoginAt);
-        }
-        if (data.isActive !== undefined) {
-            updates.push('is_active = ?');
-            values.push(data.isActive ? 1 : 0);
-        }
-        if (data.password !== undefined) {
-            updates.push('password = ?');
-            values.push(data.password);
-        }
-        if (updates.length === 0) {
-            return this.findById(id);
-        }
-        values.push(String(id));
-        await this.prisma.$executeRawUnsafe(`UPDATE users SET ${updates.join(', ')} WHERE id = ?`, ...values);
-        return this.findById(id);
-    }
-    async softDelete(id) {
-        return this.update(id, {
-            deletedAt: new Date(),
-            isActive: false,
-        });
-    }
-    async restore(id) {
-        return this.prisma.user.update({
-            where: { id },
-            data: { deletedAt: null, isActive: true },
-            include: {
-                role: {
-                    select: {
-                        id: true,
-                        name: true,
-                        description: true,
-                        permissions: true,
+        try {
+            return await this.prisma.user.update({
+                where: { id },
+                data,
+                include: {
+                    role: {
+                        select: {
+                            id: true,
+                            name: true,
+                            description: true,
+                        },
                     },
                 },
-            },
+            });
+        }
+        catch (error) {
+            if (error.code === 'P2025') {
+                throw new common_1.NotFoundException('User not found');
+            }
+            if (error.code === 'P2002') {
+                throw new common_1.ConflictException('Username or email already exists');
+            }
+            throw error;
+        }
+    }
+    async delete(id) {
+        try {
+            return await this.prisma.user.delete({
+                where: { id },
+                include: {
+                    role: {
+                        select: {
+                            id: true,
+                            name: true,
+                            description: true,
+                        },
+                    },
+                },
+            });
+        }
+        catch (error) {
+            if (error.code === 'P2025') {
+                throw new common_1.NotFoundException('User not found');
+            }
+            if (error.code === 'P2003') {
+                throw new common_1.ConflictException('Cannot permanently delete user: this user still has related records ' +
+                    '(e.g. transactions, payments, approvals). Deactivate the user instead.');
+            }
+            throw error;
+        }
+    }
+    async restore(id) {
+        try {
+            return await this.prisma.user.update({
+                where: { id },
+                data: { deletedAt: null, isActive: true },
+                include: {
+                    role: {
+                        select: {
+                            id: true,
+                            name: true,
+                            description: true,
+                            permissions: true,
+                        },
+                    },
+                },
+            });
+        }
+        catch (error) {
+            if (error.code === 'P2025') {
+                throw new common_1.NotFoundException('User not found');
+            }
+            throw error;
+        }
+    }
+    async updatePassword(id, hashedPassword) {
+        try {
+            await this.prisma.user.update({
+                where: { id },
+                data: { password: hashedPassword },
+            });
+        }
+        catch (error) {
+            if (error.code === 'P2025') {
+                throw new common_1.NotFoundException('User not found');
+            }
+            throw error;
+        }
+    }
+    async linkResident(residentId, userId) {
+        try {
+            await this.prisma.resident.update({
+                where: { id: residentId },
+                data: { userId },
+            });
+        }
+        catch (error) {
+            if (error.code === 'P2025') {
+                throw new common_1.NotFoundException('Resident not found');
+            }
+            if (error.code === 'P2002') {
+                throw new common_1.ConflictException('Resident is already linked to another user');
+            }
+            throw error;
+        }
+    }
+    async unlinkResident(residentId) {
+        try {
+            await this.prisma.resident.update({
+                where: { id: residentId },
+                data: { userId: null },
+            });
+        }
+        catch (error) {
+            if (error.code === 'P2025') {
+                throw new common_1.NotFoundException('Resident not found');
+            }
+            throw error;
+        }
+    }
+    async unlinkResidentByUserId(userId) {
+        await this.prisma.resident.updateMany({
+            where: { userId },
+            data: { userId: null },
         });
     }
-    async updatePassword(id, newPassword) {
-        await this.prisma.user.update({
-            where: { id },
-            data: { password: newPassword },
+    async findResidentById(residentId) {
+        return this.prisma.resident.findFirst({
+            where: { id: residentId, deletedAt: null },
+            include: {
+                houseBlock: {
+                    select: { id: true, blockCode: true, blockName: true },
+                },
+            },
         });
     }
     async count(where) {

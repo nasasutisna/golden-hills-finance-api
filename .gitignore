@@ -33,3 +33,6 @@ prisma/migrations/
 
 # Generated files
 swagger-spec.json
+
+# WhatsApp Baileys session credentials (sensitive — never commit)
+wa-auth/

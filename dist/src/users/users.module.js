@@ -13,12 +13,13 @@ const users_service_1 = require("./users.service");
 const users_repository_1 = require("./users.repository");
 const prisma_module_1 = require("../prisma/prisma.module");
 const roles_module_1 = require("../roles/roles.module");
+const whatsapp_blast_module_1 = require("../whatsapp-blast/whatsapp-blast.module");
 let UsersModule = class UsersModule {
 };
 exports.UsersModule = UsersModule;
 exports.UsersModule = UsersModule = __decorate([
     (0, common_1.Module)({
-        imports: [prisma_module_1.PrismaModule, roles_module_1.RolesModule],
+        imports: [prisma_module_1.PrismaModule, roles_module_1.RolesModule, whatsapp_blast_module_1.WhatsappBlastModule],
         controllers: [users_controller_1.UsersController],
         providers: [users_service_1.UsersService, users_repository_1.UsersRepository],
         exports: [users_service_1.UsersService, users_repository_1.UsersRepository],

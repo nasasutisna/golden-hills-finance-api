@@ -19,6 +19,7 @@ export declare class InventoryRequestsService {
         approvedAt: Date | null;
         priority: string;
         requestNumber: string;
+        completedAt: Date | null;
         requestDate: Date;
         purpose: string | null;
         approvalNotes: string | null;
@@ -26,7 +27,6 @@ export declare class InventoryRequestsService {
         inventoryId: string;
         requestedQuantity: number;
         requiredDate: Date | null;
-        completedAt: Date | null;
     }>;
     findAll(queryDto: QueryInventoryRequestsDto): Promise<{
         requests: import(".prisma/client").InventoryRequest[];
@@ -44,6 +44,7 @@ export declare class InventoryRequestsService {
         approvedAt: Date | null;
         priority: string;
         requestNumber: string;
+        completedAt: Date | null;
         requestDate: Date;
         purpose: string | null;
         approvalNotes: string | null;
@@ -51,7 +52,6 @@ export declare class InventoryRequestsService {
         inventoryId: string;
         requestedQuantity: number;
         requiredDate: Date | null;
-        completedAt: Date | null;
     }>;
     update(id: string, updateInventoryRequestDto: UpdateInventoryRequestDto): Promise<{
         id: string;
@@ -65,6 +65,7 @@ export declare class InventoryRequestsService {
         approvedAt: Date | null;
         priority: string;
         requestNumber: string;
+        completedAt: Date | null;
         requestDate: Date;
         purpose: string | null;
         approvalNotes: string | null;
@@ -72,7 +73,6 @@ export declare class InventoryRequestsService {
         inventoryId: string;
         requestedQuantity: number;
         requiredDate: Date | null;
-        completedAt: Date | null;
     }>;
     remove(id: string): Promise<{
         id: string;
@@ -86,6 +86,7 @@ export declare class InventoryRequestsService {
         approvedAt: Date | null;
         priority: string;
         requestNumber: string;
+        completedAt: Date | null;
         requestDate: Date;
         purpose: string | null;
         approvalNotes: string | null;
@@ -93,7 +94,6 @@ export declare class InventoryRequestsService {
         inventoryId: string;
         requestedQuantity: number;
         requiredDate: Date | null;
-        completedAt: Date | null;
     }>;
     approveRequest(id: string, approverId: string, notes?: string): Promise<{
         id: string;
@@ -107,6 +107,7 @@ export declare class InventoryRequestsService {
         approvedAt: Date | null;
         priority: string;
         requestNumber: string;
+        completedAt: Date | null;
         requestDate: Date;
         purpose: string | null;
         approvalNotes: string | null;
@@ -114,7 +115,6 @@ export declare class InventoryRequestsService {
         inventoryId: string;
         requestedQuantity: number;
         requiredDate: Date | null;
-        completedAt: Date | null;
     }>;
     rejectRequest(id: string, approverId: string, notes?: string): Promise<{
         id: string;
@@ -128,6 +128,7 @@ export declare class InventoryRequestsService {
         approvedAt: Date | null;
         priority: string;
         requestNumber: string;
+        completedAt: Date | null;
         requestDate: Date;
         purpose: string | null;
         approvalNotes: string | null;
@@ -135,7 +136,6 @@ export declare class InventoryRequestsService {
         inventoryId: string;
         requestedQuantity: number;
         requiredDate: Date | null;
-        completedAt: Date | null;
     }>;
     completeRequest(id: string): Promise<{
         id: string;
@@ -149,6 +149,7 @@ export declare class InventoryRequestsService {
         approvedAt: Date | null;
         priority: string;
         requestNumber: string;
+        completedAt: Date | null;
         requestDate: Date;
         purpose: string | null;
         approvalNotes: string | null;
@@ -156,7 +157,6 @@ export declare class InventoryRequestsService {
         inventoryId: string;
         requestedQuantity: number;
         requiredDate: Date | null;
-        completedAt: Date | null;
     }>;
     findByStatus(status: string): Promise<{
         id: string;
@@ -170,6 +170,7 @@ export declare class InventoryRequestsService {
         approvedAt: Date | null;
         priority: string;
         requestNumber: string;
+        completedAt: Date | null;
         requestDate: Date;
         purpose: string | null;
         approvalNotes: string | null;
@@ -177,6 +178,5 @@ export declare class InventoryRequestsService {
         inventoryId: string;
         requestedQuantity: number;
         requiredDate: Date | null;
-        completedAt: Date | null;
     }[]>;
 }

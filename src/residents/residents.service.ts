@@ -139,6 +139,10 @@ export class ResidentsService {
     return await this.residentsRepository.getByHouseBlock(houseBlockId);
   }
 
+  async getByHouseUnit(houseUnitId: string) {
+    return await this.residentsRepository.getByHouseUnit(houseUnitId);
+  }
+
   async getActiveResidentsCount(): Promise<number> {
     return await this.residentsRepository.getActiveResidentsCount();
   }

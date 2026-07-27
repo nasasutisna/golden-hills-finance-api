@@ -1,4 +1,4 @@
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsNotEmpty,
   IsString,
@@ -7,9 +7,11 @@ import {
   MaxLength,
   IsOptional,
   IsBoolean,
-  IsPhoneNumber,
+  IsIn,
 } from 'class-validator';
-import { IsValidEmail, IsStrongPassword } from '../../common/validators';
+import { IsValidEmail, IsStrongPassword, IsIndonesianPhone } from '../../common/validators';
+
+export type PasswordMode = 'manual' | 'generate';
 
 export class CreateUserDto {
   @ApiProperty({
@@ -33,16 +35,47 @@ export class CreateUserDto {
   @IsValidEmail()
   email: string;
 
-  @ApiProperty({
-    description: 'Password',
+  @ApiPropertyOptional({
+    description:
+      'Password manual (wajib jika passwordMode = "manual"). Diabaikan jika passwordMode = "generate".',
     example: 'Secure@Pass123',
     minLength: 8,
   })
-  @IsNotEmpty({ message: 'Password is required' })
+  @IsOptional()
   @IsString()
   @MinLength(8, { message: 'Password must be at least 8 characters' })
   @IsStrongPassword()
-  password: string;
+  password?: string;
+
+  @ApiPropertyOptional({
+    description: 'Sumber password: "manual" (default) atau "generate".',
+    example: 'generate',
+    default: 'manual',
+  })
+  @IsOptional()
+  @IsIn(['manual', 'generate'], {
+    message: 'passwordMode must be "manual" or "generate"',
+  })
+  passwordMode?: PasswordMode;
+
+  @ApiPropertyOptional({
+    description:
+      'Kirim kredensial (password) ke nomor WhatsApp warga setelah user dibuat.',
+    example: true,
+    default: false,
+  })
+  @IsOptional()
+  @IsBoolean()
+  sendViaWhatsapp?: boolean;
+
+  @ApiPropertyOptional({
+    description:
+      'ID warga (resident) yang akan di-link ke akun ini. Relasi 1:1 via Resident.userId.',
+    example: 'resident-uuid',
+  })
+  @IsOptional()
+  @IsString()
+  residentId?: string;
 
   @ApiProperty({
     description: 'First name',
@@ -65,12 +98,12 @@ export class CreateUserDto {
   lastName: string;
 
   @ApiProperty({
-    description: 'Phone number',
-    example: '+6281234567890',
+    description: 'Phone number (format Indonesia: 08xxx / +628xxx / 628xxx)',
+    example: '081234567890',
     required: false,
   })
   @IsOptional()
-  @IsPhoneNumber()
+  @IsIndonesianPhone()
   phoneNumber?: string;
 
   @ApiProperty({

@@ -173,6 +173,15 @@ export class CreateResidentDto {
   houseBlockId: string;
 
   @ApiProperty({
+    description: 'House unit ID (links resident to a specific house unit)',
+    example: 'uuid-of-house-unit',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  houseUnitId?: string;
+
+  @ApiProperty({
     description: 'Unit number',
     example: 'A-101',
     maxLength: 20,

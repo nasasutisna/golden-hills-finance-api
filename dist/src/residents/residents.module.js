@@ -13,12 +13,13 @@ const residents_service_1 = require("./residents.service");
 const residents_repository_1 = require("./residents.repository");
 const prisma_module_1 = require("../prisma/prisma.module");
 const house_blocks_module_1 = require("../house-blocks/house-blocks.module");
+const house_units_module_1 = require("../house-units/house-units.module");
 let ResidentsModule = class ResidentsModule {
 };
 exports.ResidentsModule = ResidentsModule;
 exports.ResidentsModule = ResidentsModule = __decorate([
     (0, common_1.Module)({
-        imports: [prisma_module_1.PrismaModule, house_blocks_module_1.HouseBlocksModule],
+        imports: [prisma_module_1.PrismaModule, house_blocks_module_1.HouseBlocksModule, house_units_module_1.HouseUnitsModule],
         controllers: [residents_controller_1.ResidentsController],
         providers: [residents_service_1.ResidentsService, residents_repository_1.ResidentsRepository],
         exports: [residents_service_1.ResidentsService, residents_repository_1.ResidentsRepository],

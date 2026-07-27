@@ -7,11 +7,13 @@ import {
   Body,
   Param,
   Query,
+  Res,
   UseGuards,
   UseInterceptors,
   UploadedFile,
   ParseEnumPipe,
 } from '@nestjs/common';
+import { Response } from 'express';
 import {
   ApiTags,
   ApiOperation,
@@ -242,6 +244,44 @@ export class IplPaymentsController {
       message: 'IPL payment matrix retrieved successfully',
       data,
     };
+  }
+
+  @Get('matrix/delinquent')
+  @Roles('ADMIN', 'ACCOUNTANT')
+  @ApiOperation({
+    summary: 'Get delinquent IPL units (Admin/Accountant only)',
+    description:
+      'Active house units with a trailing streak of >=3 UNPAID months ending at the selected year\'s as-of month. Drives the on-screen list and the PDF export (same source).',
+  })
+  @ApiResponseDecorators.ok()
+  @ApiResponseDecorators.standard()
+  async getDelinquentUnits(@Query() query: QueryIplPaymentMatrixDto) {
+    const data = await this.iplPaymentsService.getDelinquentUnits(query);
+    return {
+      statusCode: 200,
+      message: 'Delinquent IPL units retrieved successfully',
+      data,
+    };
+  }
+
+  @Get('matrix/delinquent/report')
+  @Roles('ADMIN', 'ACCOUNTANT')
+  @ApiOperation({
+    summary: 'Export delinquent IPL units report to PDF (Admin/Accountant only)',
+    description:
+      'Download the delinquent-units list (same as the JSON endpoint) as a PDF file. Generated server-side with pdfkit.',
+  })
+  async exportDelinquentReport(
+    @Res() res: Response,
+    @Query() query: QueryIplPaymentMatrixDto,
+  ) {
+    const { buffer, filename } = await this.iplPaymentsService.exportDelinquentReport(query);
+    res.header({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="${filename}"`,
+      'Content-Length': String(buffer.length),
+    });
+    res.send(buffer);
   }
 
   @Get(':id')

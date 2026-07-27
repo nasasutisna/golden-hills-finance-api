@@ -19,6 +19,7 @@ import {
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 import { QueryOptionsDto } from '../common/dto/query-options.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
@@ -107,17 +108,40 @@ export class UsersController {
     };
   }
 
+  @Patch(':id/password')
+  @Roles('ADMIN')
+  @ApiOperation({
+    summary: 'Set / reset user password',
+    description:
+      'Set or reset a user password (Admin only). Supports manual entry or auto-generated strong password, with optional WhatsApp delivery to the linked resident.',
+  })
+  @ApiParam({ name: 'id', description: 'User ID' })
+  @ApiResponseDecorators.ok()
+  @ApiResponseDecorators.standard()
+  async resetPassword(
+    @Param('id', ParseUuidPipe) id: string,
+    @Body() resetPasswordDto: ResetPasswordDto,
+  ) {
+    const result = await this.usersService.resetPassword(id, resetPasswordDto);
+    return {
+      statusCode: 200,
+      message: 'Password updated successfully',
+      data: result,
+    };
+  }
+
   @Delete(':id')
   @Roles('ADMIN')
   @ApiOperation({
-    summary: 'Soft delete user',
-    description: 'Soft delete user account (Admin only)',
+    summary: 'Delete user (permanent)',
+    description:
+      'Permanently delete a user account (Admin only). This action cannot be undone. The linked resident/employee (if any) is unlinked automatically.',
   })
   @ApiParam({ name: 'id', description: 'User ID' })
   @ApiResponseDecorators.ok()
   @ApiResponseDecorators.standard()
   async remove(@Param('id', ParseUuidPipe) id: string) {
-    const user = await this.usersService.softDelete(id);
+    const user = await this.usersService.delete(id);
     return {
       statusCode: 200,
       message: 'User deleted successfully',

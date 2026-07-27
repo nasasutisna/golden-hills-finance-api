@@ -48,6 +48,35 @@ export function IsStrongPassword(validationOptions?: ValidationOptions) {
   };
 }
 
+/**
+ * Lenient Indonesian phone validator. Accepts common local/intl formats:
+ * 08xxx, +628xxx, 628xxx, 8xxx (with optional spaces/dashes/parens).
+ * The WhatsApp send path normalizes & validates for real; here we only
+ * guard against garbage so admin can paste resident.phone as-is.
+ */
+export function IsIndonesianPhone(validationOptions?: ValidationOptions) {
+  return function (object: Object, propertyName: string) {
+    registerDecorator({
+      name: 'isIndonesianPhone',
+      target: object.constructor,
+      propertyName: propertyName,
+      options: validationOptions,
+      validator: {
+        validate(value: any) {
+          if (!value) return true;
+          if (typeof value !== 'string') return false;
+          if (value.length > 20) return false;
+          const digits = value.replace(/[\s\-()]/g, '');
+          return /^\+?\d{8,15}$/.test(digits);
+        },
+        defaultMessage(args: ValidationArguments) {
+          return `${args.property} must be a valid phone number (contoh: 0812xxxx atau +62812xxxx)`;
+        },
+      },
+    });
+  };
+}
+
 export function IsFutureDate(validationOptions?: ValidationOptions) {
   return function (object: Object, propertyName: string) {
     registerDecorator({

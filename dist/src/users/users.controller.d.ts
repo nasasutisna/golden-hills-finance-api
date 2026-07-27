@@ -1,6 +1,7 @@
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 import { QueryOptionsDto } from '../common/dto/query-options.dto';
 export declare class UsersController {
     private readonly usersService;
@@ -32,6 +33,15 @@ export declare class UsersController {
         statusCode: number;
         message: string;
         data: any;
+    }>;
+    resetPassword(id: string, resetPasswordDto: ResetPasswordDto): Promise<{
+        statusCode: number;
+        message: string;
+        data: {
+            generatedPassword: string | undefined;
+            whatsappSent: boolean;
+            whatsappError: string | undefined;
+        };
     }>;
     remove(id: string): Promise<{
         statusCode: number;

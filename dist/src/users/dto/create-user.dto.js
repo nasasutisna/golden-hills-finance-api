@@ -40,17 +40,48 @@ __decorate([
     __metadata("design:type", String)
 ], CreateUserDto.prototype, "email", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({
-        description: 'Password',
+    (0, swagger_1.ApiPropertyOptional)({
+        description: 'Password manual (wajib jika passwordMode = "manual"). Diabaikan jika passwordMode = "generate".',
         example: 'Secure@Pass123',
         minLength: 8,
     }),
-    (0, class_validator_1.IsNotEmpty)({ message: 'Password is required' }),
+    (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.MinLength)(8, { message: 'Password must be at least 8 characters' }),
     (0, validators_1.IsStrongPassword)(),
     __metadata("design:type", String)
 ], CreateUserDto.prototype, "password", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        description: 'Sumber password: "manual" (default) atau "generate".',
+        example: 'generate',
+        default: 'manual',
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsIn)(['manual', 'generate'], {
+        message: 'passwordMode must be "manual" or "generate"',
+    }),
+    __metadata("design:type", String)
+], CreateUserDto.prototype, "passwordMode", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        description: 'Kirim kredensial (password) ke nomor WhatsApp warga setelah user dibuat.',
+        example: true,
+        default: false,
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsBoolean)(),
+    __metadata("design:type", Boolean)
+], CreateUserDto.prototype, "sendViaWhatsapp", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        description: 'ID warga (resident) yang akan di-link ke akun ini. Relasi 1:1 via Resident.userId.',
+        example: 'resident-uuid',
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], CreateUserDto.prototype, "residentId", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({
         description: 'First name',
@@ -75,12 +106,12 @@ __decorate([
 ], CreateUserDto.prototype, "lastName", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({
-        description: 'Phone number',
-        example: '+6281234567890',
+        description: 'Phone number (format Indonesia: 08xxx / +628xxx / 628xxx)',
+        example: '081234567890',
         required: false,
     }),
     (0, class_validator_1.IsOptional)(),
-    (0, class_validator_1.IsPhoneNumber)(),
+    (0, validators_1.IsIndonesianPhone)(),
     __metadata("design:type", String)
 ], CreateUserDto.prototype, "phoneNumber", void 0);
 __decorate([

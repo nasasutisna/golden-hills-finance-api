@@ -19,9 +19,11 @@ import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { Public } from '../common/decorators/public.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { CurrentUserData } from '../common/decorators/current-user.decorator';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { ResponseDto } from '../common/dto/response.dto';
 
 @ApiTags('Authentication')
@@ -109,6 +111,7 @@ export class AuthController {
 
   @Post('logout')
   @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({
     summary: 'User logout',
@@ -129,6 +132,7 @@ export class AuthController {
   }
 
   @Get('me')
+  @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('JWT-auth')
   @ApiOperation({
     summary: 'Get current user',
@@ -141,10 +145,57 @@ export class AuthController {
   })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async getCurrentUser(@CurrentUser() user: CurrentUserData) {
+    const data = await this.authService.getMe(user.id);
     return {
       statusCode: HttpStatus.OK,
       message: 'User retrieved successfully',
-      data: user,
+      data,
+    };
+  }
+
+  @Post('change-password')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation({
+    summary: 'Change own password',
+    description:
+      'Self-service password change for the authenticated user. Requires the current password for verification.',
+  })
+  @ApiBody({
+    type: ChangePasswordDto,
+    examples: {
+      application: {
+        summary: 'Change password payload',
+        value: {
+          currentPassword: 'OldSecure@Pass123',
+          newPassword: 'NewSecure@Pass123',
+        } as ChangePasswordDto,
+      },
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Password changed successfully',
+    type: ResponseDto,
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Unauthorized - Current password is incorrect',
+  })
+  @ApiResponse({ status: 400, description: 'Bad Request - Weak or invalid new password' })
+  async changePassword(
+    @CurrentUser() user: CurrentUserData,
+    @Body() dto: ChangePasswordDto,
+  ) {
+    await this.authService.changePassword(
+      user.id,
+      dto.currentPassword,
+      dto.newPassword,
+    );
+    return {
+      statusCode: HttpStatus.OK,
+      message: 'Password changed successfully',
     };
   }
 

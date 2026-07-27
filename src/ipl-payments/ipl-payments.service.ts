@@ -1,4 +1,5 @@
 import { Injectable, Logger, ForbiddenException, BadRequestException, Inject } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { QueryIplPaymentsDto } from './dto/query-ipl-payments.dto';
 import { QueryIplPaymentMatrixDto } from './dto/query-ipl-payment-matrix.dto';
 import { CreateIplPaymentDto } from './dto/create-ipl-payment.dto';
@@ -15,6 +16,13 @@ import { CashTransactionsService } from '../cash-transactions/cash-transactions.
 import { ResidentPaymentReceiptsService } from '../resident-payments/resident-payment-receipts.service';
 import { generateReferenceNumber } from './helpers/reference-number.helper';
 import { generateBuktiTransferFilename, sanitizeFilename } from './helpers/file-naming.helper';
+import {
+  computeAsOfMonth,
+  computeDelinquentUnits,
+  formatAsOfLabel,
+  DelinquentReport,
+} from './helpers/delinquent-units.helper';
+import { buildDelinquentReportPdf } from './helpers/delinquent-report-pdf.helper';
 import { REFERENCE_TYPES } from '../common/constants/reference-types';
 import * as fs from 'fs';
 import * as path from 'path';
@@ -30,6 +38,7 @@ export class IplPaymentsService {
     private readonly iplReceiptsService: IplReceiptsService,
     private readonly cashTransactionsService: CashTransactionsService,
     private readonly residentPaymentReceiptsService: ResidentPaymentReceiptsService,
+    private readonly configService: ConfigService,
   ) {}
 
   async findAll(queryOptions: QueryIplPaymentsDto, additionalWhere?: any) {
@@ -1227,5 +1236,72 @@ export class IplPaymentsService {
       monthTotals,
       rows,
     };
+  }
+
+  /**
+   * Delinquent-units report: which active units have a trailing streak of
+   * ≥3 UNPAID months ending at the selected year's as-of month. Built on top
+   * of `getMatrix` (no extra query). Used by the on-screen list (JSON) and the
+   * PDF export — single source of truth so both always match.
+   */
+  async getDelinquentUnits(query: QueryIplPaymentMatrixDto): Promise<DelinquentReport> {
+    const matrix = await this.getMatrix(query);
+    const asOfMonth = computeAsOfMonth(matrix.year);
+    const units = computeDelinquentUnits(matrix.rows, asOfMonth);
+    return {
+      year: matrix.year,
+      asOfMonth,
+      asOfLabel: formatAsOfLabel(asOfMonth, matrix.year),
+      houseBlockId: query.houseBlockId ?? null,
+      count: units.length,
+      units,
+    };
+  }
+
+  /**
+   * Render the delinquency report as a PDF buffer (pdfkit). The controller
+   * streams it to the HTTP response. Filename is stable for a given year+day.
+   */
+  async exportDelinquentReport(
+    query: QueryIplPaymentMatrixDto,
+  ): Promise<{ buffer: Buffer; filename: string }> {
+    const report = await this.getDelinquentUnits(query);
+    const buffer = await buildDelinquentReportPdf(report, {
+      organizationName: this.configService.get<string>(
+        'COMPANY_NAME',
+        'Paguyuban Warga Golden Hills',
+      ),
+      organizationContact: this.buildOrgContact(),
+      blockLabel: this.deriveBlockLabel(report),
+      printedAt: new Date(),
+    });
+
+    const now = new Date();
+    const ymd =
+      `${now.getFullYear()}` +
+      `${String(now.getMonth() + 1).padStart(2, '0')}` +
+      `${String(now.getDate()).padStart(2, '0')}`;
+    const filename = `menunggak-ipl-${report.year}-${ymd}.pdf`;
+    return { buffer, filename };
+  }
+
+  private buildOrgContact(): string {
+    const phone = this.configService.get<string>('COMPANY_PHONE');
+    const email = this.configService.get<string>('COMPANY_EMAIL');
+    return [phone && `Telp: ${phone}`, email && `Email: ${email}`]
+      .filter(Boolean)
+      .join(' | ');
+  }
+
+  /**
+   * Block label for the PDF sub-info. When filtered by a block, every row
+   * shares that block — derive from the first row (no extra query). Otherwise
+   * "Semua Blok".
+   */
+  private deriveBlockLabel(report: DelinquentReport): string {
+    if (!report.houseBlockId) return 'Semua Blok';
+    const first = report.units[0];
+    if (first) return first.blockCode ?? first.blockName ?? 'Semua Blok';
+    return 'Semua Blok';
   }
 }

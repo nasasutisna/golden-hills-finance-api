@@ -34,6 +34,16 @@ let ResidentsRepository = class ResidentsRepository {
                             address: true,
                         },
                     },
+                    houseUnit: {
+                        select: {
+                            id: true,
+                            unitCode: true,
+                            unitNumber: true,
+                            unitType: true,
+                            occupancyStatus: true,
+                            houseBlockId: true,
+                        },
+                    },
                 },
             }),
             this.prisma.resident.count({ where: { ...where, deletedAt: null } }),
@@ -45,6 +55,7 @@ let ResidentsRepository = class ResidentsRepository {
             where: { id, deletedAt: null },
             include: include || {
                 houseBlock: true,
+                houseUnit: true,
                 invoices: {
                     where: { deletedAt: null },
                     take: 5,
@@ -65,7 +76,7 @@ let ResidentsRepository = class ResidentsRepository {
     async findByResidentCode(residentCode) {
         return this.prisma.resident.findFirst({
             where: { residentCode, deletedAt: null },
-            include: { houseBlock: true },
+            include: { houseBlock: true, houseUnit: true },
         });
     }
     async generateResidentCode() {
@@ -74,7 +85,7 @@ let ResidentsRepository = class ResidentsRepository {
     async create(data) {
         return this.prisma.resident.create({
             data,
-            include: { houseBlock: true },
+            include: { houseBlock: true, houseUnit: true },
         });
     }
     async update(id, data) {
@@ -82,7 +93,7 @@ let ResidentsRepository = class ResidentsRepository {
             return await this.prisma.resident.update({
                 where: { id },
                 data,
-                include: { houseBlock: true },
+                include: { houseBlock: true, houseUnit: true },
             });
         }
         catch (error) {
@@ -102,7 +113,7 @@ let ResidentsRepository = class ResidentsRepository {
         return this.prisma.resident.update({
             where: { id },
             data: { deletedAt: null, isActive: true },
-            include: { houseBlock: true },
+            include: { houseBlock: true, houseUnit: true },
         });
     }
     async count(where) {
@@ -124,8 +135,15 @@ let ResidentsRepository = class ResidentsRepository {
     async getByHouseBlock(houseBlockId) {
         return this.prisma.resident.findMany({
             where: { houseBlockId, deletedAt: null },
-            include: { houseBlock: true },
+            include: { houseBlock: true, houseUnit: true },
             orderBy: { unitNumber: 'asc' },
+        });
+    }
+    async getByHouseUnit(houseUnitId) {
+        return this.prisma.resident.findMany({
+            where: { houseUnitId, deletedAt: null },
+            include: { houseBlock: true, houseUnit: true },
+            orderBy: { createdAt: 'asc' },
         });
     }
     async updateBalance(residentId) {

@@ -29,6 +29,7 @@ export declare class CreateResidentDto {
     emergencyContact?: string;
     emergencyPhone?: string;
     houseBlockId: string;
+    houseUnitId?: string;
     unitNumber: string;
     moveInDate?: string;
     moveOutDate?: string;

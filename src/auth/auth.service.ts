@@ -106,19 +106,7 @@ export class AuthService {
 
     return {
       ...tokens,
-      user: {
-        id: user.id,
-        username: user.username,
-        email: user.email,
-        firstName: user.firstName,
-        lastName: user.lastName,
-        roleId: user.roleId,
-        role: user.role ? {
-          id: user.role.id,
-          name: user.role.name,
-          description: user.role.description,
-        } : null,
-      },
+      user: this.buildUserResponse(user),
     };
   }
 
@@ -134,16 +122,9 @@ export class AuthService {
       throw new ConflictException('Email already exists');
     }
 
-    // Hash password
-    const hashedPassword = await bcrypt.hash(
-      registerDto.password,
-      parseInt(this.configService.get<string>('BCRYPT_ROUNDS', '10')),
-    );
-
-    // Create user with default role
+    // Password hashing is handled centrally by UsersService.create
     const user = await this.usersService.create({
       ...registerDto,
-      password: hashedPassword,
       roleId: registerDto.roleId || this.configService.get<string>('DEFAULT_USER_ROLE_ID', 'default-user-role'),
       isActive: true,
       isEmailVerified: false,
@@ -167,19 +148,50 @@ export class AuthService {
 
     return {
       ...tokens,
-      user: {
-        id: userWithRole.id,
-        username: userWithRole.username,
-        email: userWithRole.email,
-        firstName: userWithRole.firstName,
-        lastName: userWithRole.lastName,
-        roleId: userWithRole.roleId,
-        role: userWithRole.role ? {
-          id: userWithRole.role.id,
-          name: userWithRole.role.name,
-          description: userWithRole.role.description,
-        } : null,
+      user: this.buildUserResponse(userWithRole),
+    };
+  }
+
+  /**
+   * Get the authenticated user's profile, shaped consistently with login.
+   */
+  async getMe(userId: string) {
+    const user = await this.usersService.findById(userId, {
+      role: {
+        select: {
+          id: true,
+          name: true,
+          description: true,
+        },
       },
+    });
+
+    if (!user) {
+      throw new UnauthorizedException('User not found');
+    }
+
+    return this.buildUserResponse(user);
+  }
+
+  /**
+   * Shape the authenticated user object consistently across login, register,
+   * and /auth/me so all three return the same `user` structure.
+   */
+  private buildUserResponse(user: any) {
+    return {
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      roleId: user.roleId,
+      role: user.role
+        ? {
+            id: user.role.id,
+            name: user.role.name,
+            description: user.role.description,
+          }
+        : null,
     };
   }
 
@@ -236,6 +248,35 @@ export class AuthService {
     });
 
     this.logger.log(`User logged out: ${userId}`);
+  }
+
+  /**
+   * Self-service password change. Verifies the current password before
+   * accepting the new one, and rejects no-op changes (new === current).
+   * The caller is the authenticated user — proof of ownership is required,
+   * unlike the admin-only reset flow.
+   */
+  async changePassword(
+    userId: string,
+    currentPassword: string,
+    newPassword: string,
+  ): Promise<void> {
+    const isCurrentValid = await this.usersService.verifyPassword(
+      userId,
+      currentPassword,
+    );
+    if (!isCurrentValid) {
+      throw new UnauthorizedException('Current password is incorrect');
+    }
+
+    if (currentPassword === newPassword) {
+      throw new BadRequestException(
+        'New password must be different from the current password',
+      );
+    }
+
+    await this.usersService.updatePassword(userId, newPassword);
+    this.logger.log(`Password changed by user: ${userId}`);
   }
 
   async verifyEmail(token: string): Promise<void> {

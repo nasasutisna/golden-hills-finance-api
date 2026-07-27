@@ -18,6 +18,7 @@ const swagger_1 = require("@nestjs/swagger");
 const users_service_1 = require("./users.service");
 const create_user_dto_1 = require("./dto/create-user.dto");
 const update_user_dto_1 = require("./dto/update-user.dto");
+const reset_password_dto_1 = require("./dto/reset-password.dto");
 const query_options_dto_1 = require("../common/dto/query-options.dto");
 const jwt_auth_guard_1 = require("../common/guards/jwt-auth.guard");
 const roles_guard_1 = require("../common/guards/roles.guard");
@@ -61,8 +62,16 @@ let UsersController = class UsersController {
             data: user,
         };
     }
+    async resetPassword(id, resetPasswordDto) {
+        const result = await this.usersService.resetPassword(id, resetPasswordDto);
+        return {
+            statusCode: 200,
+            message: 'Password updated successfully',
+            data: result,
+        };
+    }
     async remove(id) {
-        const user = await this.usersService.softDelete(id);
+        const user = await this.usersService.delete(id);
         return {
             statusCode: 200,
             message: 'User deleted successfully',
@@ -154,11 +163,27 @@ __decorate([
     __metadata("design:returntype", Promise)
 ], UsersController.prototype, "update", null);
 __decorate([
+    (0, common_1.Patch)(':id/password'),
+    (0, roles_decorator_1.Roles)('ADMIN'),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Set / reset user password',
+        description: 'Set or reset a user password (Admin only). Supports manual entry or auto-generated strong password, with optional WhatsApp delivery to the linked resident.',
+    }),
+    (0, swagger_1.ApiParam)({ name: 'id', description: 'User ID' }),
+    http_response_decorator_1.ApiResponseDecorators.ok(),
+    http_response_decorator_1.ApiResponseDecorators.standard(),
+    __param(0, (0, common_1.Param)('id', parse_uuid_pipe_1.ParseUuidPipe)),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, reset_password_dto_1.ResetPasswordDto]),
+    __metadata("design:returntype", Promise)
+], UsersController.prototype, "resetPassword", null);
+__decorate([
     (0, common_1.Delete)(':id'),
     (0, roles_decorator_1.Roles)('ADMIN'),
     (0, swagger_1.ApiOperation)({
-        summary: 'Soft delete user',
-        description: 'Soft delete user account (Admin only)',
+        summary: 'Delete user (permanent)',
+        description: 'Permanently delete a user account (Admin only). This action cannot be undone. The linked resident/employee (if any) is unlinked automatically.',
     }),
     (0, swagger_1.ApiParam)({ name: 'id', description: 'User ID' }),
     http_response_decorator_1.ApiResponseDecorators.ok(),

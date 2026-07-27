@@ -192,6 +192,16 @@ __decorate([
 ], CreateResidentDto.prototype, "houseBlockId", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({
+        description: 'House unit ID (links resident to a specific house unit)',
+        example: 'uuid-of-house-unit',
+        required: false,
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], CreateResidentDto.prototype, "houseUnitId", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({
         description: 'Unit number',
         example: 'A-101',
         maxLength: 20,

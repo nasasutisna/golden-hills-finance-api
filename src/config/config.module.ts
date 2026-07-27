@@ -5,6 +5,7 @@ import { jwtConfig } from './jwt.config';
 import { appConfig } from './app.config';
 import { fileUploadConfig } from './file-upload.config';
 import { paginationConfig } from './pagination.config';
+import { whatsappConfig } from './whatsapp.config';
 
 @Module({
   imports: [
@@ -16,6 +17,7 @@ import { paginationConfig } from './pagination.config';
         appConfig,
         fileUploadConfig,
         paginationConfig,
+        whatsappConfig,
       ],
     }),
   ],

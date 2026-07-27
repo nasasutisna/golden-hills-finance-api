@@ -36,6 +36,7 @@ const REQUEST_INCLUDE = {
       categoryCode: true,
       categoryName: true,
       categoryType: true,
+      fundType: true,
     },
   },
 };

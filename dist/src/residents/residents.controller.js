@@ -61,6 +61,14 @@ let ResidentsController = class ResidentsController {
             data: residents,
         };
     }
+    async getByHouseUnit(houseUnitId) {
+        const residents = await this.residentsService.getByHouseUnit(houseUnitId);
+        return {
+            statusCode: 200,
+            message: 'Residents retrieved successfully',
+            data: residents,
+        };
+    }
     async getStats() {
         const stats = await this.residentsService.getStats();
         return {
@@ -156,6 +164,20 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], ResidentsController.prototype, "getByHouseBlock", null);
+__decorate([
+    (0, common_1.Get)('house-unit/:houseUnitId'),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Get residents by house unit',
+        description: 'Get all residents linked to a specific house unit',
+    }),
+    (0, swagger_1.ApiParam)({ name: 'houseUnitId', description: 'House Unit ID' }),
+    http_response_decorator_1.ApiResponseDecorators.ok(),
+    http_response_decorator_1.ApiResponseDecorators.standard(),
+    __param(0, (0, common_1.Param)('houseUnitId', parse_uuid_pipe_1.ParseUuidPipe)),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], ResidentsController.prototype, "getByHouseUnit", null);
 __decorate([
     (0, common_1.Get)('stats'),
     (0, swagger_1.ApiOperation)({

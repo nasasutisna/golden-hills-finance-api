@@ -100,6 +100,23 @@ export class ResidentsController {
     };
   }
 
+  @Get('house-unit/:houseUnitId')
+  @ApiOperation({
+    summary: 'Get residents by house unit',
+    description: 'Get all residents linked to a specific house unit',
+  })
+  @ApiParam({ name: 'houseUnitId', description: 'House Unit ID' })
+  @ApiResponseDecorators.ok()
+  @ApiResponseDecorators.standard()
+  async getByHouseUnit(@Param('houseUnitId', ParseUuidPipe) houseUnitId: string) {
+    const residents = await this.residentsService.getByHouseUnit(houseUnitId);
+    return {
+      statusCode: 200,
+      message: 'Residents retrieved successfully',
+      data: residents,
+    };
+  }
+
   @Get('stats')
   @ApiOperation({
     summary: 'Get residents statistics',

@@ -47,6 +47,7 @@ model User {
   resident              Resident?        @relation("ResidentUser")
   expenseRequests       ExpenseRequest[] @relation("ExpenseRequestSubmitter")
   approvedExpenses      ExpenseRequest[] @relation("ExpenseRequestApprover")
+  whatsappBlasts        WhatsappBlast[]  @relation("WhatsappBlastTriggeredBy")
 
   @@index([email])
   @@index([username])
@@ -917,4 +918,67 @@ model ApprovalHistory {
   @@index([approvedBy])
   @@index([deletedAt])
   @@map("approval_histories")
+}
+
+// ============================================================
+// WHATSAPP BLAST (Baileys) — audit trail for collection reminders
+// ============================================================
+
+model WhatsappBlast {
+  id              String   @id @default(uuid()) @db.VarChar(36)
+  batchNo         String   @unique @map("batch_no") @db.VarChar(40)
+  year            Int
+  asOfMonth       Int      @map("as_of_month")
+  houseBlockId    String?  @map("house_block_id") @db.VarChar(36)
+  status          String   @db.VarChar(20) // DRAFT | RUNNING | COMPLETED | FAILED | CANCELLED
+  totalRecipients Int      @default(0) @map("total_recipients")
+  successCount    Int      @default(0) @map("success_count")
+  failedCount     Int      @default(0) @map("failed_count")
+  skippedCount    Int      @default(0) @map("skipped_count")
+  dryRun          Boolean  @default(false) @map("dry_run")
+  messageTemplate String   @db.Text @map("message_template")
+  triggeredById   String   @map("triggered_by_id") @db.VarChar(36)
+  startedAt       DateTime? @map("started_at")
+  completedAt     DateTime? @map("completed_at")
+  note            String?  @db.Text
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+  deletedAt       DateTime? @map("deleted_at")
+
+  // Relations
+  recipients    WhatsappBlastRecipient[]
+  triggeredBy   User                    @relation("WhatsappBlastTriggeredBy", fields: [triggeredById], references: [id], onDelete: Restrict)
+
+  @@index([deletedAt])
+  @@index([status])
+  @@index([year, asOfMonth])
+  @@map("whatsapp_blasts")
+}
+
+model WhatsappBlastRecipient {
+  id                String    @id @default(uuid()) @db.VarChar(36)
+  blastId           String    @map("blast_id") @db.VarChar(36)
+  unitId            String?   @map("unit_id") @db.VarChar(36)
+  residentName      String?   @map("resident_name") @db.VarChar(255)
+  unitNumber        String?   @map("unit_number") @db.VarChar(50)
+  blockCode         String?   @map("block_code") @db.VarChar(50)
+  blockName         String?   @map("block_name") @db.VarChar(100)
+  rawPhone          String?   @map("raw_phone") @db.VarChar(30)
+  normalizedPhone   String?   @map("normalized_phone") @db.VarChar(30)
+  status            String    @db.VarChar(20) // PENDING | SENT | FAILED | SKIPPED
+  errorMessage      String?   @map("error_message") @db.Text
+  outstandingMonths Int?
+  outstandingAmount Decimal?  @map("outstanding_amount") @db.Decimal(14, 2)
+  sentAt            DateTime? @map("sent_at")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+  deletedAt         DateTime? @map("deleted_at")
+
+  // Relations
+  blast WhatsappBlast @relation(fields: [blastId], references: [id], onDelete: Cascade)
+
+  @@index([deletedAt])
+  @@index([blastId])
+  @@index([status])
+  @@map("whatsapp_blast_recipients")
 }

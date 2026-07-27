@@ -69,19 +69,7 @@ let AuthService = AuthService_1 = class AuthService {
         this.logger.log(`User logged in: ${user.username}`);
         return {
             ...tokens,
-            user: {
-                id: user.id,
-                username: user.username,
-                email: user.email,
-                firstName: user.firstName,
-                lastName: user.lastName,
-                roleId: user.roleId,
-                role: user.role ? {
-                    id: user.role.id,
-                    name: user.role.name,
-                    description: user.role.description,
-                } : null,
-            },
+            user: this.buildUserResponse(user),
         };
     }
     async register(registerDto) {
@@ -93,10 +81,8 @@ let AuthService = AuthService_1 = class AuthService {
         if (existingEmail) {
             throw new common_1.ConflictException('Email already exists');
         }
-        const hashedPassword = await bcrypt.hash(registerDto.password, parseInt(this.configService.get('BCRYPT_ROUNDS', '10')));
         const user = await this.usersService.create({
             ...registerDto,
-            password: hashedPassword,
             roleId: registerDto.roleId || this.configService.get('DEFAULT_USER_ROLE_ID', 'default-user-role'),
             isActive: true,
             isEmailVerified: false,
@@ -114,19 +100,39 @@ let AuthService = AuthService_1 = class AuthService {
         this.logger.log(`New user registered: ${user.username}`);
         return {
             ...tokens,
-            user: {
-                id: userWithRole.id,
-                username: userWithRole.username,
-                email: userWithRole.email,
-                firstName: userWithRole.firstName,
-                lastName: userWithRole.lastName,
-                roleId: userWithRole.roleId,
-                role: userWithRole.role ? {
-                    id: userWithRole.role.id,
-                    name: userWithRole.role.name,
-                    description: userWithRole.role.description,
-                } : null,
+            user: this.buildUserResponse(userWithRole),
+        };
+    }
+    async getMe(userId) {
+        const user = await this.usersService.findById(userId, {
+            role: {
+                select: {
+                    id: true,
+                    name: true,
+                    description: true,
+                },
             },
+        });
+        if (!user) {
+            throw new common_1.UnauthorizedException('User not found');
+        }
+        return this.buildUserResponse(user);
+    }
+    buildUserResponse(user) {
+        return {
+            id: user.id,
+            username: user.username,
+            email: user.email,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            roleId: user.roleId,
+            role: user.role
+                ? {
+                    id: user.role.id,
+                    name: user.role.name,
+                    description: user.role.description,
+                }
+                : null,
         };
     }
     async refreshTokens(refreshTokenDto) {
@@ -169,6 +175,17 @@ let AuthService = AuthService_1 = class AuthService {
             refreshTokenExpiry: null,
         });
         this.logger.log(`User logged out: ${userId}`);
+    }
+    async changePassword(userId, currentPassword, newPassword) {
+        const isCurrentValid = await this.usersService.verifyPassword(userId, currentPassword);
+        if (!isCurrentValid) {
+            throw new common_1.UnauthorizedException('Current password is incorrect');
+        }
+        if (currentPassword === newPassword) {
+            throw new common_1.BadRequestException('New password must be different from the current password');
+        }
+        await this.usersService.updatePassword(userId, newPassword);
+        this.logger.log(`Password changed by user: ${userId}`);
     }
     async verifyEmail(token) {
         try {

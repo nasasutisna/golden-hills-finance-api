@@ -232,6 +232,33 @@ export declare class ResidentsService {
         moveOutDate: Date | null;
         ownershipType: string | null;
     }[]>;
+    getByHouseUnit(houseUnitId: string): Promise<{
+        id: string;
+        isActive: boolean;
+        createdAt: Date;
+        updatedAt: Date;
+        deletedAt: Date | null;
+        email: string | null;
+        firstName: string;
+        lastName: string;
+        phoneNumber: string | null;
+        unitNumber: string | null;
+        houseBlockId: string | null;
+        residentCode: string;
+        userId: string | null;
+        alternatePhone: string | null;
+        identityNumber: string | null;
+        dateOfBirth: Date | null;
+        gender: string | null;
+        occupation: string | null;
+        maritalStatus: string | null;
+        emergencyContact: string | null;
+        emergencyPhone: string | null;
+        houseUnitId: string | null;
+        moveInDate: Date | null;
+        moveOutDate: Date | null;
+        ownershipType: string | null;
+    }[]>;
     getActiveResidentsCount(): Promise<number>;
     count(where?: any): Promise<number>;
     getStats(): Promise<{
