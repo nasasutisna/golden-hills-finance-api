@@ -1,5 +1,6 @@
 import { Injectable, Logger, ForbiddenException, BadRequestException, Inject } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { QueryIplPaymentsDto } from './dto/query-ipl-payments.dto';
 import { QueryIplPaymentMatrixDto } from './dto/query-ipl-payment-matrix.dto';
 import { CreateIplPaymentDto } from './dto/create-ipl-payment.dto';
@@ -7,11 +8,11 @@ import { UpdateIplPaymentDto } from './dto/update-ipl-payment.dto';
 import { ApproveIplPaymentDto } from './dto/approve-ipl-payment.dto';
 import { RejectIplPaymentDto } from './dto/reject-ipl-payment.dto';
 import { IplPaymentStatus, PaymentMethod } from './dto/enums';
-import { IplPaymentsRepository, IplPaymentWithFiles } from './ipl-payments.repository';
+import { IplPaymentsRepository, IplPaymentWithFiles, MatrixScope } from './ipl-payments.repository';
 import { PrismaService, PrismaTransactionalClient } from '../prisma/prisma.service';
+import { CurrentUserData } from '../common/decorators/current-user.decorator';
 import { ApprovalHistoriesService } from '../approval-histories/approval-histories.service';
 import { CreateApprovalHistoryDto, ApprovalAction } from '../approval-histories/dto/create-approval-history.dto';
-import { IplReceiptsService } from './ipl-receipts.service';
 import { CashTransactionsService } from '../cash-transactions/cash-transactions.service';
 import { ResidentPaymentReceiptsService } from '../resident-payments/resident-payment-receipts.service';
 import { generateReferenceNumber } from './helpers/reference-number.helper';
@@ -35,11 +36,11 @@ export class IplPaymentsService {
     private readonly iplPaymentsRepository: IplPaymentsRepository,
     private readonly prisma: PrismaService,
     private readonly approvalHistoriesService: ApprovalHistoriesService,
-    private readonly iplReceiptsService: IplReceiptsService,
     private readonly cashTransactionsService: CashTransactionsService,
     private readonly residentPaymentReceiptsService: ResidentPaymentReceiptsService,
     private readonly configService: ConfigService,
-  ) {}
+    private readonly eventEmitter: EventEmitter2,
+  ) { }
 
   async findAll(queryOptions: QueryIplPaymentsDto, additionalWhere?: any) {
     const { page = 1, limit = 10, sortBy = 'createdAt', sortOrder = 'desc', search, status, periodId, residentId, houseUnitId, houseBlockId } = queryOptions;
@@ -304,87 +305,41 @@ export class IplPaymentsService {
       }
 
       // 11. RENAME & LINK FILE ATTACHMENT (if proof file provided)
-      let renamedFilePath = null;
       if (createIplPaymentDto.proofFileId && payments.length > 0) {
-        const firstPaymentId = payments[0].id;
-        const timestamp = Date.now();
-
-        // Get existing file attachment details
         const existingFile = await tx.fileAttachment.findUnique({
           where: { id: createIplPaymentDto.proofFileId },
         });
-
         if (existingFile) {
-          // Generate new filename with reference number
-          const originalExt = path.extname(existingFile.fileName);
-          const sanitizedUnit = sanitizeFilename(houseUnit.unitNumber);
-          const newFileName = generateBuktiTransferFilename(
+          await this.persistProofFile(
+            tx,
+            {
+              id: existingFile.id,
+              fileName: existingFile.fileName,
+              filePath: existingFile.filePath,
+            },
+            payments,
+            houseUnit.unitNumber,
             startPeriod.month,
             startPeriod.year,
-            sanitizedUnit,
-            timestamp,
             referenceNumber,
-            originalExt,
           );
-
-          // Build new file path
-          const unitDir = path.join('./uploads', sanitizedUnit);
-          const newFilePath = path.join(unitDir, newFileName);
-          const oldFilePath = existingFile.filePath.startsWith('./')
-            ? existingFile.filePath
-            : `.${existingFile.filePath}`;
-
-          // Ensure directory exists
-          if (!fs.existsSync(unitDir)) {
-            fs.mkdirSync(unitDir, { recursive: true });
-          }
-
-          // Rename/move file if exists
-          if (fs.existsSync(oldFilePath)) {
-            fs.renameSync(oldFilePath, newFilePath);
-            renamedFilePath = newFilePath.replace('./', '/uploads/');
-            this.logger.log(`File renamed: ${existingFile.fileName} -> ${newFileName}`);
-          }
-
-          // Update file attachment record
-          await tx.fileAttachment.update({
-            where: { id: createIplPaymentDto.proofFileId },
-            data: {
-              entityType: 'IplPayment',
-              entityId: firstPaymentId,
-              fileName: newFileName,
-              filePath: renamedFilePath || existingFile.filePath,
-            },
-          });
-
-          // Fetch and attach files to first payment
-          const files = await tx.fileAttachment.findMany({
-            where: {
-              entityType: 'IplPayment',
-              entityId: firstPaymentId,
-              deletedAt: null,
-            },
-            select: {
-              id: true,
-              fileName: true,
-              filePath: true,
-              fileSize: true,
-              mimeType: true,
-              category: true,
-              createdAt: true,
-            },
-          });
-
-          payments[0] = { ...payments[0], files };
         }
       }
 
-      // 12. CREATE KEGIATAN PAYMENT (if provided)
-      let kegiatanPayment = null;
+      // 12. CREATE KEGIATAN PAYMENT(S) (if provided)
+      // kegiatanAmount is PER-MONTH; kegiatanMonthCount controls how many months.
+      // One ResidentPayment is created per month (paymentDate set to that month) so
+      // the resident-payments matrix (which buckets by paymentDate month) reflects
+      // each month correctly — mirrors how IPL creates one payment per period.
+      const kegiatanPayments: any[] = [];
       let totalKegiatanAmount = 0;
 
       if (createIplPaymentDto.kegiatanAmount && createIplPaymentDto.kegiatanAmount > 0) {
         try {
+          const kegiatanMonthCount = Math.max(1, Math.min(24, createIplPaymentDto.kegiatanMonthCount || 1));
+          const kegiatanPerMonth = createIplPaymentDto.kegiatanAmount;
+          const kegiatanTotal = kegiatanPerMonth * kegiatanMonthCount;
+
           // Check or get FeeType for "Iuran Kegiatan Warga"
           let feeType = await tx.feeType.findFirst({
             where: {
@@ -410,121 +365,120 @@ export class IplPaymentsService {
             this.logger.log(`Created FeeType: ${feeType.feeName}`);
           }
 
-          // Check if invoice exists for this resident and period
-          const currentMonth = startPeriod.month;
-          const currentYear = startPeriod.year;
-
-          let invoice: any = await tx.residentInvoice.findFirst({
-            where: {
-              residentId: createIplPaymentDto.residentId,
-              deletedAt: null,
-              details: {
-                some: {
-                  feeTypeId: feeType.id,
-                },
-              },
-            },
-            include: {
-              details: true,
-            },
-            orderBy: {
-              invoiceDate: 'desc',
-            },
+          // Generate next invoice number
+          const lastInvoice = await tx.residentInvoice.findFirst({
+            where: { deletedAt: null },
+            orderBy: { createdAt: 'desc' },
+            select: { invoiceNumber: true },
           });
-
-          // If no invoice exists, create one
-          if (!invoice) {
-            const lastInvoice = await tx.residentInvoice.findFirst({
-              where: { deletedAt: null },
-              orderBy: { createdAt: 'desc' },
-              select: { invoiceNumber: true },
-            });
-
-            let newInvoiceNumber = 'INV-000001';
-            if (lastInvoice?.invoiceNumber) {
-              const lastNum = parseInt(lastInvoice.invoiceNumber.split('-')[1]);
+          let newInvoiceNumber = 'INV-000001';
+          if (lastInvoice?.invoiceNumber) {
+            const lastNum = parseInt(lastInvoice.invoiceNumber.split('-')[1]);
+            if (!isNaN(lastNum)) {
               newInvoiceNumber = `INV-${(lastNum + 1).toString().padStart(6, '0')}`;
             }
+          }
 
-            invoice = await tx.residentInvoice.create({
-              data: {
-                invoiceNumber: newInvoiceNumber,
-                residentId: createIplPaymentDto.residentId,
-                invoiceDate: new Date(),
-                dueDate: new Date(new Date().setDate(new Date().getDate() + 30)),
-                subtotal: createIplPaymentDto.kegiatanAmount,
-                taxAmount: 0,
-                discountAmount: 0,
-                totalAmount: createIplPaymentDto.kegiatanAmount,
-                paidAmount: 0,
-                balanceAmount: createIplPaymentDto.kegiatanAmount,
-                status: 'PENDING',
-                notes: `Iuran kegiatan warga ${currentMonth}/${currentYear}`,
-                createdBy: userId,
-                details: {
-                  create: {
-                    feeTypeId: feeType.id,
-                    description: `Iuran Kegiatan Warga ${currentMonth}/${currentYear}`,
-                    quantity: 1,
-                    unitPrice: createIplPaymentDto.kegiatanAmount,
-                    taxRate: 0,
-                    taxAmount: 0,
-                    discountAmount: 0,
-                    subtotal: createIplPaymentDto.kegiatanAmount,
-                  },
+          // Create ONE fresh invoice covering the whole submission
+          // (total = per-month × monthCount). The previous "reuse existing invoice"
+          // logic was dropped: it accumulated paidAmount into an unrelated invoice
+          // (paidAmount could exceed totalAmount, status went inconsistent) and was
+          // incompatible with multi-month totals.
+          const startMonthLabel = `${startPeriod.month}/${startPeriod.year}`;
+          const endTargetDate = new Date(startPeriod.year, startPeriod.month - 1 + kegiatanMonthCount - 1, 1);
+          const endMonthLabel = `${endTargetDate.getMonth() + 1}/${endTargetDate.getFullYear()}`;
+          const invoiceLabel = kegiatanMonthCount > 1
+            ? `${startMonthLabel} - ${endMonthLabel} (${kegiatanMonthCount} bulan)`
+            : startMonthLabel;
+
+          const invoice = await tx.residentInvoice.create({
+            data: {
+              invoiceNumber: newInvoiceNumber,
+              residentId: createIplPaymentDto.residentId,
+              invoiceDate: new Date(),
+              dueDate: new Date(new Date().setDate(new Date().getDate() + 30)),
+              subtotal: kegiatanTotal,
+              taxAmount: 0,
+              discountAmount: 0,
+              totalAmount: kegiatanTotal,
+              paidAmount: 0,
+              balanceAmount: kegiatanTotal,
+              status: 'PENDING',
+              notes: `Iuran kegiatan warga ${invoiceLabel}`,
+              createdBy: userId,
+              details: {
+                create: {
+                  feeTypeId: feeType.id,
+                  description: `Iuran Kegiatan Warga ${invoiceLabel}`,
+                  quantity: kegiatanMonthCount,
+                  unitPrice: kegiatanPerMonth,
+                  taxRate: 0,
+                  taxAmount: 0,
+                  discountAmount: 0,
+                  subtotal: kegiatanTotal,
                 },
               },
-            });
-            this.logger.log(`Created invoice: ${invoice.invoiceNumber}`);
-          }
-
-          // Safety check - if invoice is still null, skip payment creation
-          if (!invoice || !invoice.id) {
-            this.logger.warn('Failed to create or retrieve invoice for kegiatan payment');
-            return;
-          }
-
-          // Create ResidentPayment
-          const kegiatanPaymentNumber = `PAY${Date.now().toString().slice(-8)}${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`;
-
-          kegiatanPayment = await tx.residentPayment.create({
-            data: {
-              paymentNumber: kegiatanPaymentNumber,
-              residentId: createIplPaymentDto.residentId,
-              invoiceId: invoice.id,
-              paymentDate: new Date(createIplPaymentDto.paymentDate),
-              amount: createIplPaymentDto.kegiatanAmount,
-              paymentMethod: createIplPaymentDto.paymentMethod,
-              referenceNumber, // Use same reference number as IPL payment
-              notes: `Iuran kegiatan warga ${currentMonth}/${currentYear}`,
-              // Auto-verify when submitted by admin/accountant; otherwise awaits IPL approval
-              status: isAdminOrAccountant ? 'COMPLETED' : 'PENDING',
-              ...(isAdminOrAccountant && { verifiedBy: userId, verifiedAt: new Date() }),
-              createdBy: userId,
             },
           });
+          this.logger.log(`Created invoice: ${invoice.invoiceNumber} (total ${kegiatanTotal})`);
 
-          // Update invoice paid amount
-          const currentPaidAmount = parseFloat(invoice.paidAmount?.toString() || '0');
-          const totalAmount = parseFloat(invoice.totalAmount?.toString() || '0');
-          const newPaidAmount = currentPaidAmount + createIplPaymentDto.kegiatanAmount;
+          // Day-of-month for each kegiatan paymentDate, clamped to 28 to avoid
+          // Date overflow rolling into the next month (which would mis-bucket).
+          const paymentDay = Math.min(new Date(createIplPaymentDto.paymentDate).getDate() || 1, 28);
 
+          // Create one ResidentPayment per month, starting from the IPL start period
+          for (let i = 0; i < kegiatanMonthCount; i++) {
+            const targetDate = new Date(startPeriod.year, startPeriod.month - 1 + i, 1);
+            const targetMonth = targetDate.getMonth() + 1;
+            const targetYear = targetDate.getFullYear();
+            const monthPaymentDate = new Date(targetYear, targetMonth - 1, paymentDay);
+
+            // Index `i` ensures uniqueness when multiple payments are created
+            // within the same millisecond slice.
+            const kegiatanPaymentNumber = `PAY${Date.now().toString().slice(-8)}${i.toString().padStart(2, '0')}${Math.floor(Math.random() * 1000).toString().padStart(3, '0')}`;
+
+            const kegiatanPayment = await tx.residentPayment.create({
+              data: {
+                paymentNumber: kegiatanPaymentNumber,
+                residentId: createIplPaymentDto.residentId,
+                invoiceId: invoice.id,
+                paymentDate: monthPaymentDate,
+                amount: kegiatanPerMonth,
+                paymentMethod: createIplPaymentDto.paymentMethod,
+                referenceNumber, // Same reference number as the IPL payment(s)
+                notes: `Iuran kegiatan warga ${targetMonth}/${targetYear}`,
+                // Auto-verify when submitted by admin/accountant; otherwise awaits IPL approval
+                status: isAdminOrAccountant ? 'COMPLETED' : 'PENDING',
+                ...(isAdminOrAccountant && { verifiedBy: userId, verifiedAt: new Date() }),
+                createdBy: userId,
+              },
+            });
+
+            kegiatanPayments.push(kegiatanPayment);
+          }
+
+          // Mark invoice fully paid (all months are paid in this single submission)
           await tx.residentInvoice.update({
             where: { id: invoice.id },
             data: {
-              paidAmount: newPaidAmount,
-              balanceAmount: totalAmount - newPaidAmount,
-              status: newPaidAmount >= totalAmount ? 'PAID' : invoice.status,
+              paidAmount: kegiatanTotal,
+              balanceAmount: 0,
+              status: 'PAID',
             },
           });
 
-          totalKegiatanAmount = createIplPaymentDto.kegiatanAmount;
-          this.logger.log(`Created kegiatan payment: ${kegiatanPayment.paymentNumber} with ref: ${referenceNumber}`);
+          totalKegiatanAmount = kegiatanTotal;
+          this.logger.log(
+            `Created ${kegiatanPayments.length} kegiatan payment(s) (total ${kegiatanTotal}) with ref: ${referenceNumber}`,
+          );
         } catch (error) {
-          this.logger.error(`Failed to create kegiatan payment: ${error.message}`);
+          this.logger.error(`Failed to create kegiatan payment(s): ${error.message}`);
           // Don't fail the entire transaction if kegiatan payment fails
         }
       }
+
+      // Representative kegiatan payment (first) for response + auto-approve cash-tx
+      const kegiatanPayment = kegiatanPayments.length > 0 ? kegiatanPayments[0] : null;
 
       // 13. Create approval history for the first payment
       await this.createApprovalHistory(
@@ -560,11 +514,11 @@ export class IplPaymentsService {
               );
             }
 
-            // Also create cash transactions for kegiatan payments if exists
-            if (kegiatanPayment) {
+            // Also create cash transactions for kegiatan payments if any (one per month)
+            for (const kp of kegiatanPayments) {
               // Fetch full kegiatan payment with resident relation
               const fullKegiatanPayment = await this.prisma.residentPayment.findUnique({
-                where: { id: kegiatanPayment.id },
+                where: { id: kp.id },
                 include: { resident: true },
               });
               if (fullKegiatanPayment) {
@@ -580,13 +534,16 @@ export class IplPaymentsService {
 
             this.logger.log(`Cash transactions created for auto-approved payment(s): ${payments[0].paymentNumber}`);
 
-            // Generate receipt
-            if (isMultiMonth && paymentGroupId) {
-              await this.iplReceiptsService.generateReceipt(payments[0].id);
-            } else {
-              await this.iplReceiptsService.generateReceipt(payments[0].id);
-            }
-            this.logger.log(`Receipt generated for auto-approved payment(s): ${payments[0].paymentNumber}`);
+            // Notify via the WhatsApp bot — same event/path as manual approve, so
+            // the unit owner (and a coordinator submitter, if any) gets the
+            // confirmation + KWT. The handler generates each month's KWT
+            // idempotently; groupPaymentIds covers every month in a multi-month
+            // payment (each gets its own KWT).
+            this.eventEmitter.emit('ipl.payment.approved', {
+              paymentId: payments[0].id,
+              groupPaymentIds: payments.map((p) => p.id),
+              referenceNumber,
+            });
           } catch (error) {
             this.logger.error(`Failed to process auto-approved payment ${payments[0].paymentNumber}:`, error);
           }
@@ -605,6 +562,7 @@ export class IplPaymentsService {
           monthCount,
           totalIplAmount,
           totalKegiatanAmount,
+          kegiatanMonthCount: kegiatanPayments.length,
           grandTotal,
           allPaymentIds: payments.map((p) => p.id),
         };
@@ -614,6 +572,7 @@ export class IplPaymentsService {
           monthCount: 1,
           totalIplAmount,
           totalKegiatanAmount,
+          kegiatanMonthCount: kegiatanPayments.length,
           grandTotal,
         };
       }
@@ -623,7 +582,8 @@ export class IplPaymentsService {
         result.kegiatanPayment = {
           id: kegiatanPayment.id,
           paymentNumber: kegiatanPayment.paymentNumber,
-          amount: kegiatanPayment.amount,
+          amount: totalKegiatanAmount, // total across all kegiatan months
+          monthCount: kegiatanPayments.length,
           invoiceId: kegiatanPayment.invoiceId,
           referenceNumber: kegiatanPayment.referenceNumber,
         };
@@ -642,6 +602,7 @@ export class IplPaymentsService {
         throw new BadRequestException('Payment is not in pending status');
       }
 
+      console.log('payment', payment)
       // Check if this payment is part of a multi-month payment group
       const isMultiMonth = !!payment.paymentGroupId;
       let paymentsToUpdate: string[] = [id];
@@ -740,14 +701,18 @@ export class IplPaymentsService {
         }
       });
 
-      // Generate receipt (outside transaction, after commit)
-      setImmediate(async () => {
-        try {
-          await this.iplReceiptsService.generateReceipt(id);
-          this.logger.log(`Receipt generated for payment: ${payment.paymentNumber}`);
-        } catch (error) {
-          this.logger.error(`Failed to generate receipt for payment ${payment.paymentNumber}:`, error);
-        }
+      // The KWT receipt is generated by the WhatsApp bot handler on
+      // `ipl.payment.approved` below — a single generation point avoids a race
+      // that double-created receipt FileAttachment rows.
+      // Notify the resident via the WhatsApp bot (confirmation + KWT receipt).
+      // Emitted after commit so the bot sees the APPROVED row (it generates the
+      // KWT idempotently).
+      setImmediate(() => {
+        this.eventEmitter.emit('ipl.payment.approved', {
+          paymentId: id,
+          groupPaymentIds: paymentsToUpdate,
+          referenceNumber: payment.referenceNumber,
+        });
       });
 
       // Return updated payment
@@ -813,6 +778,17 @@ export class IplPaymentsService {
       this.logger.log(
         `IPL payment(s) rejected: ${payment.paymentNumber} ${isMultiMonth ? `(+ ${paymentsToUpdate.length - 1} others in group)` : ''}`,
       );
+
+      // Notify the resident via the WhatsApp bot (rejection + reason). Emitted
+      // after commit so the bot sees the REJECTED row.
+      setImmediate(() => {
+        this.eventEmitter.emit('ipl.payment.rejected', {
+          paymentId: id,
+          groupPaymentIds: paymentsToUpdate,
+          referenceNumber: payment.referenceNumber,
+          rejectionReason: dto.rejectionReason,
+        });
+      });
 
       // Return updated payment
       return await this.iplPaymentsRepository.findById(id);
@@ -936,6 +912,83 @@ export class IplPaymentsService {
   }
 
   // Private helper methods
+
+  /**
+   * Rename a proof-of-transfer file to the canonical `BTF-…` name under
+   * `uploads/<unit>/`, link it to the first payment, and attach the file list
+   * onto `payments[0]`. Shared by the REST `create` path and the WhatsApp-bot
+   * `createBotPayment` path so both produce identical on-disk artifacts.
+   *
+   * `file.filePath` is the temp path (e.g. `/uploads/temp/temp_<uuid>.jpg`);
+   * it is resolved to a disk path by prefixing `./` when needed, mirroring the
+   * multer temp convention.
+   */
+  private async persistProofFile(
+    tx: PrismaTransactionalClient,
+    file: { id: string; fileName: string; filePath: string },
+    payments: IplPaymentWithFiles[],
+    unitNumber: string,
+    startMonth: number,
+    startYear: number,
+    referenceNumber: string,
+  ): Promise<void> {
+    if (payments.length === 0) return;
+    const firstPaymentId = payments[0].id;
+    const timestamp = Date.now();
+
+    const originalExt = path.extname(file.fileName);
+    const sanitizedUnit = sanitizeFilename(unitNumber);
+    const newFileName = generateBuktiTransferFilename(
+      startMonth,
+      startYear,
+      sanitizedUnit,
+      timestamp,
+      referenceNumber,
+      originalExt,
+    );
+
+    const unitDir = path.join('./uploads', sanitizedUnit);
+    const newFilePath = path.join(unitDir, newFileName);
+    const oldFilePath = file.filePath.startsWith('./')
+      ? file.filePath
+      : `.${file.filePath}`;
+
+    if (!fs.existsSync(unitDir)) {
+      fs.mkdirSync(unitDir, { recursive: true });
+    }
+
+    let renamedFilePath: string | null = null;
+    if (fs.existsSync(oldFilePath)) {
+      fs.renameSync(oldFilePath, newFilePath);
+      renamedFilePath = newFilePath.replace('./', '/uploads/');
+      this.logger.log(`File renamed: ${file.fileName} -> ${newFileName}`);
+    }
+
+    await tx.fileAttachment.update({
+      where: { id: file.id },
+      data: {
+        entityType: 'IplPayment',
+        entityId: firstPaymentId,
+        fileName: newFileName,
+        filePath: renamedFilePath || file.filePath,
+      },
+    });
+
+    const files = await tx.fileAttachment.findMany({
+      where: { entityType: 'IplPayment', entityId: firstPaymentId, deletedAt: null },
+      select: {
+        id: true,
+        fileName: true,
+        filePath: true,
+        fileSize: true,
+        mimeType: true,
+        category: true,
+        createdAt: true,
+      },
+    });
+
+    payments[0] = { ...payments[0], files };
+  }
 
   private calculateIplAmount(landArea: any, iplPercentage: any, baseRate: any = 2500): string {
     // Formula: landArea * baseRate * (iplPercentage / 100)
@@ -1078,6 +1131,56 @@ export class IplPaymentsService {
     return block?.id || null;
   }
 
+  /**
+   * Resolve the matrix unit-scope for the logged-in user.
+   * Returns `null` for full access (admin/finance/superadmin, or no user).
+   * COORDINATOR → the blocks they coordinate, OR'd with their own house unit
+   * (a coordinator is often also a paying resident, and may not yet be
+   * assigned to any block). Other roles → their own house unit (or block if
+   * the unit isn't set). No assignment at all → an empty scope so the matrix
+   * is empty. Uses the `Resident.userId` FK directly (unlike
+   * getCoordinatorBlockId above, which matches by name).
+   */
+  private async resolveMatrixScope(user?: CurrentUserData): Promise<MatrixScope | null> {
+    if (!user) return null;
+
+    if (['SUPERADMIN', 'ADMIN', 'ACCOUNTANT'].includes(user.roleName)) {
+      return null;
+    }
+
+    if (user.roleName === 'COORDINATOR') {
+      // A coordinator is usually also a paying resident whose unit lives in
+      // the block they coordinate. Scope = coordinated blocks OR'd with their
+      // own house unit (resolved via Resident.userId, never by name). In the
+      // normal case the own-unit is redundant (already inside the block); it
+      // acts as a safety net when no block is assigned to them
+      // (HouseBlock.coordinator_id not set) so they still see their own row
+      // instead of an empty matrix.
+      const [blocks, ownResident] = await Promise.all([
+        this.prisma.houseBlock.findMany({
+          where: { coordinator: { userId: user.id }, deletedAt: null },
+          select: { id: true },
+        }),
+        this.prisma.resident.findFirst({
+          where: { userId: user.id, deletedAt: null },
+          select: { houseUnitId: true },
+        }),
+      ]);
+      return {
+        houseBlockIds: blocks.map((b) => b.id),
+        houseUnitIds: ownResident?.houseUnitId ? [ownResident.houseUnitId] : [],
+      };
+    }
+
+    const resident = await this.prisma.resident.findFirst({
+      where: { userId: user.id, deletedAt: null },
+      select: { houseUnitId: true, houseBlockId: true },
+    });
+    if (resident?.houseUnitId) return { houseUnitIds: [resident.houseUnitId] };
+    if (resident?.houseBlockId) return { houseBlockIds: [resident.houseBlockId] };
+    return { houseBlockIds: [] };
+  }
+
   private async createApprovalHistory(
     createApprovalHistoryDto: CreateApprovalHistoryDto,
     tx?: PrismaTransactionalClient,
@@ -1087,8 +1190,14 @@ export class IplPaymentsService {
     // we'll create it manually here
     const prisma = tx || this.prisma;
 
-    // Map toStatus to status field for database
-    const { toStatus, ...rest } = createApprovalHistoryDto;
+    // Map toStatus -> status (the DB column). fromStatus is intentionally
+    // dropped: ApprovalHistory has no from_status column, and passing it
+    // makes Prisma throw PrismaClientValidationError (-> HTTP 500), which
+    // is what broke IPL approve/reject. The payment's own status transition
+    // is recorded on ipl_payments.status; this audit row just needs the
+    // resulting status.
+    const { toStatus, fromStatus, ...rest } = createApprovalHistoryDto;
+    void fromStatus;
     return prisma.approvalHistory.create({
       data: {
         ...rest,
@@ -1101,12 +1210,22 @@ export class IplPaymentsService {
    * Build the read-only house-unit x month payment matrix for a year.
    * Composes periods + units + payments from the repository into the matrix
    * shape the frontend renders directly (no further client-side join).
+   *
+   * Data is scoped by the caller's role (see resolveMatrixScope): admins see
+   * everything (and honor an explicit `?houseBlockId=`), coordinators see only
+   * their block(s), and every other role sees only their own house unit.
+   * `user` is optional so the admin-only delinquent path can call this without
+   * a user and get the unscoped (full) matrix.
    */
-  async getMatrix(query: QueryIplPaymentMatrixDto) {
+  async getMatrix(query: QueryIplPaymentMatrixDto, user?: CurrentUserData) {
     const year = query.year ?? new Date().getFullYear();
+    const scope =
+      (await this.resolveMatrixScope(user)) ??
+      // Full-access role (or no user): honor an explicit block filter, else all units.
+      (query.houseBlockId ? { houseBlockId: query.houseBlockId } : {});
     const { periods, units, payments } = await this.iplPaymentsRepository.getMatrixData(
       year,
-      query.houseBlockId,
+      scope,
     );
 
     const MONTH_NAMES_SHORT = [
@@ -1256,6 +1375,208 @@ export class IplPaymentsService {
       count: units.length,
       units,
     };
+  }
+
+  /**
+   * Outstanding (payable) months for a single house unit: every UNPAID month
+   * from January up to and including the current as-of month of the year — i.e.
+   * *tunggakan + bulan berjalan*. Built on top of `getMatrix` (no extra query),
+   * so it sees the same statuses the on-screen matrix shows. Used by the
+   * WhatsApp bot's "Bayar IPL" flow to list what a resident may pay.
+   *
+   * Months without a configured period (`periodId`) are skipped — they can't be
+   * paid yet. Returns ascending month order (oldest first).
+   */
+  async getUnitOutstanding(
+    houseUnitId: string,
+    year: number = new Date().getFullYear(),
+  ): Promise<{
+    unitId: string;
+    unitNumber: string;
+    monthlyRate: number;
+    payableMonths: { month: number; year: number; periodId: string | null }[];
+    totalAmount: number;
+  }> {
+    const matrix = await this.getMatrix({ year });
+    const asOfMonth = computeAsOfMonth(year);
+    const row = matrix.rows.find((r: any) => r.unitId === houseUnitId);
+
+    if (!row) {
+      return {
+        unitId: houseUnitId,
+        unitNumber: '',
+        monthlyRate: 0,
+        payableMonths: [],
+        totalAmount: 0,
+      };
+    }
+
+    const monthlyRate = Number(row.monthlyRate) || 0;
+    const payableMonths: { month: number; year: number; periodId: string | null }[] = [];
+    let total = 0;
+
+    for (const cell of row.cells as any[]) {
+      if (cell.status !== 'UNPAID') continue;
+      if (cell.month > asOfMonth) continue; // future month not yet due
+      if (!cell.periodId) continue; // no payable period configured
+      payableMonths.push({ month: cell.month, year, periodId: cell.periodId });
+      total += monthlyRate;
+    }
+
+    return {
+      unitId: row.unitId,
+      unitNumber: row.unitNumber,
+      monthlyRate,
+      payableMonths,
+      totalAmount: total,
+    };
+  }
+
+  /**
+   * Create PENDING IPL payment(s) from the WhatsApp bot. Always TRANSFER with a
+   * bukti transfer, always PENDING (an admin verifies the proof before release).
+   *
+   * Reuses the same period resolution, duplicate check, amount calculation,
+   * reference/payment-number generation and proof-file rename as the REST
+   * `create` — minus the coordinator authorization and role-based auto-approve,
+   * neither of which applies to a resident paying their own unit via WhatsApp.
+   *
+   * `proofFilePath` is the web-style temp path (`/uploads/temp/<name>`) the bot
+   * wrote to disk (`./uploads/temp/<name>`) after downloading the WhatsApp media.
+   */
+  async createBotPayment(input: {
+    residentId: string;
+    periodIds: string[];
+    paymentDate: Date;
+    proofFilePath: string;
+    proofFileName: string;
+    proofFileSize: number;
+    proofMimeType: string;
+    submittedByUserId: string;
+    notes?: string;
+  }): Promise<IplPaymentWithFiles[]> {
+    return await this.prisma.executeInTransaction(async (tx) => {
+      if (!input.periodIds.length) {
+        throw new BadRequestException('Tidak ada bulan yang dapat dibayar.');
+      }
+
+      const resident = await tx.resident.findUnique({
+        where: { id: input.residentId },
+        include: { houseUnit: true },
+      });
+      if (!resident || !resident.houseUnit) {
+        throw new BadRequestException('Residen / unit rumah tidak ditemukan.');
+      }
+      const houseUnit = resident.houseUnit;
+
+      // Resolve the requested periods — all must be ACTIVE. Sort ascending so
+      // startPeriod (used for the BTF filename) is the earliest month.
+      const periods = await tx.iplPeriod.findMany({
+        where: { id: { in: input.periodIds }, deletedAt: null },
+      });
+      const activePeriods = periods
+        .filter((p) => p.status === 'ACTIVE')
+        .sort((a, b) => a.month - b.month);
+      if (activePeriods.length !== input.periodIds.length) {
+        throw new BadRequestException(
+          'Satu atau lebih periode tidak aktif / tidak ditemukan.',
+        );
+      }
+      const startPeriod = activePeriods[0];
+
+      // No payment may already exist for any selected period.
+      const existing = await this.iplPaymentsRepository.checkExistingPayments(
+        input.residentId,
+        activePeriods.map((p) => p.id),
+      );
+      if (existing.length > 0) {
+        throw new BadRequestException('Pembayaran untuk bulan terpilih sudah ada.');
+      }
+
+      const isMultiMonth = activePeriods.length > 1;
+      const paymentGroupId = isMultiMonth ? crypto.randomUUID() : null;
+      const referenceNumber = await generateReferenceNumber(tx);
+
+      const payments: IplPaymentWithFiles[] = [];
+      let totalIplAmount = 0;
+
+      for (const period of activePeriods) {
+        const calculatedAmount = this.calculateIplAmount(
+          houseUnit.landArea,
+          houseUnit.iplPercentage,
+          period.baseRate,
+        );
+        totalIplAmount += parseFloat(calculatedAmount);
+
+        const paymentNumber = this.iplPaymentsRepository.generatePaymentNumber();
+        const payment = await this.iplPaymentsRepository.create(
+          {
+            paymentNumber,
+            periodId: period.id,
+            residentId: input.residentId,
+            houseUnitId: houseUnit.id,
+            paymentDate: input.paymentDate,
+            landArea: houseUnit.landArea,
+            iplPercentage: houseUnit.iplPercentage,
+            baseRate: period.baseRate,
+            calculatedAmount,
+            paymentMethod: PaymentMethod.TRANSFER,
+            referenceNumber,
+            notes: input.notes ?? 'Pembayaran IPL via WhatsApp',
+            status: IplPaymentStatus.PENDING,
+            approvedBy: null,
+            approvedAt: null,
+            submittedBy: input.submittedByUserId,
+            paymentGroupId,
+          },
+          tx,
+        );
+        payments.push(payment);
+      }
+
+      // Create the FileAttachment from the temp file, then rename to BTF-… and
+      // link it to the first payment (same artifact as the REST path).
+      const attachment = await tx.fileAttachment.create({
+        data: {
+          entityType: 'IplPayment',
+          entityId: payments[0].id,
+          fileName: input.proofFileName,
+          filePath: input.proofFilePath,
+          fileSize: input.proofFileSize,
+          mimeType: input.proofMimeType,
+          category: 'PAYMENT_PROOF',
+          description: 'Bukti transfer IPL via WhatsApp',
+          uploadedBy: input.submittedByUserId,
+        },
+      });
+      await this.persistProofFile(
+        tx,
+        { id: attachment.id, fileName: attachment.fileName, filePath: attachment.filePath },
+        payments,
+        houseUnit.unitNumber,
+        startPeriod.month,
+        startPeriod.year,
+        referenceNumber,
+      );
+
+      await this.createApprovalHistory(
+        {
+          entityType: 'IplPayment',
+          entityId: payments[0].id,
+          action: ApprovalAction.SUBMITTED,
+          toStatus: IplPaymentStatus.PENDING,
+          comments: `Pembayaran IPL via WhatsApp (${activePeriods.length} bulan)`,
+          createdBy: input.submittedByUserId,
+        },
+        tx,
+      );
+
+      this.logger.log(
+        `WA bot payment created: ref ${referenceNumber}, ${activePeriods.length} bulan, total ${totalIplAmount}, by ${input.submittedByUserId}`,
+      );
+
+      return payments;
+    });
   }
 
   /**

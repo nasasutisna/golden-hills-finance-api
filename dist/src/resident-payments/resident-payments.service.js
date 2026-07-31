@@ -10,7 +10,7 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 };
 var ResidentPaymentsService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.ResidentPaymentsService = void 0;
+exports.ResidentPaymentsService = exports.RESIDENT_IURAN_MONTHLY_RATE = void 0;
 const common_1 = require("@nestjs/common");
 const resident_payments_repository_1 = require("./resident-payments.repository");
 const resident_invoices_repository_1 = require("../resident-invoices/resident-invoices.repository");
@@ -21,6 +21,7 @@ const resident_payment_receipts_service_1 = require("./resident-payment-receipts
 const file_naming_helper_1 = require("../ipl-payments/helpers/file-naming.helper");
 const fs = require("fs");
 const path = require("path");
+exports.RESIDENT_IURAN_MONTHLY_RATE = 20000;
 let ResidentPaymentsService = ResidentPaymentsService_1 = class ResidentPaymentsService {
     constructor(residentPaymentsRepository, residentInvoicesRepository, prisma, fileAttachmentsService, cashTransactionsService, residentPaymentReceiptsService) {
         this.residentPaymentsRepository = residentPaymentsRepository;
@@ -264,26 +265,25 @@ let ResidentPaymentsService = ResidentPaymentsService_1 = class ResidentPayments
             const n = Number(v);
             return Number.isFinite(n) ? n : 0;
         };
-        const paymentMap = new Map();
+        const RATE = exports.RESIDENT_IURAN_MONTHLY_RATE;
+        const perUnit = new Map();
         for (const pm of payments) {
             const unitId = pm.resident?.houseUnitId;
             if (!unitId)
                 continue;
-            const month = new Date(pm.paymentDate).getMonth() + 1;
-            let perUnit = paymentMap.get(unitId);
-            if (!perUnit) {
-                perUnit = new Map();
-                paymentMap.set(unitId, perUnit);
+            let agg = perUnit.get(unitId);
+            if (!agg) {
+                agg = { totalCompleted: 0, pendingCount: 0, firstCompletedId: null };
+                perUnit.set(unitId, agg);
             }
-            let perMonth = perUnit.get(month);
-            if (!perMonth) {
-                perMonth = { completed: [], pending: [] };
-                perUnit.set(month, perMonth);
+            if (pm.status === 'COMPLETED') {
+                agg.totalCompleted += toNum(pm.amount);
+                if (!agg.firstCompletedId)
+                    agg.firstCompletedId = pm.id;
             }
-            if (pm.status === 'COMPLETED')
-                perMonth.completed.push(pm);
-            else if (pm.status === 'PENDING')
-                perMonth.pending.push(pm);
+            else if (pm.status === 'PENDING') {
+                agg.pendingCount += 1;
+            }
         }
         const monthTotals = new Array(12).fill(0);
         let paidCellCount = 0;
@@ -295,37 +295,25 @@ let ResidentPaymentsService = ResidentPaymentsService_1 = class ResidentPayments
             return (a.unitNumber ?? '').localeCompare(b.unitNumber ?? '', undefined, { numeric: true });
         });
         const rows = sortedUnits.map((unit, index) => {
-            const perUnit = paymentMap.get(unit.id);
+            const agg = perUnit.get(unit.id);
+            const totalCompleted = agg?.totalCompleted ?? 0;
+            const coveredMonths = RATE > 0 ? Math.floor(totalCompleted / RATE) : 0;
+            const cappedCovered = Math.min(coveredMonths, 12);
             let paidCount = 0;
-            let pendingCount = 0;
             const cells = MONTH_NAMES_SHORT.map((monthName, i) => {
                 const month = i + 1;
-                const perMonth = perUnit?.get(month);
-                const completed = perMonth?.completed ?? [];
-                const pending = perMonth?.pending ?? [];
-                let status = 'UNPAID';
-                let amount;
-                let paymentId = null;
-                if (completed.length > 0) {
-                    status = 'PAID';
-                    amount = completed.reduce((sum, p) => sum + toNum(p.amount), 0);
-                    paymentId = completed[0].id;
-                }
-                else if (pending.length > 0) {
-                    status = 'PENDING';
-                    paymentId = pending[0].id;
-                }
-                if (status === 'PAID') {
+                if (i < cappedCovered) {
                     paidCount++;
-                    monthTotals[i] += amount ?? 0;
+                    monthTotals[i] += RATE;
+                    return {
+                        month,
+                        monthName,
+                        status: 'PAID',
+                        amount: RATE,
+                        paymentId: agg?.firstCompletedId ?? null,
+                    };
                 }
-                else if (status === 'PENDING') {
-                    pendingCount++;
-                }
-                const cell = { month, monthName, status, paymentId };
-                if (status === 'PAID')
-                    cell.amount = amount;
-                return cell;
+                return { month, monthName, status: 'UNPAID', paymentId: null };
             });
             const resident = unit.residents?.[0];
             const residentName = resident
@@ -344,15 +332,19 @@ let ResidentPaymentsService = ResidentPaymentsService_1 = class ResidentPayments
                 residentName,
                 phoneNumber: resident?.phoneNumber ?? null,
                 isActive: unit.isActive,
+                monthlyRate: RATE,
+                totalPaid: totalCompleted,
+                coveredMonths,
                 cells,
                 paidCount,
-                pendingCount,
+                pendingCount: agg?.pendingCount ?? 0,
             };
         });
         paidCellCount = rows.reduce((sum, r) => sum + r.paidCount, 0);
         const grandTotal = monthTotals.reduce((sum, v) => sum + v, 0);
         return {
             year,
+            monthlyRate: RATE,
             unitCount: rows.length,
             paidCellCount,
             grandTotal,

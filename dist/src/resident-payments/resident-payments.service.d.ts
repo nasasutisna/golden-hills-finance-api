@@ -9,6 +9,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { FileAttachmentsService } from '../file-attachments/file-attachments.service';
 import { CashTransactionsService } from '../cash-transactions/cash-transactions.service';
 import { ResidentPaymentReceiptsService } from './resident-payment-receipts.service';
+export declare const RESIDENT_IURAN_MONTHLY_RATE = 20000;
 export declare class ResidentPaymentsService {
     private readonly residentPaymentsRepository;
     private readonly residentInvoicesRepository;
@@ -195,6 +196,7 @@ export declare class ResidentPaymentsService {
     createBulk(createBulkDto: CreateBulkResidentPaymentDto): Promise<BulkPaymentResultDto>;
     getMatrix(query: QueryResidentPaymentMatrixDto): Promise<{
         year: number;
+        monthlyRate: number;
         unitCount: number;
         paidCellCount: number;
         grandTotal: number;
@@ -212,6 +214,9 @@ export declare class ResidentPaymentsService {
             residentName: string | null;
             phoneNumber: any;
             isActive: any;
+            monthlyRate: number;
+            totalPaid: number;
+            coveredMonths: number;
             cells: any[];
             paidCount: number;
             pendingCount: number;

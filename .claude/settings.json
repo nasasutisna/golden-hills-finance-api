@@ -37,7 +37,8 @@
       "Bash(curl -s http://localhost:3000/api/v1/auth/me -H 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJmNjc4ODlmYi1mM2YxLTRkNTItODZhYS1lY2Y3MmE3ZjUyN2QiLCJ1c2VybmFtZSI6Im5hc2EiLCJlbWFpbCI6Im5hc2FAZ21haWwuY29tIiwicm9sZUlkIjoiYjFiMDc1ZjgtOThiZS00YjRlLWFlMjQtNGRhNzY2NWQ0YmU3IiwidHlwZSI6ImFjY2VzcyIsImlhdCI6MTc4NTExMzgyMiwiZXhwIjoxNzg1MTE3NDIyfQ.I0UG9-VOdAVyK7EyPBhUt0GeYwRH5_OeRoHdlyNOpLs')",
       "Bash(kill 26003 26044)",
       "Bash(node dist/src/main)",
-      "Bash(curl -s -o /dev/null -w \"%{http_code}\" 'http://localhost:3000/api/v1/auth/me' -H 'Authorization: Bearer x')"
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" 'http://localhost:3000/api/v1/auth/me' -H 'Authorization: Bearer x')",
+      "Bash(mysql -uroot -pPass@123 gh_db -e ' *)"
     ],
     "additionalDirectories": [
       "/Users/nasutisnaisna/project/nestjs/golden-hills-finance/src/ipl-periods/dto"

@@ -131,6 +131,7 @@ export declare class ResidentPaymentsController {
         message: string;
         data: {
             year: number;
+            monthlyRate: number;
             unitCount: number;
             paidCellCount: number;
             grandTotal: number;
@@ -148,6 +149,9 @@ export declare class ResidentPaymentsController {
                 residentName: string | null;
                 phoneNumber: any;
                 isActive: any;
+                monthlyRate: number;
+                totalPaid: number;
+                coveredMonths: number;
                 cells: any[];
                 paidCount: number;
                 pendingCount: number;

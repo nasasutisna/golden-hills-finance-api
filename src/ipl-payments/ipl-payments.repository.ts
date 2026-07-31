@@ -2,6 +2,25 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService, PrismaTransactionalClient } from '../prisma/prisma.service';
 import { IplPayment } from '@prisma/client';
 
+/**
+ * Scope filter for the matrix unit query.
+ * - `houseBlockId`: single block filter (admin explicit `?houseBlockId=`).
+ * - `houseBlockIds`: many blocks (coordinator). `[]` means "match nothing".
+ * - `houseUnitIds`: specific units (resident own house). `[]` means "match nothing".
+ * A property that is `undefined` is not applied; an empty array IS applied
+ * (and yields no rows), so callers can force an empty matrix.
+ *
+ * When BOTH `houseBlockIds` and `houseUnitIds` are set they are OR'd
+ * (block membership OR explicit unit) — used for a coordinator who is also a
+ * paying resident, so their own house row shows even if it sits outside their
+ * coordinated block(s) or no block is assigned to them.
+ */
+export interface MatrixScope {
+  houseBlockId?: string;
+  houseBlockIds?: string[];
+  houseUnitIds?: string[];
+}
+
 export interface IplPaymentWithFiles extends IplPayment {
   files?: Array<{
     id: string;
@@ -734,19 +753,47 @@ export class IplPaymentsRepository {
   }
 
   /**
-   * Raw data for the payment matrix: the year's periods, all active units
+   * Raw data for the payment matrix: the year's periods, the in-scope units
    * (with their first resident + block), and every payment in that year.
    * The service reduces these into the final matrix shape.
+   *
+   * `scope` narrows the units query by role (see MatrixScope). When omitted
+   * (e.g. the admin-only delinquent path calls getMatrix without a user),
+   * every non-deleted unit is returned.
    */
-  async getMatrixData(year: number, houseBlockId?: string) {
+  async getMatrixData(year: number, scope?: MatrixScope) {
     const periods = await this.prisma.iplPeriod.findMany({
       where: { year, deletedAt: null },
       orderBy: { month: 'asc' },
       select: { id: true, month: true, year: true, baseRate: true },
     });
 
+    const unitWhere: any = { deletedAt: null };
+    if (scope?.houseBlockId) {
+      // Admin explicit single-block filter.
+      unitWhere.houseBlockId = scope.houseBlockId;
+    } else {
+      const hasBlockIds = scope?.houseBlockIds !== undefined;
+      const hasUnitIds = scope?.houseUnitIds !== undefined;
+      if (hasBlockIds && hasUnitIds) {
+        // Coordinator who is also a resident: blocks OR own house unit. OR
+        // (not AND) so a coordinator who lives outside their block — or who
+        // coordinates no block at all (coordinator_id not set) — still sees
+        // their own payment row. `in: []` on either side matches nothing.
+        unitWhere.OR = [
+          { houseBlockId: { in: scope!.houseBlockIds! } },
+          { id: { in: scope!.houseUnitIds! } },
+        ];
+      } else if (hasBlockIds) {
+        // `in: []` matches nothing → drives the empty-matrix case.
+        unitWhere.houseBlockId = { in: scope!.houseBlockIds! };
+      } else if (hasUnitIds) {
+        unitWhere.id = { in: scope!.houseUnitIds! };
+      }
+    }
+
     const units = await this.prisma.houseUnit.findMany({
-      where: { deletedAt: null, ...(houseBlockId ? { houseBlockId } : {}) },
+      where: unitWhere,
       select: {
         id: true,
         unitCode: true,

@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 import { ServeStaticModule } from '@nestjs/serve-static';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
@@ -34,6 +35,7 @@ import { IplPaymentsModule } from './ipl-payments/ipl-payments.module';
 import { ExpenseRequestsModule } from './expense-requests/expense-requests.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { WhatsappBlastModule } from './whatsapp-blast/whatsapp-blast.module';
+import { WhatsappBotModule } from './whatsapp-blast/bot/whatsapp-bot.module';
 
 @Module({
   imports: [
@@ -42,6 +44,9 @@ import { WhatsappBlastModule } from './whatsapp-blast/whatsapp-blast.module';
       rootPath: process.cwd() + '/uploads',
       serveRoot: '/uploads',
     }),
+    // Event bus — decouples IPL approve/reject from the WhatsApp bot so the
+    // bot can notify residents (and send the KWT) without a module back-edge.
+    EventEmitterModule.forRoot(),
     // Configuration
     ConfigModule.forRoot({
       isGlobal: true,
@@ -96,6 +101,7 @@ import { WhatsappBlastModule } from './whatsapp-blast/whatsapp-blast.module';
     NotificationsModule,
     FileAttachmentsModule,
     WhatsappBlastModule,
+    WhatsappBotModule,
 
     // Dashboard (aggregated overview)
     DashboardModule,

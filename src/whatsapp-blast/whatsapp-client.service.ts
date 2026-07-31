@@ -12,6 +12,21 @@ import pino from 'pino';
 import * as QRCode from 'qrcode';
 import { WhatsAppConnectionState } from './dto/enums';
 
+/** Map a MIME type to a lowercase extension (with leading dot); unknown → '.bin'. */
+function mimeTypeToExt(mimeType: string | null | undefined): string {
+  const map: Record<string, string> = {
+    'image/jpeg': '.jpg',
+    'image/jpg': '.jpg',
+    'image/png': '.png',
+    'image/gif': '.gif',
+    'image/webp': '.webp',
+    'application/pdf': '.pdf',
+    'video/mp4': '.mp4',
+  };
+  const ext = mimeType ? map[mimeType.toLowerCase()] : undefined;
+  return ext || '.bin';
+}
+
 /**
  * Singleton wrapper around a Baileys WhatsApp Web socket.
  *
@@ -44,6 +59,22 @@ export class WhatsappClientService implements OnModuleInit {
   private stableOpenTimer: NodeJS.Timeout | null = null;
   /** Prevents overlapping connect() calls. */
   private connecting = false;
+  /**
+   * Incoming-message handler registered by the CS bot (see WhatsappBotService).
+   * Null when no bot is wired — the `messages.upsert` listener below reads this
+   * live, so registration order vs. connect() doesn't matter and reconnects
+   * re-attach automatically.
+   */
+  private messageHandler:
+    | ((payload: { messages: any[]; type: string }) => void | Promise<void>)
+    | null = null;
+  /**
+   * Verbose trace of every `messages.upsert` event at the socket level — fires
+   * even before the handler is checked, so it can distinguish "Baileys isn't
+   * delivering the message" from "the handler isn't registered". Controlled by
+   * `whatsapp.bot.trace`.
+   */
+  private messageTrace = false;
 
   constructor(private readonly config: ConfigService) {}
 
@@ -65,6 +96,18 @@ export class WhatsappClientService implements OnModuleInit {
     return (
       this.connectionState === WhatsAppConnectionState.OPEN && !!this.sock
     );
+  }
+
+  /**
+   * Register the incoming-message handler (the CS bot). Call once on app boot;
+   * the handler is invoked from the `messages.upsert` listener for every new
+   * personal message. Errors thrown by the handler are logged here so a bad
+   * message can never tear down the socket.
+   */
+  registerMessageHandler(
+    handler: (payload: { messages: any[]; type: string }) => void | Promise<void>,
+  ): void {
+    this.messageHandler = handler;
   }
 
   getState(): WhatsAppConnectionState {
@@ -112,6 +155,7 @@ export class WhatsappClientService implements OnModuleInit {
     try {
       const authPath = this.config.get<string>('whatsapp.authPath') || './wa-auth';
       const absAuthPath = path.resolve(process.cwd(), authPath);
+      this.messageTrace = this.config.get<boolean>('whatsapp.bot.trace') ?? false;
       if (!fs.existsSync(absAuthPath)) {
         fs.mkdirSync(absAuthPath, { recursive: true });
       }
@@ -139,6 +183,27 @@ export class WhatsappClientService implements OnModuleInit {
       this.sock = sock;
 
       sock.ev.on('creds.update', saveCreds);
+
+      // Incoming messages → the CS bot (if one is registered). Read live so a
+      // handler registered after connect() still works, and reconnects re-bind.
+      sock.ev.on('messages.upsert', async (payload: any) => {
+        // Socket-level trace fires before the handler check, so it proves
+        // whether Baileys is delivering the message at all.
+        if (this.messageTrace) {
+          const j = payload?.messages?.[0]?.key?.remoteJid ?? '(none)';
+          this.logger.log(
+            `[wa-client-trace] messages.upsert type=${payload?.type} jid=${j} handlerRegistered=${!!this.messageHandler}`,
+          );
+        }
+        if (!this.messageHandler) return;
+        try {
+          await this.messageHandler(payload);
+        } catch (err: any) {
+          this.logger.error(
+            `Incoming-message handler error: ${err?.message ?? err}`,
+          );
+        }
+      });
 
       sock.ev.on('connection.update', (update: any) => {
         const { connection, lastDisconnect, qr } = update;
@@ -177,19 +242,19 @@ export class WhatsappClientService implements OnModuleInit {
             // Session invalidated server-side. Wipe the persisted creds —
             // otherwise useMultiFileAuthState reloads the dead session on the
             // next connect() and Baileys tries to restore it instead of
-            // emitting a fresh pairing QR.
+            // emitting a fresh pairing QR. These cannot be recovered without a
+            // fresh QR, so do NOT auto-reconnect.
             this.currentQr = null;
             this.clearAuthState();
             return;
           }
-          if (replaced) {
-            // Another WA Web session took over — most often our OWN runaway
-            // reconnect loop, each new socket replacing the previous one.
-            // Reconnecting immediately just replaces it back and sustains a 440
-            // flap that risks the number being flagged. Stop and require a
-            // manual POST /connect once the competing session is gone.
-            return;
-          }
+          // Everything else — including 440 (connectionReplaced) and transient
+          // drops — auto-reconnects with bounded exponential backoff. A genuine
+          // competing session will 440 back, but scheduleReconnect caps attempts
+          // (whatsapp.reconnectRetries) and only resets its budget after a stable
+          // OPEN, so the flap converges (a few tries, then stop) instead of
+          // looping forever and risking the number being flagged. connect() is
+          // idempotent, so this is safe even if a manual /connect races in.
           void this.scheduleReconnect();
         }
       });
@@ -221,6 +286,26 @@ export class WhatsappClientService implements OnModuleInit {
   }
 
   /**
+   * Switch the paired admin number: close the socket, wipe the persisted
+   * credentials, and open a fresh connection that emits a new pairing QR. The
+   * previously paired number is logged out of this app. Powers the "Ganti
+   * Nomor / Reset Pairing" button — no need to delete `wa-auth/` by hand.
+   */
+  async resetPairing(): Promise<{ state: WhatsAppConnectionState }> {
+    await this.disconnect();
+    this.clearAuthState();
+    // Ensure the connect() guard lets the fresh connection through even if a
+    // previous connect was still in flight.
+    this.connecting = false;
+    this.ownJid = null;
+    this.currentQr = null;
+    this.logger.warn(
+      'WhatsApp pairing reset — a fresh QR will be issued. Scan with the new number.',
+    );
+    return this.connect();
+  }
+
+  /**
    * Send a text message. Throws on failure so the caller can mark the recipient
    * as FAILED and capture the error message.
    */
@@ -232,6 +317,124 @@ export class WhatsappClientService implements OnModuleInit {
     const messageId =
       result?.key?.id ?? `${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
     return { messageId };
+  }
+
+  /**
+   * Send a file (e.g. the IPL Kwitansi PDF) with an optional caption. `filePath`
+   * is a path Baileys can read (pass an absolute disk path for reliability);
+   * it is streamed via `{ url }`.
+   */
+  async sendDocument(
+    jid: string,
+    input: {
+      filePath: string;
+      fileName: string;
+      mimetype?: string;
+      caption?: string;
+    },
+  ): Promise<{ messageId: string }> {
+    if (!this.isConnected() || !this.sock) {
+      throw new Error('WhatsApp belum terhubung. Lakukan pairing QR terlebih dahulu.');
+    }
+    const result = await this.sock.sendMessage(jid, {
+      document: { url: input.filePath },
+      fileName: input.fileName,
+      mimetype: input.mimetype,
+      caption: input.caption,
+    } as any);
+    const messageId =
+      result?.key?.id ?? `${Date.now()}-${Math.floor(Math.random() * 1e6)}`;
+    return { messageId };
+  }
+
+  /**
+   * Download an incoming media attachment (image/document) to a buffer. Used by
+   * the bot to capture a resident's bukti transfer. Returns null when the
+   * message has no decryptable media. `downloadMediaMessage` is loaded the same
+   * dynamic-import way as the socket (Baileys is ESM).
+   */
+  async downloadMedia(
+    msg: any,
+  ): Promise<{ buffer: Buffer; mimeType: string; fileName: string } | null> {
+    if (!this.isConnected() || !this.sock) {
+      throw new Error('WhatsApp belum terhubung. Lakukan pairing QR terlebih dahulu.');
+    }
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const Baileys: any = await import('@whiskeysockets/baileys');
+    const downloadMediaMessage = Baileys.downloadMediaMessage;
+    if (typeof downloadMediaMessage !== 'function') return null;
+
+    const result: any = await downloadMediaMessage(msg, 'buffer', {});
+    if (!result) return null;
+    const buffer = Buffer.isBuffer(result) ? result : Buffer.from(result as Uint8Array);
+    const { mimeType, fileName } = this.describeMedia(msg);
+    return { buffer, mimeType, fileName };
+  }
+
+  /**
+   * Resolve a Linked-Identity (`@lid`) JID to the classic phone-number JID
+   * (`@s.whatsapp.net`) using Baileys' internal LID↔PN mapping (learned from
+   * app-state sync / signal sessions). Returns null when the mapping isn't
+   * known yet — the bot then falls back to the typed-unit-code path.
+   *
+   * `signalRepository` isn't on the public WASocket type, hence the cast; it is
+   * the same object Baileys itself uses internally for LID resolution.
+   */
+  async resolveLidToPhoneJid(lidJid: string): Promise<string | null> {
+    if (!this.sock) return null;
+    try {
+      const repo: any = (this.sock as any).signalRepository;
+      const pn = await repo?.lidMapping?.getPNForLID?.(lidJid);
+      return typeof pn === 'string' && pn ? pn : null;
+    } catch (err: any) {
+      this.logger.debug(
+        `getPNForLID failed for ${lidJid}: ${err?.message ?? err}`,
+      );
+      return null;
+    }
+  }
+
+  /**
+   * Resolve phone-number JIDs to their Linked-Identity (`@lid`) JIDs in one
+   * batched call. Unlike the reverse direction (`getPNForLID`, cache-only), the
+   * phone→LID lookup (`getLIDForPN`) is fetched from WhatsApp's usync on demand,
+   * so it works even for contacts the bot has never mapped before. The bot uses
+   * this to build a LID→resident map so incoming `@lid` messages identify.
+   * Returns `{ pn, lid }` pairs (pn = phone JID, lid = LID JID).
+   */
+  async resolvePhoneJidsToLids(
+    phoneJids: string[],
+  ): Promise<{ pn: string; lid: string }[]> {
+    if (!this.sock || phoneJids.length === 0) return [];
+    try {
+      const repo: any = (this.sock as any).signalRepository;
+      const result = await repo?.lidMapping?.getLIDsForPNs?.(phoneJids);
+      if (!Array.isArray(result)) return [];
+      return result
+        .filter((r: any) => r?.pn && r?.lid)
+        .map((r: any) => ({ pn: r.pn, lid: r.lid }));
+    } catch (err: any) {
+      this.logger.debug(`getLIDsForPNs failed: ${err?.message ?? err}`);
+      return [];
+    }
+  }
+
+  /** Extract mimetype + a fallback filename from a Baileys media message. */
+  private describeMedia(msg: any): { mimeType: string; fileName: string } {
+    const m = msg?.message;
+    if (!m) return { mimeType: '', fileName: '' };
+    const image = m.imageMessage;
+    const document = m.documentMessage;
+    const video = m.videoMessage;
+    const sticker = m.stickerMessage;
+    const mimeType: string =
+      image?.mimetype || document?.mimetype || video?.mimetype || sticker?.mimetype || '';
+    let fileName: string = document?.fileName || '';
+    if (!fileName) {
+      const ext = mimeTypeToExt(mimeType);
+      fileName = `bukti${ext}`;
+    }
+    return { mimeType, fileName };
   }
 
   /**

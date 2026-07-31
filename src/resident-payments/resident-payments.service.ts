@@ -14,6 +14,18 @@ import { generateBuktiTransferFilename, sanitizeFilename } from '../ipl-payments
 import * as fs from 'fs';
 import * as path from 'path';
 
+/**
+ * Fixed monthly Iuran Warga rate, in IDR. The resident-payment matrix models
+ * iuran as a flat per-month obligation: a unit's total COMPLETED payments for
+ * the year are divided by this rate to determine how many months are covered
+ * (then filled sequentially Jan→Des, oldest-unpaid-first — mirroring how the
+ * IPL matrix marks months PAID). Partial remainders roll over and combine with
+ * future payments naturally, because the *total* is floored, not each payment.
+ *
+ * Change this value to adjust the iuran rate app-wide.
+ */
+export const RESIDENT_IURAN_MONTHLY_RATE = 20000;
+
 @Injectable()
 export class ResidentPaymentsService {
   private readonly logger = new Logger(ResidentPaymentsService.name);
@@ -362,10 +374,27 @@ export class ResidentPaymentsService {
 
   /**
    * Build the read-only house-unit x month resident-payment (Iuran Warga)
-   * matrix for a year. Each cell aggregates the resident payments of that unit
-   * whose paymentDate falls in the given month. Mirrors
-   * `IplPaymentsService.getMatrix`, but without the IPL-specific rate/obligation
-   * fields (resident payments have no fixed monthly rate).
+   * matrix for a year.
+   *
+   * Unlike IPL — which stores one payment row per covered period — a resident
+   * payment is a single lump-sum record with only a `paymentDate`; there is no
+   * per-month "covered period" on the data itself. To present a coverage
+   * matrix comparable to IPL, iuran is modelled as a FIXED monthly rate
+   * (`RESIDENT_IURAN_MONTHLY_RATE`, Rp20.000): the total COMPLETED amount a
+   * unit has paid in the year is divided by the rate to obtain the number of
+   * covered months, and those months are filled sequentially from January
+   * (oldest-unpaid-first).
+   *
+   * Examples (rate = 20.000):
+   *  - paid 60.000 in the year → floor(60.000/20.000) = 3 → Jan, Feb, Mar PAID
+   *  - paid 15.000 then 25.000 → total 40.000 → 2 → Jan, Feb PAID (remainders
+   *    combine across payments because the *total* is floored)
+   *  - "bayar lagi" (another 20.000) → +1 month → the next sequential month
+   *
+   * PENDING payments do NOT count toward coverage (not verified yet); they
+   * surface as a row-level `pendingCount` badge instead. The matrix is a
+   * coverage report, so `grandTotal` / `monthTotals` reflect covered months ×
+   * rate, not raw cash received.
    */
   async getMatrix(query: QueryResidentPaymentMatrixDto) {
     const year = query.year ?? new Date().getFullYear();
@@ -386,25 +415,29 @@ export class ResidentPaymentsService {
       return Number.isFinite(n) ? n : 0;
     };
 
-    // paymentMap: houseUnitId -> month(1..12) -> { completed: [], pending: [] }
-    const paymentMap = new Map<string, Map<number, { completed: any[]; pending: any[] }>>();
+    const RATE = RESIDENT_IURAN_MONTHLY_RATE;
+
+    // Aggregate per unit: total COMPLETED amount (drives coverage) + number of
+    // PENDING payments (row-level badge only — not coverage). A payment from a
+    // resident with no unit cannot be placed on a unit row.
+    const perUnit = new Map<
+      string,
+      { totalCompleted: number; pendingCount: number; firstCompletedId: string | null }
+    >();
     for (const pm of payments) {
       const unitId = pm.resident?.houseUnitId;
-      // A payment from a resident with no unit cannot be placed on a unit row.
       if (!unitId) continue;
-      const month = new Date(pm.paymentDate).getMonth() + 1;
-      let perUnit = paymentMap.get(unitId);
-      if (!perUnit) {
-        perUnit = new Map<number, { completed: any[]; pending: any[] }>();
-        paymentMap.set(unitId, perUnit);
+      let agg = perUnit.get(unitId);
+      if (!agg) {
+        agg = { totalCompleted: 0, pendingCount: 0, firstCompletedId: null };
+        perUnit.set(unitId, agg);
       }
-      let perMonth = perUnit.get(month);
-      if (!perMonth) {
-        perMonth = { completed: [], pending: [] };
-        perUnit.set(month, perMonth);
+      if (pm.status === 'COMPLETED') {
+        agg.totalCompleted += toNum(pm.amount);
+        if (!agg.firstCompletedId) agg.firstCompletedId = pm.id;
+      } else if (pm.status === 'PENDING') {
+        agg.pendingCount += 1;
       }
-      if (pm.status === 'COMPLETED') perMonth.completed.push(pm);
-      else if (pm.status === 'PENDING') perMonth.pending.push(pm);
     }
 
     const monthTotals: number[] = new Array(12).fill(0);
@@ -419,39 +452,29 @@ export class ResidentPaymentsService {
     });
 
     const rows = sortedUnits.map((unit: any, index: number) => {
-      const perUnit = paymentMap.get(unit.id);
-      let paidCount = 0;
-      let pendingCount = 0;
+      const agg = perUnit.get(unit.id);
+      const totalCompleted = agg?.totalCompleted ?? 0;
+      // Number of full months the paid amount covers this year. Anything
+      // beyond 12 is overpayment and is not rendered as extra cells (rare for
+      // iuran); it still counts in `coveredMonths` for transparency.
+      const coveredMonths = RATE > 0 ? Math.floor(totalCompleted / RATE) : 0;
+      const cappedCovered = Math.min(coveredMonths, 12);
 
+      let paidCount = 0;
       const cells: any[] = MONTH_NAMES_SHORT.map((monthName, i) => {
         const month = i + 1;
-        const perMonth = perUnit?.get(month);
-        const completed = perMonth?.completed ?? [];
-        const pending = perMonth?.pending ?? [];
-
-        let status: 'PAID' | 'PENDING' | 'UNPAID' = 'UNPAID';
-        let amount: number | undefined;
-        let paymentId: string | null = null;
-
-        if (completed.length > 0) {
-          status = 'PAID';
-          amount = completed.reduce((sum, p) => sum + toNum(p.amount), 0);
-          paymentId = completed[0].id;
-        } else if (pending.length > 0) {
-          status = 'PENDING';
-          paymentId = pending[0].id;
-        }
-
-        if (status === 'PAID') {
+        if (i < cappedCovered) {
           paidCount++;
-          monthTotals[i] += amount ?? 0;
-        } else if (status === 'PENDING') {
-          pendingCount++;
+          monthTotals[i] += RATE;
+          return {
+            month,
+            monthName,
+            status: 'PAID' as const,
+            amount: RATE,
+            paymentId: agg?.firstCompletedId ?? null,
+          };
         }
-
-        const cell: any = { month, monthName, status, paymentId };
-        if (status === 'PAID') cell.amount = amount;
-        return cell;
+        return { month, monthName, status: 'UNPAID' as const, paymentId: null };
       });
 
       const resident = unit.residents?.[0];
@@ -472,9 +495,12 @@ export class ResidentPaymentsService {
         residentName,
         phoneNumber: resident?.phoneNumber ?? null,
         isActive: unit.isActive,
+        monthlyRate: RATE,
+        totalPaid: totalCompleted,
+        coveredMonths,
         cells,
         paidCount,
-        pendingCount,
+        pendingCount: agg?.pendingCount ?? 0,
       };
     });
 
@@ -483,6 +509,7 @@ export class ResidentPaymentsService {
 
     return {
       year,
+      monthlyRate: RATE,
       unitCount: rows.length,
       paidCellCount,
       grandTotal,

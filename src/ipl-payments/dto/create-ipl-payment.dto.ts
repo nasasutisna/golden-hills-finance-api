@@ -70,7 +70,7 @@ export class CreateIplPaymentDto {
   referenceNumber?: string;
 
   @ApiProperty({
-    description: 'Iuran kegiatan warga (optional - dalam Rupiah)',
+    description: 'Iuran kegiatan warga (optional - dalam Rupiah, PER BULAN)',
     example: 200000,
     required: false,
   })
@@ -78,6 +78,19 @@ export class CreateIplPaymentDto {
   @IsNumber({}, { message: 'Kegiatan amount must be a number' })
   @Min(0, { message: 'Kegiatan amount cannot be negative' })
   kegiatanAmount?: number;
+
+  @ApiProperty({
+    description: 'Number of months the kegiatan amount covers (1-24, default: 1). kegiatanAmount is treated as per-month.',
+    example: 3,
+    minimum: 1,
+    maximum: 24,
+    required: false,
+  })
+  @IsOptional()
+  @IsInt({ message: 'Kegiatan month count must be an integer' })
+  @Min(1, { message: 'Minimum 1 month' })
+  @Max(24, { message: 'Maximum 24 months' })
+  kegiatanMonthCount?: number;
 
   @ApiProperty({
     description: 'Additional notes (catatan tambahan)',

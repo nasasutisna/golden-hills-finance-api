@@ -60,6 +60,16 @@ export class WhatsappBlastController {
     return this.client.disconnect();
   }
 
+  @Post('reset-pairing')
+  @ApiOperation({
+    summary:
+      'Ganti nomor admin: hapus sesi lama (logout) lalu keluarkan QR baru untuk nomor baru',
+  })
+  @ApiResponse({ status: 200, description: 'Sesi direset, QR baru diterbitkan' })
+  resetPairing() {
+    return this.client.resetPairing();
+  }
+
   @Post('send-test')
   @ApiOperation({ summary: 'Kirim satu pesan uji (tidak dicatat sebagai blast)' })
   @ApiResponse({ status: 200, description: 'Pesan uji terkirim' })

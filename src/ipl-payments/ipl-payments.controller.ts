@@ -36,7 +36,7 @@ import { PaymentMethod } from './dto/enums';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
-import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { CurrentUser, CurrentUserData } from '../common/decorators/current-user.decorator';
 import { ParseUuidPipe } from '../common/pipes/parse-uuid.pipe';
 import { ApiResponseDecorators } from '../common/decorators/http-response.decorator';
 
@@ -68,7 +68,8 @@ export class IplPaymentsController {
         monthCount: { type: 'number', example: 6, description: 'Number of months to pay (1-24, default: 1)' },
         paymentDate: { type: 'string', example: '2026-07-09', description: 'Payment date (tanggal pembayaran)' },
         paymentMethod: { type: 'string', enum: ['CASH', 'TRANSFER', 'CARD', 'E_WALLET'], description: 'Payment method' },
-        kegiatanAmount: { type: 'number', example: 200000, description: 'Iuran kegiatan warga (optional - dalam Rupiah)' },
+        kegiatanAmount: { type: 'number', example: 200000, description: 'Iuran kegiatan warga (optional - PER BULAN, dalam Rupiah)' },
+        kegiatanMonthCount: { type: 'number', example: 3, description: 'Number of months the kegiatan amount covers (1-24, default: 1). kegiatanAmount is per-month.' },
         notes: { type: 'string', example: 'Pembayaran IPL + Kegiatan', description: 'Additional notes' },
         proofFile: { type: 'string', format: 'binary', description: 'Proof of payment file' },
       },
@@ -86,6 +87,7 @@ export class IplPaymentsController {
     @Body('paymentMethod') paymentMethod: string,
     @Body('monthCount') monthCount?: string,
     @Body('kegiatanAmount') kegiatanAmount?: string,
+    @Body('kegiatanMonthCount') kegiatanMonthCount?: string,
     @Body('notes') notes?: string,
   ) {
     let fileAttachmentId: string | undefined;
@@ -120,6 +122,7 @@ export class IplPaymentsController {
       paymentDate,
       paymentMethod: paymentMethod as PaymentMethod,
       kegiatanAmount: kegiatanAmount ? parseFloat(kegiatanAmount) : undefined,
+      kegiatanMonthCount: kegiatanMonthCount ? parseInt(kegiatanMonthCount, 10) : undefined,
       notes,
       proofFileId: fileAttachmentId,
     };
@@ -230,15 +233,19 @@ export class IplPaymentsController {
   }
 
   @Get('matrix')
-  @Roles('ADMIN', 'ACCOUNTANT')
   @ApiOperation({
-    summary: 'Get IPL payment matrix (Admin/Accountant only)',
-    description: 'Read-only matrix of house unit x monthly payment status for a year, with monthly and yearly totals.',
+    summary: 'Get IPL payment matrix (role-scoped)',
+    description:
+      'Read-only matrix of house unit x monthly payment status for a year, with monthly and yearly totals. ' +
+      'Scoped by the caller role: admin/finance/superadmin see all units, a block coordinator sees only their block(s), and any other role sees only their own house unit.',
   })
   @ApiResponseDecorators.ok()
   @ApiResponseDecorators.standard()
-  async getMatrix(@Query() query: QueryIplPaymentMatrixDto) {
-    const data = await this.iplPaymentsService.getMatrix(query);
+  async getMatrix(
+    @Query() query: QueryIplPaymentMatrixDto,
+    @CurrentUser() user: CurrentUserData,
+  ) {
+    const data = await this.iplPaymentsService.getMatrix(query, user);
     return {
       statusCode: 200,
       message: 'IPL payment matrix retrieved successfully',

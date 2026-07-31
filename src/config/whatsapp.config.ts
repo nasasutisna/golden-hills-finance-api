@@ -30,6 +30,34 @@ export const whatsappConfig = registerAs('whatsapp', () => ({
 
   // Optional custom message template overriding the built-in Indonesian one.
   messageTemplate: process.env.WHATSAPP_MESSAGE_TEMPLATE || '',
+
+  // Customer-service bot (incoming-message auto-reply). Opt-in: the socket
+  // stays send-only unless this is enabled. The bot only answers personal
+  // chats — it never replies in groups.
+  bot: {
+    enabled: process.env.WHATSAPP_BOT_ENABLED === 'true',
+    // How long a resident's conversation state is kept after their last message.
+    sessionTtlMs: parseInt(
+      process.env.WHATSAPP_BOT_SESSION_TTL_MS || '600000',
+      10,
+    ),
+    // How long the resident & unit caches live before refreshing from the DB.
+    residentCacheTtlMs: parseInt(
+      process.env.WHATSAPP_BOT_RESIDENT_CACHE_TTL_MS || '300000',
+      10,
+    ),
+    // Verbose trace of EVERY incoming Baileys message event (off by default).
+    // Turn on to debug "bot doesn't see my message": it logs the jid (so you
+    // can tell personal @s.whatsapp.net vs group @g.us) and fromMe (whether the
+    // message came from the paired number itself).
+    trace: process.env.WHATSAPP_BOT_TRACE === 'true',
+
+    // User id recorded as `submittedBy` on WhatsApp-originated IPL payments
+    // (regular residents have no app account, so a system user attributes them).
+    // Provision it via `prisma/scripts/seed-wa-bot-user.ts`. When empty the bot
+    // tries to look the user up by username `wa-bot-system` at runtime.
+    systemUserId: process.env.WHATSAPP_BOT_SYSTEM_USER_ID || '',
+  },
 }));
 
 export const getWhatsappConfig = () => whatsappConfig;
