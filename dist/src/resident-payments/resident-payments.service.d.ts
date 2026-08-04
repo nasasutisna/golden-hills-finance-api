@@ -1,3 +1,4 @@
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { QueryOptionsDto } from '../common/dto/query-options.dto';
 import { CreateResidentPaymentDto } from './dto/create-resident-payment.dto';
 import { UpdateResidentPaymentDto } from './dto/update-resident-payment.dto';
@@ -17,8 +18,9 @@ export declare class ResidentPaymentsService {
     private readonly fileAttachmentsService;
     private readonly cashTransactionsService;
     private readonly residentPaymentReceiptsService;
+    private readonly eventEmitter;
     private readonly logger;
-    constructor(residentPaymentsRepository: ResidentPaymentsRepository, residentInvoicesRepository: ResidentInvoicesRepository, prisma: PrismaService, fileAttachmentsService: FileAttachmentsService, cashTransactionsService: CashTransactionsService, residentPaymentReceiptsService: ResidentPaymentReceiptsService);
+    constructor(residentPaymentsRepository: ResidentPaymentsRepository, residentInvoicesRepository: ResidentInvoicesRepository, prisma: PrismaService, fileAttachmentsService: FileAttachmentsService, cashTransactionsService: CashTransactionsService, residentPaymentReceiptsService: ResidentPaymentReceiptsService, eventEmitter: EventEmitter2);
     findAll(queryOptions: QueryOptionsDto): Promise<{
         data: {
             id: string;
@@ -221,5 +223,50 @@ export declare class ResidentPaymentsService {
             paidCount: number;
             pendingCount: number;
         }[];
+    }>;
+    getUnitOutstanding(houseUnitId: string, year?: number): Promise<{
+        unitId: string;
+        unitNumber: string;
+        monthlyRate: number;
+        payableMonths: {
+            month: number;
+            year: number;
+            periodId: null;
+        }[];
+        totalAmount: number;
+        coveredMonths: number;
+        asOfMonth: number;
+        residentName: string | null;
+        blockName: string | null;
+    }>;
+    createBotPayment(input: {
+        residentId: string;
+        monthCount: number;
+        paymentDate: Date;
+        proofFilePath: string;
+        proofFileName: string;
+        proofFileSize: number;
+        proofMimeType: string;
+        submittedByUserId: string;
+        notes?: string;
+    }): Promise<{
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        deletedAt: Date | null;
+        bankName: string | null;
+        notes: string | null;
+        status: string;
+        residentId: string;
+        createdBy: string;
+        amount: import("@prisma/client-runtime-utils").Decimal;
+        paymentDate: Date;
+        paymentNumber: string;
+        paymentMethod: string;
+        referenceNumber: string | null;
+        invoiceId: string | null;
+        transactionId: string | null;
+        verifiedBy: string | null;
+        verifiedAt: Date | null;
     }>;
 }

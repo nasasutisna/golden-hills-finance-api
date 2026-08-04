@@ -1,10 +1,10 @@
-import { Injectable, ConflictException, Logger } from '@nestjs/common';
+import { Injectable, BadRequestException, ConflictException, Logger } from '@nestjs/common';
 import { QueryIplPeriodsDto } from './dto/query-ipl-periods.dto';
 import { CreateIplPeriodDto } from './dto/create-ipl-period.dto';
 import { UpdateIplPeriodDto } from './dto/update-ipl-period.dto';
 import { GenerateIplPeriodsDto } from './dto/generate-ipl-periods.dto';
 import { IplPeriodsRepository } from './ipl-periods.repository';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService, PrismaTransactionalClient } from '../prisma/prisma.service';
 import { IplPeriodStatus } from './dto/create-ipl-period.dto';
 
 // Indonesian month metadata — must mirror the frontend form
@@ -187,6 +187,141 @@ export class IplPeriodsService {
       skippedMonths: result.skippedMonths,
       periods: result.createdPeriods,
     };
+  }
+
+  /**
+   * Idempotently ensure an ACTIVE IplPeriod exists for {month, year}, creating
+   * it on demand. Used by the WhatsApp bot's advance-payment (bayar di muka)
+   * flow: a resident may pay into a future month/year whose period doesn't exist
+   * yet, so it is created at proof-upload time with the rate locked to the
+   * current baseRate. Surgical — only the requested month is touched, not the
+   * whole year (unlike generateYear).
+   *
+   *  - Existing & ACTIVE → returned as-is (reuse; the common case once scaffolded).
+   *  - Existing & not ACTIVE → BadRequestException (reactivating a CLOSED period
+   *    is an admin decision, not a side effect of a resident paying).
+   *  - Missing → created ACTIVE with `baseRate`, dueDate null (no due date for a
+   *    pre-paid month). periodCode/periodName follow the generateYear convention
+   *    so manual + bot-created periods are indistinguishable.
+   *  - Concurrent insert / soft-deleted-code collision (Prisma P2002 on the
+   *    globally-unique periodCode) → re-read to recover; if the colliding row is
+   *    itself soft-deleted, surface a clear error (cannot reuse without restore).
+   */
+  async ensurePeriod(
+    month: number,
+    year: number,
+    baseRate: number,
+    tx?: PrismaTransactionalClient,
+  ): Promise<{ id: string; periodCode: string; status: string }> {
+    // Run on the caller's transaction when provided (e.g. inside IplPaymentsService.create),
+    // otherwise on the shared client (e.g. the WhatsApp bot's standalone advance-pay path).
+    const db = tx ?? this.prisma;
+
+    const existing = await db.iplPeriod.findFirst({
+      where: { month, year, deletedAt: null },
+      select: { id: true, periodCode: true, status: true },
+    });
+    if (existing) {
+      if (existing.status !== 'ACTIVE') {
+        throw new BadRequestException(
+          `Periode ${existing.periodCode} berstatus ${existing.status}, tidak dapat dibayar. Hubungi admin.`,
+        );
+      }
+      return existing;
+    }
+
+    const periodCode = `${MONTH_ABBREVIATIONS[month - 1]}-${year}`;
+    const periodName = `${MONTH_NAMES[month - 1]} ${year}`;
+    try {
+      const created = await db.iplPeriod.create({
+        data: {
+          periodCode,
+          periodName,
+          month,
+          year,
+          baseRate,
+          status: 'ACTIVE',
+          dueDate: null,
+        },
+        select: { id: true, periodCode: true, status: true },
+      });
+      this.logger.log(`IPL period auto-created (on demand): ${periodCode}`);
+      return created;
+    } catch (error: any) {
+      // P2002 = unique violation on the globally-unique periodCode (a concurrent
+      // insert, or a soft-deleted row still holding the code). Re-read to recover.
+      if (error?.code === 'P2002') {
+        const collided = await db.iplPeriod.findFirst({
+          where: { periodCode },
+          select: { id: true, periodCode: true, status: true, deletedAt: true },
+        });
+        if (collided?.deletedAt) {
+          throw new BadRequestException(
+            `Periode ${periodCode} telah dihapus sebelumnya; minta admin untuk memulihkannya.`,
+          );
+        }
+        if (collided && collided.status === 'ACTIVE') return collided;
+        throw new BadRequestException(
+          `Periode ${periodCode} berstatus ${collided?.status ?? '?'}, tidak dapat dibayar. Hubungi admin.`,
+        );
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * Guarantee an ACTIVE IplPeriod exists for a specific {month, year}, creating
+   * it on demand. Used by the IPL payment matrix: when an admin clicks a month
+   * cell whose period hasn't been generated yet, the period is auto-created so a
+   * payment can be recorded instead of blocking with "belum tersedia". Reuses
+   * {@link ensurePeriod} (idempotent) and locks the rate via
+   * {@link resolveCurrentBaseRate}. Returns the full period record plus a
+   * `created` flag so callers can tell create-vs-existing apart.
+   */
+  async ensurePeriodForMonth(
+    month: number,
+    year: number,
+  ): Promise<{ period: any; created: boolean }> {
+    const baseRate = await this.resolveCurrentBaseRate(2500);
+
+    const existing = await this.prisma.iplPeriod.findFirst({
+      where: { month, year, deletedAt: null },
+      select: { id: true },
+    });
+
+    const ensured = await this.ensurePeriod(month, year, baseRate);
+    const period = await this.iplPeriodsRepository.findById(ensured.id);
+    return { period, created: !existing };
+  }
+
+  /**
+   * Convenience wrapper around {@link ensurePeriodForMonth} for the current
+   * month/year. Powers POST /ipl-periods/ensure-current.
+   */
+  async ensureCurrentPeriod(): Promise<{ period: any; created: boolean }> {
+    const now = new Date();
+    return this.ensurePeriodForMonth(now.getMonth() + 1, now.getFullYear());
+  }
+
+  /**
+   * The baseRate to lock into any auto-created future period: the earliest ACTIVE
+   * period's rate (matches how getMatrix estimates the monthly rate, and is
+   * stable/admin-set). Falls back to `fallbackDerived` (per-sqm rate derived from
+   * the unit's landArea/iplPercentage) only when no ACTIVE period exists at all.
+   */
+  async resolveCurrentBaseRate(fallbackDerived: number): Promise<number> {
+    const earliest = await this.prisma.iplPeriod.findFirst({
+      where: { status: 'ACTIVE', deletedAt: null },
+      orderBy: [{ year: 'asc' }, { month: 'asc' }],
+      select: { baseRate: true },
+    });
+    if (earliest) {
+      const rate = Number(earliest.baseRate);
+      if (Number.isFinite(rate) && rate > 0) return rate;
+    }
+    return Number.isFinite(fallbackDerived) && fallbackDerived > 0
+      ? fallbackDerived
+      : 2500;
   }
 
   /**

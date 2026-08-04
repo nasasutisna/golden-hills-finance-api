@@ -11,6 +11,9 @@
  *    (PENDING = "Proses", the resident has engaged — not chased as belum bayar).
  *  - Only ACTIVE units are considered (inactive / bank-buyback units are faded
  *    in the matrix and excluded from the collection list).
+ *  - Units with 0% IPL obligation are excluded — they have no payment duty
+ *    (e.g. the house is not yet occupied, so nobody is liable). Unpaid months
+ *    for them are not "menunggak", and they must not be chased or nagged.
  *  - As-of month: `year < currentYear → 12`, `year > currentYear → 0`
  *    (nothing elapsed yet → no delinquents), else the current calendar month.
  */
@@ -111,6 +114,9 @@ export function computeDelinquentUnits(
   const units: DelinquentUnit[] = [];
   for (const row of rows) {
     if (!row.isActive) continue;
+    // 0% obligation = no payment duty (house not yet occupied / nobody liable).
+    // Their unpaid months are not menunggak — skip them from the collection list.
+    if ((row.obligationLabel ?? '').toUpperCase() === '0%') continue;
     const streak = trailingUnpaidStreak(row, asOfMonth);
     if (streak < MIN_STREAK) continue;
     units.push({
@@ -142,6 +148,25 @@ export function formatMonthRange(
   const end = MONTH_NAMES_LONG_ID[asOfMonth - 1];
   if (startMonth === asOfMonth) return `${end} ${year}`;
   return `${start} – ${end} ${year}`;
+}
+
+/**
+ * Month-range label that can span calendar years — for the WhatsApp bot's
+ * advance-payment (bayar di muka) flow, where a payment may cover tunggakan
+ * plus future months rolling into next year (e.g. "Agustus 2026 – Maret 2027").
+ *
+ * `formatMonthRange` above is single-year only and is also used by the broadcast
+ * blast service, so it is left untouched; this sibling handles the cross-year
+ * case and reduces to the same output for same-year/single-month ranges.
+ */
+export function formatMonthRangeCrossYear(
+  start: { month: number; year: number },
+  end: { month: number; year: number },
+): string {
+  const startLabel = `${MONTH_NAMES_LONG_ID[start.month - 1]} ${start.year}`;
+  const endLabel = `${MONTH_NAMES_LONG_ID[end.month - 1]} ${end.year}`;
+  if (start.year === end.year && start.month === end.month) return endLabel;
+  return `${startLabel} – ${endLabel}`;
 }
 
 /** "Juli 2026" label for the as-of month; null when as-of month is 0. */

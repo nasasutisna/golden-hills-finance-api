@@ -21,6 +21,7 @@ export declare class ResidentPaymentsRepository {
     getByInvoice(invoiceId: string): Promise<ResidentPayment[]>;
     verifyPayment(paymentId: string, verifiedBy: string, tx?: PrismaTransactionalClient): Promise<ResidentPayment>;
     generatePaymentNumber(): Promise<string>;
+    generateReferenceNumber(tx?: PrismaTransactionalClient): Promise<string>;
     getPaymentStatistics(residentId?: string): Promise<any>;
     count(where?: any): Promise<number>;
     exists(id: string): Promise<boolean>;

@@ -410,6 +410,8 @@ let CashTransactionsRepository = class CashTransactionsRepository {
                 fundType: a.fundType,
                 openingBalance: Number(a.openingBalance),
                 balance: Number(a.openingBalance) + all.income - all.expense,
+                totalIncome: all.income,
+                totalExpense: all.expense,
                 periodIncome: period.income,
                 periodExpense: period.expense,
                 periodBalance: period.income - period.expense,

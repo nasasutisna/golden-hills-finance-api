@@ -168,21 +168,90 @@ export function isProofMimeType(mimeType: string | null | undefined): boolean {
 }
 
 /**
- * Parse the resident's "how many months" answer into a count (1..max), or null
- * when unrecognized. Accepts digits ("1", "3") and the words "semua"/"all"
- * (→ max). Used by the Bayar IPL flow after the outstanding months are listed.
+ * Typo-guard ceiling: the most months a resident may pay in a single bot
+ * payment — outstanding tunggakan PLUS advance (di muka) months combined.
+ * A resident typing "999" must not silently create a multi-hundred-million
+ * IDR pending payment, so counts above this are rejected (re-prompted), not
+ * clamped. 60 = 5 years, comfortably above any realistic advance ask.
+ */
+export const MAX_ADVANCE_MONTHS = 60;
+
+export interface ParseMonthCountOptions {
+  /** How many months of tunggakan the unit currently owes (may be 0). */
+  outstanding: number;
+  /** Hard ceiling on the total months payable (outstanding + advance). */
+  maxTotal: number;
+}
+
+/**
+ * Parse the resident's "how many months" answer into a total count, or null
+ * when unrecognized / out of range. Accepts digits ("1", "9", "60") and the
+ * words "semua"/"all".
+ *
+ * Semantics (Bayar IPL / Bayar Iuran Warga advance flow):
+ *  - A plain number N = pay N months total, oldest tunggakan first then
+ *    continuing into future months. N may EXCEED `outstanding` (that is the
+ *    "bayar di muka" case) up to `maxTotal`.
+ *  - "semua"/"all" = lunasi seluruh tunggakan only (→ `outstanding`). With
+ *    zero tunggakan there is nothing to "semua", so it returns null and the
+ *    caller re-prompts for an explicit count.
+ *  - N < 1, non-numeric, or N > `maxTotal` → null (the caller re-prompts;
+ *    never silently clamped, so the resident sees their typo).
  */
 export function parseMonthCount(
   text: string | null | undefined,
-  max: number,
+  opts: ParseMonthCountOptions,
 ): number | null {
   if (!text) return null;
   const t = text.trim().toLowerCase();
   if (!t) return null;
-  if (t === 'semua' || t === 'all' || t === 'semuanya') return Math.max(1, max);
+  const maxTotal = Math.max(1, opts.maxTotal);
+  if (t === 'semua' || t === 'all' || t === 'semuanya') {
+    return opts.outstanding > 0 ? Math.min(opts.outstanding, maxTotal) : null;
+  }
   const n = parseInt(t, 10);
   if (!Number.isFinite(n) || n < 1) return null;
-  return Math.min(n, Math.max(1, max));
+  if (n > maxTotal) return null;
+  return n;
+}
+
+/**
+ * True when `text` is a whole number that exceeds `maxTotal` — lets the caller
+ * distinguish "you typed too many months" from "I didn't understand that" when
+ * {@link parseMonthCount} returns null, so the re-prompt can be specific.
+ */
+export function isMonthCountOverCap(
+  text: string | null | undefined,
+  maxTotal: number,
+): boolean {
+  if (!text) return false;
+  const t = text.trim();
+  if (!/^\d+$/.test(t)) return false;
+  return parseInt(t, 10) > maxTotal;
+}
+
+/**
+ * Enumerate `count` consecutive future month/year slots starting the month
+ * AFTER `{afterMonth, afterYear}`, rolling Dec(12) → Jan(1) of the next year.
+ * Pure (no I/O) so it is trivially unit-testable; the service resolves period
+ * ids around the slots it returns.
+ *
+ * Uses JS Date arithmetic: `new Date(year, monthIndex, 1)` normalizes overflow,
+ * so passing a 0-based `monthIndex = afterMonth + i - 1` yields the correct
+ * rolled-over month/year for any input (e.g. afterMonth=12, i=1 → Jan year+1).
+ */
+export function computeFutureMonthSlots(
+  afterMonth: number,
+  afterYear: number,
+  count: number,
+): { month: number; year: number }[] {
+  if (count <= 0) return [];
+  const slots: { month: number; year: number }[] = [];
+  for (let i = 1; i <= count; i++) {
+    const d = new Date(afterYear, afterMonth + i - 1, 1);
+    slots.push({ month: d.getMonth() + 1, year: d.getFullYear() });
+  }
+  return slots;
 }
 
 /** True when the unit's block is among the coordinator's blocks. */

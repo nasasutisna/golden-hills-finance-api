@@ -20,6 +20,7 @@ import { CreateIplPeriodDto } from './dto/create-ipl-period.dto';
 import { UpdateIplPeriodDto } from './dto/update-ipl-period.dto';
 import { QueryIplPeriodsDto } from './dto/query-ipl-periods.dto';
 import { GenerateIplPeriodsDto } from './dto/generate-ipl-periods.dto';
+import { EnsureIplPeriodDto } from './dto/ensure-ipl-period.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -66,6 +67,55 @@ export class IplPeriodsController {
       statusCode: 201,
       message: 'IPL periods generated successfully',
       data: result,
+    };
+  }
+
+  @Post('ensure-current')
+  @Roles('COORDINATOR', 'ADMIN', 'ACCOUNTANT')
+  @ApiOperation({
+    summary: 'Ensure the IPL period for the current month exists',
+    description:
+      'Idempotently create the ACTIVE IPL period for the current month/year if it does ' +
+      'not exist yet, so a payment can be recorded even before an admin generates periods. ' +
+      'Returns the (created or existing) current period.',
+  })
+  @ApiResponseDecorators.created()
+  @ApiResponseDecorators.standard()
+  async ensureCurrent() {
+    const result = await this.iplPeriodsService.ensureCurrentPeriod();
+    return {
+      statusCode: 201,
+      message: result.created
+        ? 'Periode bulan berjalan berhasil dibuat'
+        : 'Periode bulan berjalan sudah tersedia',
+      data: result.period,
+    };
+  }
+
+  @Post('ensure')
+  @Roles('COORDINATOR', 'ADMIN', 'ACCOUNTANT')
+  @ApiOperation({
+    summary: 'Ensure an IPL period exists for a given month/year',
+    description:
+      'Idempotently create the ACTIVE IPL period for the requested month/year if it does ' +
+      'not exist yet. Used by the payment matrix so clicking a month cell whose period has ' +
+      'not been generated auto-creates it and proceeds to record a payment. Returns the ' +
+      '(created or existing) period.',
+  })
+  @ApiResponseDecorators.created()
+  @ApiResponseDecorators.standard()
+  async ensure(@Body() ensureDto: EnsureIplPeriodDto) {
+    const result = await this.iplPeriodsService.ensurePeriodForMonth(
+      ensureDto.month,
+      ensureDto.year,
+    );
+    const name = result.period?.periodName ?? `${ensureDto.month}/${ensureDto.year}`;
+    return {
+      statusCode: 201,
+      message: result.created
+        ? `Periode ${name} berhasil dibuat`
+        : `Periode ${name} sudah tersedia`,
+      data: result.period,
     };
   }
 

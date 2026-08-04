@@ -10,6 +10,13 @@ import { PrismaModule } from '../prisma/prisma.module';
 // IplPaymentsModule, which closes a cycle (IplPayments → CashTransactions →
 // Users → WhatsappBlast). WhatsappBotModule composes this module + IplPayments
 // with no back-edge, so the graph stays acyclic.
+//
+// WhatsappBlastService likewise needs IplPaymentsService for the delinquent
+// preview/blast, but importing IplPaymentsModule here is impossible for the
+// same reason (the cycle is at the JS module-load level — one of the chained
+// modules evaluates to `undefined` at decoration time). So the blast service
+// resolves IplPaymentsService lazily via ModuleRef at request time instead. See
+// WhatsappBlastService.fetchReport.
 
 @Module({
   imports: [PrismaModule],

@@ -129,6 +129,40 @@ export class ResidentPaymentsRepository {
     return `PAY${timestamp}${String(count + 1).padStart(4, '0')}`;
   }
 
+  /**
+   * Generate a unique `REF-YYYYMMDD-NNNN` reference number scoped to
+   * `residentPayment` (NOT `iplPayment` — that table has its own sequence in
+   * `ipl-payments/helpers/reference-number.helper.ts`). Used by the WA bot
+   * Iuran Warga payment path so the resident gets a non-null reference to
+   * quote. Runs on the given transaction when provided (the bot creates the
+   * payment + proof inside one tx).
+   */
+  async generateReferenceNumber(
+    tx?: PrismaTransactionalClient,
+  ): Promise<string> {
+    const prisma = tx || this.prisma;
+    const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+
+    const last = await prisma.residentPayment.findFirst({
+      where: {
+        referenceNumber: { startsWith: `REF-${dateStr}` },
+        deletedAt: null,
+      },
+      orderBy: { referenceNumber: 'desc' },
+      select: { referenceNumber: true },
+    });
+
+    let sequence = 1;
+    if (last?.referenceNumber) {
+      const parts = last.referenceNumber.split('-');
+      if (parts.length === 3) {
+        const lastSequence = parseInt(parts[2], 10);
+        if (!isNaN(lastSequence)) sequence = lastSequence + 1;
+      }
+    }
+    return `REF-${dateStr}-${sequence.toString().padStart(4, '0')}`;
+  }
+
   async getPaymentStatistics(residentId?: string): Promise<any> {
     const where: any = { deletedAt: null };
     if (residentId) {

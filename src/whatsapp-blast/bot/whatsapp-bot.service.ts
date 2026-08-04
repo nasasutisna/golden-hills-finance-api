@@ -14,9 +14,13 @@ import {
   DelinquentReport,
   DelinquentUnit,
   formatMonthRange,
+  formatMonthRangeCrossYear,
 } from '../../ipl-payments/helpers/delinquent-units.helper';
 import { IplPaymentsService } from '../../ipl-payments/ipl-payments.service';
 import { IplReceiptsService } from '../../ipl-payments/ipl-receipts.service';
+import { IplPeriodsService } from '../../ipl-periods/ipl-periods.service';
+import { ResidentPaymentsService } from '../../resident-payments/resident-payments.service';
+import { ResidentPaymentReceiptsService } from '../../resident-payments/resident-payment-receipts.service';
 import { WhatsappClientService } from '../whatsapp-client.service';
 import { normalizeToWaJid } from '../helpers/phone.helper';
 import {
@@ -24,15 +28,19 @@ import {
   buildAskPayUnitText,
   buildAskUnitCodeText,
   buildIplOutstandingText,
+  buildIuranOutstandingText,
+  buildIuranPayApprovedText,
+  buildIuranPayProofPromptText,
+  buildIuranPaySummaryText,
   buildMediaAckText,
   buildMenuText,
+  buildNoIuranOutstandingText,
   buildNoOutstandingText,
   buildPayApprovedText,
   buildPayCannotAttributeText,
   buildPayDuplicateText,
   buildPayFailedText,
   buildPayMonthChoiceInvalidText,
-  buildPayNoOutstandingText,
   buildPayNoUnitText,
   buildPayProofAwaitingText,
   buildPayProofPromptText,
@@ -48,13 +56,16 @@ import {
   buildUnknownChoiceText,
 } from './bot-messages.helper';
 import {
+  computeFutureMonthSlots,
   extractText,
   findUnitByCode,
   hasMedia,
   isMenuKeyword,
+  isMonthCountOverCap,
   isPersonalChat,
   isProofMimeType,
   jidToDigits,
+  MAX_ADVANCE_MONTHS,
   matchResidentByPhone,
   parseMonthCount,
   ResidentLite,
@@ -70,19 +81,31 @@ type BotStep =
   | 'AWAITING_PAY_MONTHS'
   | 'AWAITING_PAY_PROOF';
 
+/** Which "Cek" flow owns the typed-house-code fallback (AWAITING_UNIT_CODE). */
+type CekKind = 'IPL' | 'IURAN';
+
+/** Which fee a pay flow is for — branches the shared handlers at a few points. */
+type PayKind = 'IPL' | 'IURAN';
+
 /** A single unpaid, payable month resolved from the matrix. */
 interface PayableMonth {
   month: number;
   year: number;
-  periodId: string;
+  /**
+   * IPL period id (always set for IPL). Iuran Warga has no period table, so it
+   * is `null` there — the `!!periodId` filter in `beginPayForUnit` must be
+   * skipped for IURAN, or every iuran month gets dropped.
+   */
+  periodId: string | null;
 }
 
-/** In-progress "Bayar IPL" context, carried on the session across steps. */
+/** In-progress "Bayar IPL/Iuran" context, carried on the session across steps. */
 interface PayContext {
+  kind: PayKind;
   isCoordinator: boolean;
   /** Coordinator's block ids — typed unit codes are validated against these. */
   blockIds: string[];
-  /** User id recorded as `submittedBy` (resident's own, or the system bot user). */
+  /** User id recorded as `submittedBy`/`createdBy` (resident's own, or system bot user). */
   submittedByUserId: string | null;
   // Filled once the target unit + payer are resolved:
   residentId?: string;
@@ -90,12 +113,21 @@ interface PayContext {
   unitNumber?: string;
   monthlyRate?: number;
   payableMonths?: PayableMonth[];
+  /**
+   * Unit land area + IPL percentage — only used to derive the per-sqm baseRate
+   * fallback when auto-creating a future IPL period and NO active period exists
+   * anywhere (essentially never; resolveCurrentBaseRate prefers a real period).
+   */
+  landArea?: number;
+  iplPercentage?: number;
 }
 
 interface BotSession {
   step: BotStep;
   lastActivity: number;
   pay?: PayContext;
+  /** Set when a Cek flow falls back to asking a house code; routes handleUnitCode. */
+  cekKind?: CekKind;
 }
 
 /**
@@ -171,6 +203,9 @@ export class WhatsappBotService implements OnModuleInit, OnModuleDestroy {
     private readonly client: WhatsappClientService,
     private readonly iplPayments: IplPaymentsService,
     private readonly iplReceipts: IplReceiptsService,
+    private readonly iplPeriods: IplPeriodsService,
+    private readonly residentPayments: ResidentPaymentsService,
+    private readonly residentPaymentReceipts: ResidentPaymentReceiptsService,
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
   ) { }
@@ -381,6 +416,7 @@ export class WhatsappBotService implements OnModuleInit, OnModuleDestroy {
     await this.reply(jid, buildMenuText());
     session.step = 'AWAITING_CHOICE';
     delete session.pay;
+    delete session.cekKind;
     this.touch(session);
   }
 
@@ -392,6 +428,19 @@ export class WhatsappBotService implements OnModuleInit, OnModuleDestroy {
     const t = text.toLowerCase();
     if (t === '1' || t === '01' || t.includes('ipl') || t.includes('tagihan')) {
       await this.runIplFlow(jid, session);
+      return;
+    }
+    // Iuran Warga — checked before the generic "bayar" branch so "bayar iuran"
+    // routes here (not to Bayar IPL). "iuran" never contains "ipl", so the IPL
+    // check above doesn't collide.
+    if (t === '3' || t === '03' || t === '4' || t === '04' || t.includes('iuran')) {
+      const wantPay =
+        t === '4' || t === '04' || t.includes('bayar') || t.includes('transfer');
+      if (wantPay) {
+        await this.runPayIuranFlow(jid, session);
+      } else {
+        await this.runIuranFlow(jid, session);
+      }
       return;
     }
     if (t === '2' || t === '02' || t.includes('bayar')) {
@@ -422,7 +471,11 @@ export class WhatsappBotService implements OnModuleInit, OnModuleDestroy {
       this.touch(session); // stay in this step; resident can retry or type "menu"
       return;
     }
-    await this.sendIplForUnit(jid, unit.id);
+    if (session.cekKind === 'IURAN') {
+      await this.sendIuranForUnit(jid, unit.id);
+    } else {
+      await this.sendIplForUnit(jid, unit.id);
+    }
     this.endFlow(session);
   }
 
@@ -497,11 +550,97 @@ export class WhatsappBotService implements OnModuleInit, OnModuleDestroy {
   }
 
   // ------------------------------------------------------------------
+  // Flow 1b — Cek Iuran Warga
+  // ------------------------------------------------------------------
+
+  /** Option 3: identify the resident, then surface their Iuran Warga outstanding. */
+  private async runIuranFlow(jid: string, session: BotSession): Promise<void> {
+    const resident = await this.identifyResident(jid);
+
+    if (!resident) {
+      // Couldn't auto-identify → ask for the house code (routed back here via cekKind).
+      await this.reply(jid, buildAskUnitCodeText());
+      session.cekKind = 'IURAN';
+      session.step = 'AWAITING_UNIT_CODE';
+      this.touch(session);
+      return;
+    }
+
+    await this.sendIuranForUnit(jid, resident.houseUnitId);
+    this.endFlow(session);
+  }
+
+  /**
+   * Look up one unit's Iuran Warga outstanding and reply. Used by the
+   * auto-identified path and the typed-code fallback.
+   */
+  private async sendIuranForUnit(jid: string, unitId: string | null): Promise<void> {
+    let outstanding;
+    try {
+      // No cached report equivalent to IPL's delinquency report — this is one
+      // unit, fetched per call.
+      outstanding = unitId
+        ? await this.residentPayments.getUnitOutstanding(unitId)
+        : null;
+    } catch (err: any) {
+      this.logger.error(`Iuran outstanding lookup failed: ${err?.message ?? err}`);
+      await this.reply(jid, buildTemporarilyUnavailableText());
+      return;
+    }
+
+    const year = new Date().getFullYear();
+    if (!outstanding || outstanding.payableMonths.length === 0) {
+      await this.reply(jid, buildNoIuranOutstandingText(outstanding?.residentName ?? null, year));
+      return;
+    }
+
+    const payable = outstanding.payableMonths;
+    const monthRange = formatMonthRange(
+      payable[0].month,
+      payable[payable.length - 1].month,
+      year,
+    );
+
+    await this.reply(
+      jid,
+      buildIuranOutstandingText({
+        name: outstanding.residentName,
+        unit: outstanding.unitNumber,
+        block: outstanding.blockName,
+        monthRange,
+        months: payable.length,
+        amount: outstanding.totalAmount,
+        paymentInfo: this.resolvePaymentInfo(),
+        companyName:
+          this.config.get<string>('COMPANY_NAME') || 'Golden Hills Finance',
+      }),
+    );
+  }
+
+  // ------------------------------------------------------------------
   // Flow 2 — Bayar IPL
   // ------------------------------------------------------------------
 
   /** Option 2: pay IPL. Resident self-pay (unit auto-detected) or coordinator. */
   private async runPayIplFlow(jid: string, session: BotSession): Promise<void> {
+    return this.runPayFlow(jid, session, 'IPL');
+  }
+
+  /** Option 4: pay Iuran Warga. Same shape as Bayar IPL, different `kind`. */
+  private async runPayIuranFlow(jid: string, session: BotSession): Promise<void> {
+    return this.runPayFlow(jid, session, 'IURAN');
+  }
+
+  /**
+   * Shared pay-flow entry. IPL and Iuran Warga differ only in `kind` here —
+   * the coordinator/self-pay detection, unit resolution, month choice and proof
+   * upload are identical and handled by the shared handlers below.
+   */
+  private async runPayFlow(
+    jid: string,
+    session: BotSession,
+    kind: PayKind,
+  ): Promise<void> {
     const resident = await this.identifyResident(jid);
 
     if (!resident) {
@@ -520,7 +659,7 @@ export class WhatsappBotService implements OnModuleInit, OnModuleDestroy {
         .map((b) => b.blockName || b.blockCode)
         .filter(Boolean)
         .join(', ');
-      session.pay = { isCoordinator: true, blockIds, submittedByUserId };
+      session.pay = { kind, isCoordinator: true, blockIds, submittedByUserId };
       session.step = 'AWAITING_PAY_UNIT';
       await this.reply(jid, buildAskPayUnitText(label));
       this.touch(session);
@@ -534,6 +673,7 @@ export class WhatsappBotService implements OnModuleInit, OnModuleDestroy {
       return;
     }
     await this.beginPayForUnit(jid, session, {
+      kind,
       houseUnitId: resident.houseUnitId,
       isCoordinator: false,
       submittedByUserId,
@@ -561,6 +701,7 @@ export class WhatsappBotService implements OnModuleInit, OnModuleDestroy {
       return;
     }
     await this.beginPayForUnit(jid, session, {
+      kind: session.pay?.kind ?? 'IPL',
       houseUnitId: unit.id,
       isCoordinator: true,
       submittedByUserId: session.pay?.submittedByUserId ?? null,
@@ -570,12 +711,15 @@ export class WhatsappBotService implements OnModuleInit, OnModuleDestroy {
 
   /**
    * Resolve the unit's payer + outstanding months, show the summary, and move
-   * to AWAITING_PAY_MONTHS. Shared by the resident and coordinator paths.
+   * to AWAITING_PAY_MONTHS. Shared by the resident and coordinator paths, and by
+   * both fee kinds (IPL / Iuran Warga) — they branch only on `input.kind` at the
+   * outstanding lookup, the payable-month filter, and the summary builder.
    */
   private async beginPayForUnit(
     jid: string,
     session: BotSession,
     input: {
+      kind: PayKind;
       houseUnitId: string;
       isCoordinator: boolean;
       submittedByUserId: string | null;
@@ -602,9 +746,12 @@ export class WhatsappBotService implements OnModuleInit, OnModuleDestroy {
     }
     const payer = unit.residents[0];
 
-    let outstanding;
+    let outstanding: any;
     try {
-      outstanding = await this.iplPayments.getUnitOutstanding(unit.id);
+      outstanding =
+        input.kind === 'IURAN'
+          ? await this.residentPayments.getUnitOutstanding(unit.id)
+          : await this.iplPayments.getUnitOutstanding(unit.id);
     } catch (err: any) {
       this.logger.error(`getUnitOutstanding failed: ${err?.message ?? err}`);
       await this.reply(jid, buildTemporarilyUnavailableText());
@@ -612,93 +759,176 @@ export class WhatsappBotService implements OnModuleInit, OnModuleDestroy {
       return;
     }
 
-    const payable = outstanding.payableMonths.filter(
-      (m) => !!m.periodId,
+    // Iuran Warga has no period table — every payable month has periodId null,
+    // so the `!!periodId` filter MUST be skipped for IURAN or all months get
+    // dropped and the flow always says "no outstanding".
+    const payable = (
+      input.kind === 'IURAN'
+        ? outstanding.payableMonths
+        : outstanding.payableMonths.filter((m: PayableMonth) => !!m.periodId)
     ) as PayableMonth[];
-    if (payable.length === 0) {
-      await this.reply(jid, buildPayNoOutstandingText());
-      this.endFlow(session);
-      return;
-    }
-
-    const year = payable[0].year;
-    const monthRangeLabel = formatMonthRange(
-      payable[0].month,
-      payable[payable.length - 1].month,
-      year,
-    );
+    // Even with zero tunggakan the resident may still pay AHEAD (bayar di muka),
+    // so an empty payable list is NOT a dead-end — we proceed to the month-choice
+    // step and the summary offers a pure-advance prompt instead of bailing out.
+    const outstandingCount = payable.length;
+    const monthlyRate = Number(outstanding.monthlyRate) || 0;
+    const monthRangeLabel =
+      outstandingCount > 0
+        ? formatMonthRangeCrossYear(
+            { month: payable[0].month, year: payable[0].year },
+            {
+              month: payable[outstandingCount - 1].month,
+              year: payable[outstandingCount - 1].year,
+            },
+          )
+        : null;
     const name =
       [payer.firstName, payer.lastName].filter(Boolean).join(' ') || null;
 
     session.pay = {
+      kind: input.kind,
       isCoordinator: input.isCoordinator,
       blockIds: input.blockIds,
       submittedByUserId: input.submittedByUserId,
       residentId: payer.id,
       houseUnitId: unit.id,
       unitNumber: unit.unitNumber,
-      monthlyRate: outstanding.monthlyRate,
+      monthlyRate,
       payableMonths: payable,
+      // For deriving the per-sqm baseRate fallback when auto-creating a future
+      // IPL period and no active period exists (resolveCurrentBaseRate's fallback).
+      landArea: Number(unit.landArea) || 0,
+      iplPercentage: Number(unit.iplPercentage) || 0,
     };
     session.step = 'AWAITING_PAY_MONTHS';
 
+    const summaryArgs = {
+      name,
+      unit: unit.unitNumber,
+      block: unit.houseBlock?.blockName ?? null,
+      monthRangeLabel,
+      outstandingCount,
+      monthlyRate,
+      totalAmount: monthlyRate * outstandingCount,
+      paymentInfo: this.resolvePaymentInfo(),
+      advanceCap: MAX_ADVANCE_MONTHS,
+    };
     await this.reply(
       jid,
-      buildPaySummaryText({
-        name,
-        unit: unit.unitNumber,
-        block: unit.houseBlock?.blockName ?? null,
-        monthRangeLabel,
-        payableCount: payable.length,
-        monthlyRate: outstanding.monthlyRate,
-        totalAmount: outstanding.monthlyRate * payable.length,
-        paymentInfo: this.resolvePaymentInfo(),
-      }),
+      input.kind === 'IURAN'
+        ? buildIuranPaySummaryText(summaryArgs)
+        : buildPaySummaryText(summaryArgs),
     );
     this.touch(session);
   }
 
-  /** Resident chose how many (of the oldest) outstanding months to pay. */
+  /**
+   * Resident chose how many months to pay in total. May exceed the tunggakan
+   * count — the excess is filled with future (bayar di muka) months. For IPL,
+   * future months carry `periodId: null` here and are resolved (period created
+   * on demand) only at proof-upload time, so abandoning the flow leaves no
+   * orphan periods.
+   */
   private async handlePayMonths(
     jid: string,
     text: string,
     session: BotSession,
   ): Promise<void> {
-    const payable = session.pay?.payableMonths ?? [];
-    if (payable.length === 0) {
+    const pay = session.pay;
+    if (!pay) {
       await this.showMenu(jid, session);
       return;
     }
-    const count = parseMonthCount(text, payable.length);
+    const outstanding = pay.payableMonths ?? [];
+    const count = parseMonthCount(text, {
+      outstanding: outstanding.length,
+      maxTotal: MAX_ADVANCE_MONTHS,
+    });
     if (!count) {
-      await this.reply(jid, buildPayMonthChoiceInvalidText(payable.length));
+      const reason = isMonthCountOverCap(text, MAX_ADVANCE_MONTHS)
+        ? 'over-cap'
+        : 'invalid';
+      await this.reply(
+        jid,
+        buildPayMonthChoiceInvalidText(MAX_ADVANCE_MONTHS, reason),
+      );
       this.touch(session);
       return;
     }
 
-    const chosen = payable.slice(0, count);
-    const monthlyRate = Number(session.pay?.monthlyRate) || 0;
+    const chosen = await this.resolveChosenMonthsWithAdvance(outstanding, count);
+    const monthlyRate = Number(pay.monthlyRate) || 0;
     const total = monthlyRate * chosen.length;
-    const monthRangeLabel = formatMonthRange(
-      chosen[0].month,
-      chosen[chosen.length - 1].month,
-      chosen[0].year,
+    const monthRangeLabel = formatMonthRangeCrossYear(
+      { month: chosen[0].month, year: chosen[0].year },
+      {
+        month: chosen[chosen.length - 1].month,
+        year: chosen[chosen.length - 1].year,
+      },
     );
+    const advanceMonths = Math.max(0, count - outstanding.length);
 
     // Stash the chosen months on the session so the proof step knows the periods.
-    session.pay = { ...session.pay, payableMonths: chosen } as PayContext;
+    session.pay = { ...pay, payableMonths: chosen } as PayContext;
     session.step = 'AWAITING_PAY_PROOF';
 
+    const proofPromptArgs = {
+      monthRangeLabel,
+      monthCount: chosen.length,
+      totalAmount: total,
+      paymentInfo: this.resolvePaymentInfo(),
+      advanceMonths,
+    };
     await this.reply(
       jid,
-      buildPayProofPromptText({
-        monthRangeLabel,
-        monthCount: chosen.length,
-        totalAmount: total,
-        paymentInfo: this.resolvePaymentInfo(),
-      }),
+      pay.kind === 'IURAN'
+        ? buildIuranPayProofPromptText(proofPromptArgs)
+        : buildPayProofPromptText(proofPromptArgs),
     );
     this.touch(session);
+  }
+
+  /**
+   * Build the exact `totalCount` months to pay: the oldest tunggakan months
+   * first, then — if `totalCount` exceeds the tunggakan — future months
+   * appended chronologically starting the month after the last payable month
+   * (rolling Dec→Jan into the next year). When there is no tunggakan, the
+   * anchor is the current month, so the first future slot is next month.
+   *
+   * Pure-ish: the future slots are computed by `computeFutureMonthSlots`; this
+   * method only shapes them into `PayableMonth` (periodId null for IPL future
+   * months — resolved lazily at proof time).
+   */
+  private async resolveChosenMonthsWithAdvance(
+    outstanding: PayableMonth[],
+    totalCount: number,
+  ): Promise<PayableMonth[]> {
+    const base = outstanding.slice(0, Math.min(outstanding.length, totalCount));
+    if (base.length >= totalCount) return base;
+
+    const now = new Date();
+    const anchor =
+      outstanding.length > 0
+        ? {
+            month: outstanding[outstanding.length - 1].month,
+            year: outstanding[outstanding.length - 1].year,
+          }
+        : { month: now.getMonth() + 1, year: now.getFullYear() };
+
+    const slots = computeFutureMonthSlots(
+      anchor.month,
+      anchor.year,
+      totalCount - base.length,
+    );
+    // Both kinds carry periodId null for future months: Iuran Warga has no
+    // period table at all; IPL resolves (creating the period on demand) at
+    // proof-upload time in handlePayProof.
+    const future: PayableMonth[] = slots.map((s) => ({
+      month: s.month,
+      year: s.year,
+      periodId: null,
+    }));
+    return [...base, ...future];
   }
 
   /** Proof-upload step: download the bukti transfer and create the PENDING payment. */
@@ -766,17 +996,42 @@ export class WhatsappBotService implements OnModuleInit, OnModuleDestroy {
     }
 
     try {
-      const payments = await this.iplPayments.createBotPayment({
-        residentId: ctx.residentId,
-        periodIds: ctx.payableMonths.map((m) => m.periodId),
-        paymentDate: new Date(),
-        proofFilePath: tempWebPath,
-        proofFileName: downloaded.fileName || tempName,
-        proofFileSize: downloaded.buffer.length,
-        proofMimeType: downloaded.mimeType,
-        submittedByUserId,
-      });
-      const referenceNumber = payments[0]?.referenceNumber ?? '-';
+      // For IPL, resolve periodIds for future (bayar di muka) months still
+      // carrying periodId null — creating the IplPeriod on demand (rate locked
+      // to the current baseRate). Done at proof-upload time, so a resident who
+      // abandons after the prompt leaves no orphan periods.
+      if (ctx.kind === 'IPL') {
+        ctx.payableMonths = await this.resolveIplPeriodIds(ctx.payableMonths, ctx);
+      }
+
+      let referenceNumber: string;
+      if (ctx.kind === 'IURAN') {
+        const payment = await this.residentPayments.createBotPayment({
+          residentId: ctx.residentId,
+          monthCount: ctx.payableMonths.length,
+          paymentDate: new Date(),
+          proofFilePath: tempWebPath,
+          proofFileName: downloaded.fileName || tempName,
+          proofFileSize: downloaded.buffer.length,
+          proofMimeType: downloaded.mimeType,
+          submittedByUserId,
+        });
+        referenceNumber = payment?.referenceNumber ?? '-';
+      } else {
+        const payments = await this.iplPayments.createBotPayment({
+          residentId: ctx.residentId,
+          // periodIds resolved above: existing tunggakan periods + any
+          // auto-created future periods for bayar di muka months.
+          periodIds: ctx.payableMonths.map((m) => m.periodId!),
+          paymentDate: new Date(),
+          proofFilePath: tempWebPath,
+          proofFileName: downloaded.fileName || tempName,
+          proofFileSize: downloaded.buffer.length,
+          proofMimeType: downloaded.mimeType,
+          submittedByUserId,
+        });
+        referenceNumber = payments[0]?.referenceNumber ?? '-';
+      }
       await this.reply(jid, buildPayReceivedText(referenceNumber));
     } catch (err: any) {
       const message = err?.message ?? '';
@@ -789,6 +1044,51 @@ export class WhatsappBotService implements OnModuleInit, OnModuleDestroy {
     } finally {
       this.endFlow(session);
     }
+  }
+
+  /**
+   * Resolve periodIds for any future IPL months still carrying `periodId: null`
+   * — creating the `IplPeriod` on demand (rate locked to the current baseRate).
+   * Existing tunggakan months already have their periodId and pass through
+   * unchanged. Throws `BadRequestException` if a future period exists but is not
+   * ACTIVE — the caller surfaces that as a generic failure.
+   */
+  private async resolveIplPeriodIds(
+    months: PayableMonth[],
+    ctx: PayContext,
+  ): Promise<PayableMonth[]> {
+    if (!months.some((m) => !m.periodId)) return months;
+    const fallbackDerived = this.deriveBaseRateFromUnit(ctx);
+    const baseRate = await this.iplPeriods.resolveCurrentBaseRate(fallbackDerived);
+    const resolved: PayableMonth[] = [];
+    for (const m of months) {
+      if (m.periodId) {
+        resolved.push(m);
+        continue;
+      }
+      const period = await this.iplPeriods.ensurePeriod(m.month, m.year, baseRate);
+      resolved.push({ ...m, periodId: period.id });
+    }
+    return resolved;
+  }
+
+  /**
+   * Per-sqm baseRate derived from the unit's monthly rate — only used as the
+   * fallback when `resolveCurrentBaseRate` finds no ACTIVE period anywhere
+   * (essentially never in practice). From `calculateIplAmount`:
+   *   monthlyRate = landArea × baseRate × iplPercentage/100
+   *   ⇒ baseRate  = monthlyRate / (landArea × iplPercentage/100)
+   * Guards divide-by-zero; defaults to 2500 when not derivable.
+   */
+  private deriveBaseRateFromUnit(ctx: PayContext): number {
+    const landArea = Number(ctx.landArea) || 0;
+    const pct = (Number(ctx.iplPercentage) || 0) / 100;
+    const monthlyRate = Number(ctx.monthlyRate) || 0;
+    if (landArea > 0 && pct > 0 && monthlyRate > 0) {
+      const rate = monthlyRate / (landArea * pct);
+      if (Number.isFinite(rate) && rate > 0) return rate;
+    }
+    return 2500;
   }
 
   // ------------------------------------------------------------------
@@ -912,6 +1212,101 @@ export class WhatsappBotService implements OnModuleInit, OnModuleDestroy {
     } catch (err: any) {
       this.logger.error(`handlePaymentRejected failed: ${err?.message ?? err}`);
     }
+  }
+
+  // ------------------------------------------------------------------
+  // Iuran Warga verification notification (pushed via EventEmitter by
+  // ResidentPaymentsService.verifyPayment)
+  // ------------------------------------------------------------------
+
+  @OnEvent('resident.payment.verified')
+  async handleResidentPaymentVerified(payload: {
+    paymentId: string;
+    referenceNumber: string | null;
+  }): Promise<void> {
+    if (this.botDisabled) return;
+    try {
+      const payment: any = await this.residentPayments.findById(payload.paymentId);
+      const resident: any = payment?.resident;
+
+      const recipientJids = await this.resolveIuranVerifiedRecipients(payment);
+      if (recipientJids.length === 0) {
+        this.logger.warn(
+          `No reachable WhatsApp recipient for verified iuran payment ${payload.paymentId} (${payment?.paymentNumber ?? '?'}).`,
+        );
+        return;
+      }
+      this.logger.log(
+        `Notifying ${recipientJids.length} WA recipient(s) for verified iuran payment ${payment?.paymentNumber ?? payload.paymentId}: ${recipientJids.join(', ')}`,
+      );
+
+      const name = this.residentName(resident);
+      const text = buildIuranPayApprovedText(name, payload.referenceNumber ?? '-');
+
+      // The receipt was already generated by the service's verify flow; this
+      // call is idempotent and just returns the existing file path.
+      const receipts: { diskPath: string; fileName: string }[] = [];
+      try {
+        const receiptPath = await this.residentPaymentReceipts.generateReceipt(
+          payload.paymentId,
+        );
+        const diskPath = path.join(process.cwd(), receiptPath);
+        if (fs.existsSync(diskPath)) {
+          receipts.push({ diskPath, fileName: path.basename(receiptPath) });
+        }
+      } catch (err: any) {
+        this.logger.error(
+          `Iuran receipt generate failed for ${payload.paymentId}: ${err?.message ?? err}`,
+        );
+      }
+
+      for (const jid of recipientJids) {
+        await this.reply(jid, text);
+        for (const r of receipts) {
+          await this.sendDocument(jid, {
+            filePath: r.diskPath,
+            fileName: r.fileName,
+            mimetype: 'application/pdf',
+          });
+        }
+      }
+    } catch (err: any) {
+      this.logger.error(`handleResidentPaymentVerified failed: ${err?.message ?? err}`);
+    }
+  }
+
+  /**
+   * Recipients for a verified Iuran Warga payment: the unit owner, plus — when
+   * the payment was created by someone other than the owner (e.g. a block
+   * coordinator) — that submitter. Mirror of {@link resolveApprovalRecipients},
+   * but ResidentPayment records the submitter on `createdBy` (IPL uses
+   * `submittedBy`).
+   */
+  private async resolveIuranVerifiedRecipients(payment: any): Promise<string[]> {
+    const jids = new Set<string>();
+
+    // 1. Homeowner / unit owner.
+    const ownerJid = payment?.resident?.phoneNumber
+      ? this.residentJid(payment.resident.phoneNumber)
+      : null;
+    if (ownerJid) jids.add(ownerJid);
+
+    // 2. Submitter (whoever created the payment). For a coordinator-pay this is
+    //    the coordinator; for self-pay it's the owner (dedupes to one).
+    const createdByUserId: string | null | undefined = payment?.createdBy;
+    const ownerId: string | null | undefined = payment?.resident?.id;
+    if (createdByUserId) {
+      const submitter = await this.prisma.resident.findFirst({
+        where: { userId: createdByUserId, deletedAt: null },
+        select: { id: true, phoneNumber: true },
+      });
+      if (submitter && submitter.id !== ownerId && submitter.phoneNumber) {
+        const submitterJid = this.residentJid(submitter.phoneNumber);
+        if (submitterJid) jids.add(submitterJid);
+      }
+    }
+
+    return Array.from(jids);
   }
 
   // ------------------------------------------------------------------
@@ -1131,6 +1526,7 @@ export class WhatsappBotService implements OnModuleInit, OnModuleDestroy {
   private endFlow(session: BotSession): void {
     session.step = 'IDLE';
     delete session.pay;
+    delete session.cekKind;
     this.touch(session);
   }
 

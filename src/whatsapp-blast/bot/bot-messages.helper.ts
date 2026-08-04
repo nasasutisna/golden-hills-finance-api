@@ -7,7 +7,10 @@
  * describe the same period the same way.
  */
 
-import { formatMonthRange } from '../../ipl-payments/helpers/delinquent-units.helper';
+import {
+  formatMonthRange,
+  formatMonthRangeCrossYear,
+} from '../../ipl-payments/helpers/delinquent-units.helper';
 
 const idrFormatter = new Intl.NumberFormat('id-ID', {
   style: 'currency',
@@ -24,7 +27,7 @@ export function formatIdr(amount: number): string {
 }
 
 /** Re-exported for the service so it has a single import surface. */
-export { formatMonthRange };
+export { formatMonthRange, formatMonthRangeCrossYear };
 
 /** Context for the outstanding-IPL reply. */
 export interface IplOutstandingContext {
@@ -48,6 +51,8 @@ export function buildMenuText(): string {
     '',
     '1️⃣ Cek Tagihan IPL',
     '2️⃣ Bayar IPL',
+    '3️⃣ Cek Iuran Warga',
+    '4️⃣ Bayar Iuran Warga',
     '0️⃣ Bicara dengan Admin',
     '',
     '_Ketik *menu* kapan saja untuk kembali ke sini._',
@@ -135,6 +140,8 @@ export function buildUnknownChoiceText(): string {
     'Silakan balas:',
     '1️⃣ Cek Tagihan IPL',
     '2️⃣ Bayar IPL',
+    '3️⃣ Cek Iuran Warga',
+    '4️⃣ Bayar Iuran Warga',
     '0️⃣ Bicara dengan Admin',
   ].join('\n');
 }
@@ -200,54 +207,74 @@ export function buildPayUnitNotFoundText(): string {
   ].join('\n');
 }
 
-/** The unit has nothing payable right now. */
-export function buildPayNoOutstandingText(): string {
-  return [
-    '✅ Tidak ada tagihan IPL yang perlu dibayar untuk unit ini saat ini.',
-    '',
-    'Terima kasih telah selalu tepat waktu. 🙏',
-    '',
-    '_Ketik *menu* untuk kembali._',
-  ].join('\n');
-}
-
 export interface PaySummaryContext {
   name: string | null;
   unit: string | null;
   block: string | null;
-  /** e.g. "Mei – Juli 2026" or "Juli 2026". */
-  monthRangeLabel: string;
-  payableCount: number;
+  /** e.g. "Mei – Juli 2026"; null when the unit has no tunggakan (advance-only). */
+  monthRangeLabel: string | null;
+  /** Months of tunggakan currently owed (0 = lunas → advance-only prompt). */
+  outstandingCount: number;
   monthlyRate: number;
+  /** Total tunggakan amount (outstandingCount × monthlyRate). */
   totalAmount: number;
   paymentInfo: string;
+  /** Hard cap on total months payable in one shot (outstanding + advance). */
+  advanceCap: number;
 }
 
-/** Lists the outstanding months, the total, and asks how many months to pay. */
+/**
+ * Outstanding summary + "how many months" prompt. Supports paying AHEAD (bayar
+ * di muka): the resident may type a number larger than `outstandingCount` (up to
+ * `advanceCap`) to also cover future months. With zero tunggakan the prompt
+ * switches to a pure advance offer instead of a dead-end.
+ */
 export function buildPaySummaryText(ctx: PaySummaryContext): string {
   const name = ctx.name?.trim() || 'Bapak/Ibu';
   const unit = ctx.unit?.trim() || '-';
   const blockSuffix = ctx.block ? ` — ${ctx.block}` : '';
-  return [
+  const cap = ctx.advanceCap;
+  const lines = [
     `Yth. ${name}`,
     `Unit ${unit}${blockSuffix}`,
     '',
-    `Tagihan IPL belum lunas: ${ctx.monthRangeLabel} (${ctx.payableCount} bulan).`,
     `Tarif per bulan: ${formatIdr(ctx.monthlyRate)}`,
-    `Total ${ctx.payableCount} bulan: *${formatIdr(ctx.totalAmount)}*`,
-    '',
-    `Berapa bulan yang ingin Anda bayar? Balas angka *1–${ctx.payableCount}*, atau *semua*.`,
-    '',
-    '_Ketik *menu* untuk membatalkan._',
-  ].join('\n');
+  ];
+  if (ctx.outstandingCount > 0 && ctx.monthRangeLabel) {
+    lines.push(
+      `Tunggakan IPL: ${ctx.monthRangeLabel} (${ctx.outstandingCount} bulan) — *${formatIdr(ctx.totalAmount)}*`,
+    );
+    lines.push('');
+    lines.push(
+      `Mau bayar berapa bulan? Balas angka *1–${cap}* ` +
+      `(boleh lebih dari ${ctx.outstandingCount} untuk *bayar di muka*), atau *semua* (lunasi tunggakan).`,
+    );
+  } else {
+    lines.push('');
+    lines.push('✅ Tidak ada tunggakan IPL. Mau *bayar di muka*?');
+    lines.push(`Balas angka *1–${cap}* jumlah bulan yang ingin dibayar di muka.`);
+  }
+  lines.push('', '_Ketik *menu* untuk membatalkan._');
+  return lines.join('\n');
 }
 
-/** "How many months" answer wasn't a valid number in range. */
-export function buildPayMonthChoiceInvalidText(max: number): string {
+/** "How many months" answer wasn't acceptable. `reason` tailors the message. */
+export function buildPayMonthChoiceInvalidText(
+  max: number,
+  reason?: 'invalid' | 'over-cap',
+): string {
+  if (reason === 'over-cap') {
+    return [
+      '⚠️ Angka terlalu besar.',
+      '',
+      `Maksimal *${max} bulan* sekali bayar (tunggakan + bayar di muka).`,
+      'Silakan ketik angka yang lebih kecil, atau *semua* (lunasi tunggakan).',
+    ].join('\n');
+  }
   return [
     'Mohon balas dengan angka yang valid.',
     '',
-    `Contoh: *1* sampai *${max}*, atau *semua*.`,
+    `Contoh: *1* sampai *${max}* (boleh lebih dari jumlah tunggakan untuk bayar di muka), atau *semua*.`,
   ].join('\n');
 }
 
@@ -257,9 +284,16 @@ export function buildPayProofPromptText(ctx: {
   monthCount: number;
   totalAmount: number;
   paymentInfo: string;
+  /** Future (bayar di muka) months included in this payment, if any. */
+  advanceMonths?: number;
 }): string {
-  return [
+  const lines = [
     `Anda akan membayar IPL ${ctx.monthRangeLabel} (${ctx.monthCount} bulan).`,
+  ];
+  if (ctx.advanceMonths && ctx.advanceMonths > 0) {
+    lines.push(`_(termasuk ${ctx.advanceMonths} bulan di muka)_`);
+  }
+  lines.push(
     `Total: *${formatIdr(ctx.totalAmount)}*`,
     '',
     'Silakan transfer ke:',
@@ -268,7 +302,8 @@ export function buildPayProofPromptText(ctx: {
     'Setelah transfer, balas pesan ini dengan *foto/screenshot bukti transfer* (gambar/PDF).',
     '',
     '_Ketik *menu* untuk membatalkan._',
-  ].join('\n');
+  );
+  return lines.join('\n');
 }
 
 /** Proof step received text instead of media. */
@@ -371,4 +406,114 @@ export function buildPayRejectedText(
   }
   lines.push('', 'Silakan hubungi admin (ketik *0*) untuk informasi lebih lanjut.');
   return lines.join('\n');
+}
+
+// ------------------------------------------------------------------
+// Iuran Warga flows (mirror the IPL builders; only the labels differ)
+// ------------------------------------------------------------------
+
+/** Outstanding-Iuran-Warga summary — mirrors `buildIplOutstandingText`. */
+export function buildIuranOutstandingText(ctx: IplOutstandingContext): string {
+  const name = ctx.name?.trim() || 'Bapak/Ibu';
+  const unit = ctx.unit?.trim() || '-';
+  const blockSuffix = ctx.block ? ` — ${ctx.block}` : '';
+  return [
+    `Yth. ${name}`,
+    `Unit ${unit}${blockSuffix}`,
+    '',
+    `Berdasarkan catatan kami terdapat tunggakan Iuran Warga untuk periode ${ctx.monthRange} (${ctx.months} bulan), dengan total *${formatIdr(ctx.amount)}*.`,
+    '',
+    'Mohon dapat segera dilunasi. Untuk informasi pembayaran:',
+    ctx.paymentInfo || '-',
+    '',
+    `Terima kasih. — ${ctx.companyName}`,
+  ].join('\n');
+}
+
+/** Sent when the identified unit has no trailing iuran delinquency this year. */
+export function buildNoIuranOutstandingText(name: string | null, year: number): string {
+  const greeting = name?.trim() ? `Yth. ${name.trim()}` : 'Yth. Bapak/Ibu';
+  return [
+    `${greeting},`,
+    '',
+    `✅ Tidak ada tunggakan Iuran Warga yang tercatat untuk unit Anda pada tahun ${year}.`,
+    '',
+    'Terima kasih telah selalu tepat waktu. 🙏',
+    '',
+    '_Ketik *menu* untuk kembali._',
+  ].join('\n');
+}
+
+/** Lists the outstanding iuran months / advance offer, asks how many to pay. */
+export function buildIuranPaySummaryText(ctx: PaySummaryContext): string {
+  const name = ctx.name?.trim() || 'Bapak/Ibu';
+  const unit = ctx.unit?.trim() || '-';
+  const blockSuffix = ctx.block ? ` — ${ctx.block}` : '';
+  const cap = ctx.advanceCap;
+  const lines = [
+    `Yth. ${name}`,
+    `Unit ${unit}${blockSuffix}`,
+    '',
+    `Tarif per bulan: ${formatIdr(ctx.monthlyRate)}`,
+  ];
+  if (ctx.outstandingCount > 0 && ctx.monthRangeLabel) {
+    lines.push(
+      `Tunggakan Iuran Warga: ${ctx.monthRangeLabel} (${ctx.outstandingCount} bulan) — *${formatIdr(ctx.totalAmount)}*`,
+    );
+    lines.push('');
+    lines.push(
+      `Mau bayar berapa bulan? Balas angka *1–${cap}* ` +
+      `(boleh lebih dari ${ctx.outstandingCount} untuk *bayar di muka*), atau *semua* (lunasi tunggakan).`,
+    );
+  } else {
+    lines.push('');
+    lines.push('✅ Tidak ada tunggakan Iuran Warga. Mau *bayar di muka*?');
+    lines.push(`Balas angka *1–${cap}* jumlah bulan yang ingin dibayar di muka.`);
+  }
+  lines.push('', '_Ketik *menu* untuk membatalkan._');
+  return lines.join('\n');
+}
+
+/** Months chosen — now show the total + where to transfer, then ask for proof. */
+export function buildIuranPayProofPromptText(ctx: {
+  monthRangeLabel: string;
+  monthCount: number;
+  totalAmount: number;
+  paymentInfo: string;
+  /** Future (bayar di muka) months included in this payment, if any. */
+  advanceMonths?: number;
+}): string {
+  const lines = [
+    `Anda akan membayar Iuran Warga ${ctx.monthRangeLabel} (${ctx.monthCount} bulan).`,
+  ];
+  if (ctx.advanceMonths && ctx.advanceMonths > 0) {
+    lines.push(`_(termasuk ${ctx.advanceMonths} bulan di muka)_`);
+  }
+  lines.push(
+    `Total: *${formatIdr(ctx.totalAmount)}*`,
+    '',
+    'Silakan transfer ke:',
+    ctx.paymentInfo || '-',
+    '',
+    'Setelah transfer, balas pesan ini dengan *foto/screenshot bukti transfer* (gambar/PDF).',
+    '',
+    '_Ketik *menu* untuk membatalkan._',
+  );
+  return lines.join('\n');
+}
+
+/** Pushed to the resident when their Iuran Warga payment is verified. */
+export function buildIuranPayApprovedText(
+  name: string | null,
+  referenceNumber: string,
+): string {
+  const greeting = name?.trim() ? `Yth. ${name.trim()}` : 'Yth. Bapak/Ibu';
+  return [
+    `${greeting},`,
+    '',
+    '✅ *Pembayaran Iuran Warga Anda telah disetujui.*',
+    '',
+    `Nomor referensi: *${referenceNumber}*`,
+    'Kwitansi (PDF) terlampir. Terima kasih. 🙏',
+  ].join('\n');
 }

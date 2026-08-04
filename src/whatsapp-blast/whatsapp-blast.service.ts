@@ -4,7 +4,9 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
+import { ModuleRef } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
+import { IplPaymentsService } from '../ipl-payments/ipl-payments.service';
 import {
   DelinquentReport,
   DelinquentUnit,
@@ -40,6 +42,7 @@ export class WhatsappBlastService {
     private readonly client: WhatsappClientService,
     private readonly repository: WhatsappBlastRepository,
     private readonly config: ConfigService,
+    private readonly moduleRef: ModuleRef,
   ) {}
 
   // ------------------------------------------------------------------
@@ -322,12 +325,20 @@ export class WhatsappBlastService {
   private async fetchReport(query: {
     year?: number;
     houseBlockId?: string;
-  }): Promise<any> {
-    return null
-    // return this.iplPayments.getDelinquentUnits({
-    //   year: query.year,
-    //   houseBlockId: query.houseBlockId,
-    // });
+  }): Promise<DelinquentReport> {
+    // IplPaymentsService lives in IplPaymentsModule, which can't be imported
+    // into WhatsappBlastModule — it closes a JS module-load cycle
+    // (IplPayments → CashTransactions → Users → WhatsappBlast → IplPayments),
+    // leaving a chained module `undefined` at decoration time. Resolve it
+    // lazily instead: by request time the whole module tree is bootstrapped,
+    // so the singleton is available via ModuleRef.
+    const iplPayments = this.moduleRef.get(IplPaymentsService, {
+      strict: false,
+    });
+    return iplPayments.getDelinquentUnits({
+      year: query.year,
+      houseBlockId: query.houseBlockId,
+    });
   }
 
   private buildTargets(report: DelinquentReport): BuiltTarget[] {

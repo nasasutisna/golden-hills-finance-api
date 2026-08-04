@@ -1,4 +1,5 @@
 import { Injectable, Logger, ConflictException, BadRequestException } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { QueryOptionsDto } from '../common/dto/query-options.dto';
 import { CreateResidentPaymentDto } from './dto/create-resident-payment.dto';
 import { UpdateResidentPaymentDto } from './dto/update-resident-payment.dto';
@@ -11,6 +12,7 @@ import { FileAttachmentsService } from '../file-attachments/file-attachments.ser
 import { CashTransactionsService } from '../cash-transactions/cash-transactions.service';
 import { ResidentPaymentReceiptsService } from './resident-payment-receipts.service';
 import { generateBuktiTransferFilename, sanitizeFilename } from '../ipl-payments/helpers/file-naming.helper';
+import { computeAsOfMonth } from '../ipl-payments/helpers/delinquent-units.helper';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -37,6 +39,7 @@ export class ResidentPaymentsService {
     private readonly fileAttachmentsService: FileAttachmentsService,
     private readonly cashTransactionsService: CashTransactionsService,
     private readonly residentPaymentReceiptsService: ResidentPaymentReceiptsService,
+    private readonly eventEmitter: EventEmitter2,
   ) {}
 
   async findAll(queryOptions: QueryOptionsDto) {
@@ -256,6 +259,16 @@ export class ResidentPaymentsService {
     setImmediate(async () => {
       try {
         await this.residentPaymentReceiptsService.generateReceipt(id);
+
+        // Receipt now exists → push the WA confirmation to the resident. Emitted
+        // BEFORE the ledger post so a ledger failure can't suppress the WA
+        // message. The bot's `generateReceipt` is idempotent (a no-op now that
+        // we just created it), which keeps receipt generation single-sourced
+        // here in the service and avoids the double-create race.
+        this.eventEmitter.emit('resident.payment.verified', {
+          paymentId: id,
+          referenceNumber: verifiedPayment.referenceNumber,
+        });
 
         const fullPayment = await this.prisma.residentPayment.findUnique({
           where: { id },
@@ -516,5 +529,159 @@ export class ResidentPaymentsService {
       monthTotals,
       rows,
     };
+  }
+
+  /**
+   * Outstanding (payable) Iuran Warga months for a single house unit: every
+   * UNPAID month from January up to and including the as-of month of the year —
+   * i.e. *tunggakan + bulan berjalan*. Built on top of `getMatrix` (no extra
+   * query), so it sees exactly what the admin matrix shows. Used by the WA
+   * bot's "Cek/Bayar Iuran Warga" flows.
+   *
+   * Unlike IPL, Iuran Warga has no period table, so every payable month carries
+   * `periodId: null` (coverage is derived from total paid ÷ rate).
+   */
+  async getUnitOutstanding(
+    houseUnitId: string,
+    year: number = new Date().getFullYear(),
+  ): Promise<{
+    unitId: string;
+    unitNumber: string;
+    monthlyRate: number;
+    payableMonths: { month: number; year: number; periodId: null }[];
+    totalAmount: number;
+    coveredMonths: number;
+    asOfMonth: number;
+    residentName: string | null;
+    blockName: string | null;
+  }> {
+    const matrix = await this.getMatrix({ year });
+    const asOfMonth = computeAsOfMonth(year);
+    const row = (matrix.rows as any[]).find((r) => r.unitId === houseUnitId);
+
+    if (!row) {
+      return {
+        unitId: houseUnitId,
+        unitNumber: '',
+        monthlyRate: RESIDENT_IURAN_MONTHLY_RATE,
+        payableMonths: [],
+        totalAmount: 0,
+        coveredMonths: 0,
+        asOfMonth,
+        residentName: null,
+        blockName: null,
+      };
+    }
+
+    const payableMonths: { month: number; year: number; periodId: null }[] = [];
+    for (const cell of row.cells as any[]) {
+      if (cell.status !== 'UNPAID') continue;
+      if (cell.month > asOfMonth) continue; // future month not yet due
+      payableMonths.push({ month: cell.month, year, periodId: null });
+    }
+
+    return {
+      unitId: row.unitId,
+      unitNumber: row.unitNumber,
+      monthlyRate: RESIDENT_IURAN_MONTHLY_RATE,
+      payableMonths,
+      totalAmount: payableMonths.length * RESIDENT_IURAN_MONTHLY_RATE,
+      coveredMonths: row.coveredMonths,
+      asOfMonth,
+      residentName: row.residentName ?? null,
+      blockName: row.blockName ?? null,
+    };
+  }
+
+  /**
+   * Create a PENDING Iuran Warga payment from the WhatsApp bot. Always TRANSFER
+   * with a bukti transfer, always PENDING (an admin verifies the proof before
+   * release). Amount is derived from `monthCount × rate` so the rate stays
+   * single-sourced in this service.
+   *
+   * Mirrors `IplPaymentsService.createBotPayment`: resolves resident+unit,
+   * generates payment + reference numbers, creates the FileAttachment from the
+   * temp file, then renames it to BTF-… under uploads/<unit>/ via
+   * `linkProofFile`. Note the submitter field is `createdBy` (IPL uses
+   * `submittedBy`).
+   */
+  async createBotPayment(input: {
+    residentId: string;
+    monthCount: number;
+    paymentDate: Date;
+    proofFilePath: string;
+    proofFileName: string;
+    proofFileSize: number;
+    proofMimeType: string;
+    submittedByUserId: string;
+    notes?: string;
+  }) {
+    return await this.prisma.executeInTransaction(async (tx) => {
+      if (input.monthCount < 1) {
+        throw new BadRequestException('Jumlah bulan iuran tidak valid.');
+      }
+      const amount = input.monthCount * RESIDENT_IURAN_MONTHLY_RATE;
+
+      const resident = await tx.resident.findFirst({
+        where: { id: input.residentId, deletedAt: null },
+        include: { houseUnit: true },
+      });
+      if (!resident) {
+        throw new BadRequestException('Resident not found');
+      }
+
+      const paymentNumber =
+        await this.residentPaymentsRepository.generatePaymentNumber();
+      const referenceNumber =
+        await this.residentPaymentsRepository.generateReferenceNumber(tx);
+
+      const payment = await this.residentPaymentsRepository.create(
+        {
+          residentId: input.residentId,
+          invoiceId: null,
+          paymentDate: input.paymentDate,
+          paymentMethod: 'TRANSFER',
+          referenceNumber,
+          amount,
+          paymentNumber,
+          status: 'PENDING',
+          createdBy: input.submittedByUserId,
+          notes:
+            input.notes ??
+            `Pembayaran Iuran Warga via WhatsApp (${input.monthCount} bulan)`,
+        },
+        tx as any,
+      );
+
+      // Create the FileAttachment from the temp file, then rename to BTF-… and
+      // link it to the payment (same artifact as the REST path).
+      const attachment = await tx.fileAttachment.create({
+        data: {
+          entityType: 'ResidentPayment',
+          entityId: payment.id,
+          fileName: input.proofFileName,
+          filePath: input.proofFilePath,
+          fileSize: input.proofFileSize,
+          mimeType: input.proofMimeType,
+          category: 'PAYMENT_PROOF',
+          description: 'Bukti transfer Iuran Warga via WhatsApp',
+          uploadedBy: input.submittedByUserId,
+        },
+      });
+      await this.linkProofFile(
+        attachment.id,
+        payment.id,
+        resident.houseUnit?.unitNumber || resident.unitNumber || 'UNKNOWN',
+        payment.paymentNumber,
+        payment.referenceNumber,
+        new Date(payment.paymentDate),
+        tx,
+      );
+
+      this.logger.log(
+        `WA bot iuran payment created: ref ${referenceNumber}, ${input.monthCount} bulan, total ${amount}, by ${input.submittedByUserId}`,
+      );
+      return payment;
+    });
   }
 }

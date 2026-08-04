@@ -6,20 +6,33 @@
  */
 
 import {
+  computeFutureMonthSlots,
   extractText,
   findUnitByCode,
   hasMedia,
   isMenuKeyword,
+  isMonthCountOverCap,
   isPersonalChat,
   isProofMimeType,
   jidToDigits,
+  MAX_ADVANCE_MONTHS,
   matchResidentByPhone,
   parseMonthCount,
   ResidentLite,
   unitBelongsToBlocks,
   UnitLite,
 } from './resident-resolver.helper';
-import { formatIdr } from './bot-messages.helper';
+import {
+  buildIuranOutstandingText,
+  buildIuranPayApprovedText,
+  buildIuranPaySummaryText,
+  buildMenuText,
+  buildNoIuranOutstandingText,
+  buildPayMonthChoiceInvalidText,
+  buildPaySummaryText,
+  formatIdr,
+} from './bot-messages.helper';
+import { formatMonthRangeCrossYear } from '../../ipl-payments/helpers/delinquent-units.helper';
 
 describe('bot resident-resolver.helper', () => {
   describe('jidToDigits', () => {
@@ -173,28 +186,129 @@ describe('bot-messages.helper', () => {
     expect(formatIdr(0)).toMatch(/0/);
     expect(formatIdr(-100)).toMatch(/0/);
   });
+
+  it('exposes all five menu options including Iuran Warga', () => {
+    const menu = buildMenuText();
+    expect(menu).toContain('Cek Tagihan IPL');
+    expect(menu).toContain('Bayar IPL');
+    expect(menu).toContain('Cek Iuran Warga');
+    expect(menu).toContain('Bayar Iuran Warga');
+    expect(menu).toContain('Bicara dengan Admin');
+  });
+});
+
+describe('Iuran Warga message builders', () => {
+  describe('buildIuranOutstandingText', () => {
+    it('renders the iuran label, range, month count and total', () => {
+      const text = buildIuranOutstandingText({
+        name: 'Andi',
+        unit: 'A1-12',
+        block: 'Blok A',
+        monthRange: 'Januari – Maret 2026',
+        months: 3,
+        amount: 60000,
+        paymentInfo: 'BCA 123',
+        companyName: 'Golden Hills Finance',
+      });
+      expect(text).toContain('Iuran Warga');
+      expect(text).not.toContain('IPL'); // must not leak the IPL label
+      expect(text).toContain('A1-12');
+      expect(text).toContain('Januari – Maret 2026');
+      expect(text).toContain('3 bulan');
+      expect(text).toMatch(/60\.000/);
+    });
+  });
+
+  describe('buildNoIuranOutstandingText', () => {
+    it('greets by name when provided and references the year', () => {
+      const text = buildNoIuranOutstandingText('Andi', 2026);
+      expect(text).toContain('Yth. Andi');
+      expect(text).toContain('Iuran Warga');
+      expect(text).toContain('2026');
+    });
+
+    it('falls back to a generic greeting without a name', () => {
+      expect(buildNoIuranOutstandingText(null, 2026)).toContain('Yth. Bapak/Ibu');
+    });
+  });
+
+  describe('buildIuranPaySummaryText', () => {
+    it('lists the outstanding months and offers advance beyond them', () => {
+      const text = buildIuranPaySummaryText({
+        name: 'Andi',
+        unit: 'A1-12',
+        block: 'Blok A',
+        monthRangeLabel: 'April – Mei 2026',
+        outstandingCount: 2,
+        monthlyRate: 20000,
+        totalAmount: 40000,
+        paymentInfo: 'BCA 123',
+        advanceCap: MAX_ADVANCE_MONTHS,
+      });
+      expect(text).toContain('Iuran Warga');
+      expect(text).toContain('April – Mei 2026');
+      expect(text).toContain(`1–${MAX_ADVANCE_MONTHS}`); // advance-aware range up to the cap
+      expect(text).toMatch(/40\.000/);
+    });
+
+    it('offers a pure bayar-di-muka prompt when there is no tunggakan', () => {
+      const text = buildIuranPaySummaryText({
+        name: 'Andi',
+        unit: 'A1-12',
+        block: null,
+        monthRangeLabel: null,
+        outstandingCount: 0,
+        monthlyRate: 20000,
+        totalAmount: 0,
+        paymentInfo: 'BCA 123',
+        advanceCap: MAX_ADVANCE_MONTHS,
+      });
+      expect(text).toContain('Tidak ada tunggakan');
+      expect(text.toLowerCase()).toContain('di muka');
+      expect(text).toContain(`1–${MAX_ADVANCE_MONTHS}`);
+    });
+  });
+
+  describe('buildIuranPayApprovedText', () => {
+    it('announces approval with the reference number', () => {
+      const text = buildIuranPayApprovedText('Andi', 'REF-20260801-0001');
+      expect(text).toContain('disetujui');
+      expect(text).toContain('REF-20260801-0001');
+    });
+  });
 });
 
 describe('Bayar IPL helpers', () => {
   describe('parseMonthCount', () => {
-    it('accepts a digit in range', () => {
-      expect(parseMonthCount('1', 5)).toBe(1);
-      expect(parseMonthCount('3', 5)).toBe(3);
+    it('accepts a digit in range, including advance beyond outstanding', () => {
+      expect(parseMonthCount('1', { outstanding: 5, maxTotal: 60 })).toBe(1);
+      expect(parseMonthCount('3', { outstanding: 5, maxTotal: 60 })).toBe(3);
+      // 9 with only 4 tunggakan → 4 tunggakan + 5 bayar di muka (NOT clamped)
+      expect(parseMonthCount('9', { outstanding: 4, maxTotal: 60 })).toBe(9);
     });
 
-    it('clamps above the maximum down to the maximum', () => {
-      expect(parseMonthCount('9', 4)).toBe(4);
+    it('"semua" / "all" resolves to the outstanding count (lunasi tunggakan)', () => {
+      expect(parseMonthCount('semua', { outstanding: 6, maxTotal: 60 })).toBe(6);
+      expect(parseMonthCount('all', { outstanding: 6, maxTotal: 60 })).toBe(6);
     });
 
-    it('"semua" / "all" resolves to the maximum', () => {
-      expect(parseMonthCount('semua', 6)).toBe(6);
-      expect(parseMonthCount('all', 6)).toBe(6);
+    it('"semua" with zero outstanding is meaningless → null', () => {
+      expect(parseMonthCount('semua', { outstanding: 0, maxTotal: 60 })).toBeNull();
+    });
+
+    it('rejects counts above the typo-guard cap', () => {
+      expect(parseMonthCount('61', { outstanding: 4, maxTotal: 60 })).toBeNull();
+      expect(parseMonthCount('9999', { outstanding: 4, maxTotal: 60 })).toBeNull();
+    });
+
+    it('accepts the cap itself', () => {
+      expect(parseMonthCount('60', { outstanding: 4, maxTotal: 60 })).toBe(60);
     });
 
     it('rejects non-numeric and out-of-range input', () => {
-      expect(parseMonthCount('', 5)).toBeNull();
-      expect(parseMonthCount('abc', 5)).toBeNull();
-      expect(parseMonthCount('0', 5)).toBeNull();
+      expect(parseMonthCount('', { outstanding: 5, maxTotal: 60 })).toBeNull();
+      expect(parseMonthCount('abc', { outstanding: 5, maxTotal: 60 })).toBeNull();
+      expect(parseMonthCount('0', { outstanding: 5, maxTotal: 60 })).toBeNull();
     });
   });
 
@@ -222,6 +336,124 @@ describe('Bayar IPL helpers', () => {
       expect(isProofMimeType('video/mp4')).toBe(false);
       expect(isProofMimeType('')).toBe(false);
       expect(isProofMimeType(null)).toBe(false);
+    });
+  });
+});
+
+describe('advance-payment (bayar di muka) helpers', () => {
+  describe('computeFutureMonthSlots', () => {
+    it('returns consecutive months starting the month after the anchor', () => {
+      expect(computeFutureMonthSlots(7, 2026, 2)).toEqual([
+        { month: 8, year: 2026 },
+        { month: 9, year: 2026 },
+      ]);
+    });
+
+    it('rolls over Dec → Jan of the next year', () => {
+      expect(computeFutureMonthSlots(12, 2026, 3)).toEqual([
+        { month: 1, year: 2027 },
+        { month: 2, year: 2027 },
+        { month: 3, year: 2027 },
+      ]);
+    });
+
+    it('spans multiple years', () => {
+      const slots = computeFutureMonthSlots(11, 2026, 14);
+      expect(slots).toHaveLength(14);
+      expect(slots[0]).toEqual({ month: 12, year: 2026 });
+      expect(slots[13]).toEqual({ month: 1, year: 2028 });
+    });
+
+    it('returns [] for non-positive count', () => {
+      expect(computeFutureMonthSlots(7, 2026, 0)).toEqual([]);
+      expect(computeFutureMonthSlots(7, 2026, -3)).toEqual([]);
+    });
+  });
+
+  describe('isMonthCountOverCap', () => {
+    it('true only for whole numbers above the cap', () => {
+      expect(isMonthCountOverCap('61', 60)).toBe(true);
+      expect(isMonthCountOverCap('9999', 60)).toBe(true);
+      expect(isMonthCountOverCap('60', 60)).toBe(false);
+      expect(isMonthCountOverCap('5', 60)).toBe(false);
+    });
+
+    it('false for non-numeric / empty input', () => {
+      expect(isMonthCountOverCap('abc', 60)).toBe(false);
+      expect(isMonthCountOverCap('semua', 60)).toBe(false);
+      expect(isMonthCountOverCap('', 60)).toBe(false);
+      expect(isMonthCountOverCap(null, 60)).toBe(false);
+    });
+  });
+
+  describe('formatMonthRangeCrossYear', () => {
+    it('renders a single month without a range dash', () => {
+      expect(formatMonthRangeCrossYear({ month: 7, year: 2026 }, { month: 7, year: 2026 })).toBe(
+        'Juli 2026',
+      );
+    });
+
+    it('renders a same-year range identically to the legacy helper', () => {
+      expect(formatMonthRangeCrossYear({ month: 5, year: 2026 }, { month: 7, year: 2026 })).toBe(
+        'Mei 2026 – Juli 2026',
+      );
+    });
+
+    it('renders a cross-year range', () => {
+      expect(formatMonthRangeCrossYear({ month: 8, year: 2026 }, { month: 3, year: 2027 })).toBe(
+        'Agustus 2026 – Maret 2027',
+      );
+    });
+  });
+
+  describe('buildPaySummaryText (IPL, advance-aware)', () => {
+    it('lists tunggakan and allows paying more than outstanding', () => {
+      const text = buildPaySummaryText({
+        name: 'Andi',
+        unit: 'A1-12',
+        block: 'Blok A',
+        monthRangeLabel: 'Mei – Juli 2026',
+        outstandingCount: 3,
+        monthlyRate: 250000,
+        totalAmount: 750000,
+        paymentInfo: 'BCA 123',
+        advanceCap: MAX_ADVANCE_MONTHS,
+      });
+      expect(text).toContain('Mei – Juli 2026');
+      expect(text).toContain('3 bulan');
+      expect(text).toContain(`1–${MAX_ADVANCE_MONTHS}`);
+      expect(text.toLowerCase()).toContain('di muka');
+      expect(text).toMatch(/750\.000/);
+    });
+
+    it('offers a pure advance prompt when outstanding is 0', () => {
+      const text = buildPaySummaryText({
+        name: 'Andi',
+        unit: 'A1-12',
+        block: null,
+        monthRangeLabel: null,
+        outstandingCount: 0,
+        monthlyRate: 250000,
+        totalAmount: 0,
+        paymentInfo: 'BCA 123',
+        advanceCap: MAX_ADVANCE_MONTHS,
+      });
+      expect(text).toContain('Tidak ada tunggakan');
+      expect(text.toLowerCase()).toContain('di muka');
+    });
+  });
+
+  describe('buildPayMonthChoiceInvalidText', () => {
+    it('generic guidance for unrecognized input', () => {
+      const text = buildPayMonthChoiceInvalidText(60, 'invalid');
+      expect(text).toContain('1');
+      expect(text).toContain('60');
+    });
+
+    it('specific "too large" message when over the cap', () => {
+      const text = buildPayMonthChoiceInvalidText(60, 'over-cap');
+      expect(text.toLowerCase()).toContain('terlalu besar');
+      expect(text).toContain('60 bulan');
     });
   });
 });

@@ -1,4 +1,4 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import { Controller, Get, Query, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { DashboardService } from './dashboard.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
@@ -27,6 +27,24 @@ export class DashboardController {
     return {
       statusCode: 200,
       message: 'Dashboard overview retrieved successfully',
+      data,
+    };
+  }
+
+  @Get('ipl-monthly-chart')
+  @Roles('ADMIN', 'ACCOUNTANT')
+  @ApiOperation({
+    summary: 'Get IPL monthly income/expense for a year (Admin/Accountant only)',
+    description:
+      'Per-month IPL Kas income and expense (transfers excluded) for the dashboard charts. `year` defaults to the current year.',
+  })
+  @ApiResponseDecorators.ok()
+  @ApiResponseDecorators.standard()
+  async getIplMonthlyChart(@Query('year') year?: string) {
+    const data = await this.dashboardService.getIplMonthlyChart(year ? Number(year) : undefined);
+    return {
+      statusCode: 200,
+      message: 'IPL monthly chart retrieved successfully',
       data,
     };
   }

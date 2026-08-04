@@ -113,6 +113,28 @@ let ResidentPaymentsRepository = class ResidentPaymentsRepository {
         const timestamp = Date.now().toString().slice(-6);
         return `PAY${timestamp}${String(count + 1).padStart(4, '0')}`;
     }
+    async generateReferenceNumber(tx) {
+        const prisma = tx || this.prisma;
+        const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
+        const last = await prisma.residentPayment.findFirst({
+            where: {
+                referenceNumber: { startsWith: `REF-${dateStr}` },
+                deletedAt: null,
+            },
+            orderBy: { referenceNumber: 'desc' },
+            select: { referenceNumber: true },
+        });
+        let sequence = 1;
+        if (last?.referenceNumber) {
+            const parts = last.referenceNumber.split('-');
+            if (parts.length === 3) {
+                const lastSequence = parseInt(parts[2], 10);
+                if (!isNaN(lastSequence))
+                    sequence = lastSequence + 1;
+            }
+        }
+        return `REF-${dateStr}-${sequence.toString().padStart(4, '0')}`;
+    }
     async getPaymentStatistics(residentId) {
         const where = { deletedAt: null };
         if (residentId) {

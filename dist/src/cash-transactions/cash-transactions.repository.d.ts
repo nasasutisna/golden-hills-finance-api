@@ -101,6 +101,8 @@ export declare class CashTransactionsRepository {
         fundType: string;
         openingBalance: number;
         balance: number;
+        totalIncome: number;
+        totalExpense: number;
         periodIncome: number;
         periodExpense: number;
         periodBalance: number;

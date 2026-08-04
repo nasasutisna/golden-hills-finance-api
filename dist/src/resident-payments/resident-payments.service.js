@@ -12,6 +12,7 @@ var ResidentPaymentsService_1;
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.ResidentPaymentsService = exports.RESIDENT_IURAN_MONTHLY_RATE = void 0;
 const common_1 = require("@nestjs/common");
+const event_emitter_1 = require("@nestjs/event-emitter");
 const resident_payments_repository_1 = require("./resident-payments.repository");
 const resident_invoices_repository_1 = require("../resident-invoices/resident-invoices.repository");
 const prisma_service_1 = require("../prisma/prisma.service");
@@ -19,17 +20,19 @@ const file_attachments_service_1 = require("../file-attachments/file-attachments
 const cash_transactions_service_1 = require("../cash-transactions/cash-transactions.service");
 const resident_payment_receipts_service_1 = require("./resident-payment-receipts.service");
 const file_naming_helper_1 = require("../ipl-payments/helpers/file-naming.helper");
+const delinquent_units_helper_1 = require("../ipl-payments/helpers/delinquent-units.helper");
 const fs = require("fs");
 const path = require("path");
 exports.RESIDENT_IURAN_MONTHLY_RATE = 20000;
 let ResidentPaymentsService = ResidentPaymentsService_1 = class ResidentPaymentsService {
-    constructor(residentPaymentsRepository, residentInvoicesRepository, prisma, fileAttachmentsService, cashTransactionsService, residentPaymentReceiptsService) {
+    constructor(residentPaymentsRepository, residentInvoicesRepository, prisma, fileAttachmentsService, cashTransactionsService, residentPaymentReceiptsService, eventEmitter) {
         this.residentPaymentsRepository = residentPaymentsRepository;
         this.residentInvoicesRepository = residentInvoicesRepository;
         this.prisma = prisma;
         this.fileAttachmentsService = fileAttachmentsService;
         this.cashTransactionsService = cashTransactionsService;
         this.residentPaymentReceiptsService = residentPaymentReceiptsService;
+        this.eventEmitter = eventEmitter;
         this.logger = new common_1.Logger(ResidentPaymentsService_1.name);
     }
     async findAll(queryOptions) {
@@ -163,6 +166,10 @@ let ResidentPaymentsService = ResidentPaymentsService_1 = class ResidentPayments
         setImmediate(async () => {
             try {
                 await this.residentPaymentReceiptsService.generateReceipt(id);
+                this.eventEmitter.emit('resident.payment.verified', {
+                    paymentId: id,
+                    referenceNumber: verifiedPayment.referenceNumber,
+                });
                 const fullPayment = await this.prisma.residentPayment.findUnique({
                     where: { id },
                     include: { resident: true },
@@ -352,6 +359,89 @@ let ResidentPaymentsService = ResidentPaymentsService_1 = class ResidentPayments
             rows,
         };
     }
+    async getUnitOutstanding(houseUnitId, year = new Date().getFullYear()) {
+        const matrix = await this.getMatrix({ year });
+        const asOfMonth = (0, delinquent_units_helper_1.computeAsOfMonth)(year);
+        const row = matrix.rows.find((r) => r.unitId === houseUnitId);
+        if (!row) {
+            return {
+                unitId: houseUnitId,
+                unitNumber: '',
+                monthlyRate: exports.RESIDENT_IURAN_MONTHLY_RATE,
+                payableMonths: [],
+                totalAmount: 0,
+                coveredMonths: 0,
+                asOfMonth,
+                residentName: null,
+                blockName: null,
+            };
+        }
+        const payableMonths = [];
+        for (const cell of row.cells) {
+            if (cell.status !== 'UNPAID')
+                continue;
+            if (cell.month > asOfMonth)
+                continue;
+            payableMonths.push({ month: cell.month, year, periodId: null });
+        }
+        return {
+            unitId: row.unitId,
+            unitNumber: row.unitNumber,
+            monthlyRate: exports.RESIDENT_IURAN_MONTHLY_RATE,
+            payableMonths,
+            totalAmount: payableMonths.length * exports.RESIDENT_IURAN_MONTHLY_RATE,
+            coveredMonths: row.coveredMonths,
+            asOfMonth,
+            residentName: row.residentName ?? null,
+            blockName: row.blockName ?? null,
+        };
+    }
+    async createBotPayment(input) {
+        return await this.prisma.executeInTransaction(async (tx) => {
+            if (input.monthCount < 1) {
+                throw new common_1.BadRequestException('Jumlah bulan iuran tidak valid.');
+            }
+            const amount = input.monthCount * exports.RESIDENT_IURAN_MONTHLY_RATE;
+            const resident = await tx.resident.findFirst({
+                where: { id: input.residentId, deletedAt: null },
+                include: { houseUnit: true },
+            });
+            if (!resident) {
+                throw new common_1.BadRequestException('Resident not found');
+            }
+            const paymentNumber = await this.residentPaymentsRepository.generatePaymentNumber();
+            const referenceNumber = await this.residentPaymentsRepository.generateReferenceNumber(tx);
+            const payment = await this.residentPaymentsRepository.create({
+                residentId: input.residentId,
+                invoiceId: null,
+                paymentDate: input.paymentDate,
+                paymentMethod: 'TRANSFER',
+                referenceNumber,
+                amount,
+                paymentNumber,
+                status: 'PENDING',
+                createdBy: input.submittedByUserId,
+                notes: input.notes ??
+                    `Pembayaran Iuran Warga via WhatsApp (${input.monthCount} bulan)`,
+            }, tx);
+            const attachment = await tx.fileAttachment.create({
+                data: {
+                    entityType: 'ResidentPayment',
+                    entityId: payment.id,
+                    fileName: input.proofFileName,
+                    filePath: input.proofFilePath,
+                    fileSize: input.proofFileSize,
+                    mimeType: input.proofMimeType,
+                    category: 'PAYMENT_PROOF',
+                    description: 'Bukti transfer Iuran Warga via WhatsApp',
+                    uploadedBy: input.submittedByUserId,
+                },
+            });
+            await this.linkProofFile(attachment.id, payment.id, resident.houseUnit?.unitNumber || resident.unitNumber || 'UNKNOWN', payment.paymentNumber, payment.referenceNumber, new Date(payment.paymentDate), tx);
+            this.logger.log(`WA bot iuran payment created: ref ${referenceNumber}, ${input.monthCount} bulan, total ${amount}, by ${input.submittedByUserId}`);
+            return payment;
+        });
+    }
 };
 exports.ResidentPaymentsService = ResidentPaymentsService;
 exports.ResidentPaymentsService = ResidentPaymentsService = ResidentPaymentsService_1 = __decorate([
@@ -361,6 +451,7 @@ exports.ResidentPaymentsService = ResidentPaymentsService = ResidentPaymentsServ
         prisma_service_1.PrismaService,
         file_attachments_service_1.FileAttachmentsService,
         cash_transactions_service_1.CashTransactionsService,
-        resident_payment_receipts_service_1.ResidentPaymentReceiptsService])
+        resident_payment_receipts_service_1.ResidentPaymentReceiptsService,
+        event_emitter_1.EventEmitter2])
 ], ResidentPaymentsService);
 //# sourceMappingURL=resident-payments.service.js.map

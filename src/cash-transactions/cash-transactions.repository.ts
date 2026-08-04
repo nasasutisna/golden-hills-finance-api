@@ -534,6 +534,11 @@ export class CashTransactionsRepository {
         fundType: a.fundType,
         openingBalance: Number(a.openingBalance),
         balance: Number(a.openingBalance) + all.income - all.expense,
+        // All-time totals per Kas (income/expense across every transaction,
+        // transfer legs included — same basis as `balance`). Exposed so the
+        // frontend can show e.g. "Pengeluaran Kas IPL" alongside the saldo.
+        totalIncome: all.income,
+        totalExpense: all.expense,
         periodIncome: period.income,
         periodExpense: period.expense,
         periodBalance: period.income - period.expense,

@@ -15,6 +15,7 @@ import { ApprovalHistoriesService } from '../approval-histories/approval-histori
 import { CreateApprovalHistoryDto, ApprovalAction } from '../approval-histories/dto/create-approval-history.dto';
 import { CashTransactionsService } from '../cash-transactions/cash-transactions.service';
 import { ResidentPaymentReceiptsService } from '../resident-payments/resident-payment-receipts.service';
+import { IplPeriodsService } from '../ipl-periods/ipl-periods.service';
 import { generateReferenceNumber } from './helpers/reference-number.helper';
 import { generateBuktiTransferFilename, sanitizeFilename } from './helpers/file-naming.helper';
 import {
@@ -40,6 +41,7 @@ export class IplPaymentsService {
     private readonly residentPaymentReceiptsService: ResidentPaymentReceiptsService,
     private readonly configService: ConfigService,
     private readonly eventEmitter: EventEmitter2,
+    private readonly iplPeriodsService: IplPeriodsService,
   ) { }
 
   async findAll(queryOptions: QueryIplPaymentsDto, additionalWhere?: any) {
@@ -202,7 +204,7 @@ export class IplPaymentsService {
         const targetMonth = targetDate.getMonth() + 1;
         const targetYear = targetDate.getFullYear();
 
-        const period = await tx.iplPeriod.findFirst({
+        let period = await tx.iplPeriod.findFirst({
           where: {
             month: targetMonth,
             year: targetYear,
@@ -211,10 +213,23 @@ export class IplPaymentsService {
           },
         });
 
+        // Period for this target month doesn't exist yet (e.g. paying ahead into a
+        // future month). Auto-create it within the same transaction instead of
+        // rejecting — mirrors the WhatsApp bot's "bayar di muka" behaviour. The rate
+        // is locked to the start period's baseRate so all months in this payment match.
         if (!period) {
-          throw new BadRequestException(
-            `Period for ${targetMonth}/${targetYear} not found or not active`,
+          const ensured = await this.iplPeriodsService.ensurePeriod(
+            targetMonth,
+            targetYear,
+            Number(startPeriod.baseRate),
+            tx,
           );
+          period = await tx.iplPeriod.findUnique({ where: { id: ensured.id } });
+          if (!period) {
+            throw new BadRequestException(
+              `Gagal menyiapkan periode ${targetMonth}/${targetYear}`,
+            );
+          }
         }
 
         periods.push(period);
