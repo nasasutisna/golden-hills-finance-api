@@ -335,28 +335,52 @@ let CashTransactionsRepository = class CashTransactionsRepository {
                 });
             }
         }
-        const transactions = rows.map((t) => ({
-            transactionNumber: t.transactionNumber,
-            transactionDate: t.transactionDate,
-            transactionType: t.transactionType,
-            amount: Number(t.amount),
-            description: t.description,
-            referenceType: t.referenceType,
-            status: t.status,
-            category: t.category
-                ? {
-                    categoryName: t.category.categoryName,
-                    categoryCode: t.category.categoryCode,
-                }
-                : null,
-            creator: t.creator
-                ? {
-                    firstName: t.creator.firstName,
-                    lastName: t.creator.lastName,
-                    username: t.creator.username,
-                }
-                : null,
-        }));
+        const expenseRequestIds = Array.from(new Set(rows
+            .filter((t) => t.referenceType === 'EXPENSE_REQUEST' && t.referenceId)
+            .map((t) => t.referenceId)));
+        const expenseRequestMap = new Map();
+        if (expenseRequestIds.length > 0) {
+            const reqs = await this.prisma.expenseRequest.findMany({
+                where: { id: { in: expenseRequestIds } },
+                select: { id: true, title: true, description: true, requestNumber: true },
+            });
+            for (const er of reqs) {
+                expenseRequestMap.set(er.id, {
+                    title: er.title,
+                    description: er.description,
+                    requestNumber: er.requestNumber,
+                });
+            }
+        }
+        const transactions = rows.map((t) => {
+            const er = t.referenceType === 'EXPENSE_REQUEST' && t.referenceId
+                ? expenseRequestMap.get(t.referenceId) ?? null
+                : null;
+            return {
+                transactionNumber: t.transactionNumber,
+                transactionDate: t.transactionDate,
+                transactionType: t.transactionType,
+                amount: Number(t.amount),
+                description: t.description,
+                referenceType: t.referenceType,
+                referenceId: t.referenceId,
+                status: t.status,
+                expenseRequest: er,
+                category: t.category
+                    ? {
+                        categoryName: t.category.categoryName,
+                        categoryCode: t.category.categoryCode,
+                    }
+                    : null,
+                creator: t.creator
+                    ? {
+                        firstName: t.creator.firstName,
+                        lastName: t.creator.lastName,
+                        username: t.creator.username,
+                    }
+                    : null,
+            };
+        });
         return {
             transactions,
             summary: {

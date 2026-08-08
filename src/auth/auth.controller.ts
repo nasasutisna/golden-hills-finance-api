@@ -20,6 +20,14 @@ import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import {
+  ForgotPasswordRequestDto,
+  ResetPasswordDto,
+} from './dto/forgot-password.dto';
+import {
+  RegisterRequestDto,
+  RegisterCompleteDto,
+} from './dto/register-otp.dto';
 import { Public } from '../common/decorators/public.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { CurrentUserData } from '../common/decorators/current-user.decorator';
@@ -217,6 +225,121 @@ export class AuthController {
     return {
       statusCode: HttpStatus.OK,
       message: 'Email verified successfully',
+    };
+  }
+
+  @Public()
+  @Post('forgot-password/request')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Request password reset OTP',
+    description:
+      'Kirim OTP reset password ke nomor WhatsApp yang terdaftar pada unit. ' +
+      'Response selalu 200 untuk mencegah enumerasi akun.',
+  })
+  @ApiBody({ type: ForgotPasswordRequestDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Permintaan diproses (kode dikirim jika data terdaftar).',
+    type: ResponseDto,
+  })
+  @ApiResponse({ status: 400, description: 'Bad Request - throttle atau WhatsApp belum siap' })
+  async requestPasswordReset(@Body() dto: ForgotPasswordRequestDto) {
+    const result = await this.authService.requestPasswordReset(
+      dto.unitNumber,
+      dto.phoneNumber,
+    );
+    return {
+      statusCode: HttpStatus.OK,
+      message:
+        'Jika data terdaftar, kode verifikasi telah dikirim ke WhatsApp Anda.',
+      data: result,
+    };
+  }
+
+  @Public()
+  @Post('forgot-password/reset')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Reset password with OTP',
+    description:
+      'Verifikasi OTP dari WhatsApp dan set password baru. Token didapat dari langkah request.',
+  })
+  @ApiBody({ type: ResetPasswordDto })
+  @ApiResponse({
+    status: 200,
+    description: 'Password berhasil direset.',
+    type: ResponseDto,
+  })
+  @ApiResponse({ status: 400, description: 'Bad Request - OTP salah/kadaluarsa atau password lemah' })
+  async resetPassword(@Body() dto: ResetPasswordDto) {
+    await this.authService.resetPassword(
+      dto.resetToken,
+      dto.otp,
+      dto.newPassword,
+    );
+    return {
+      statusCode: HttpStatus.OK,
+      message: 'Password berhasil direset. Silakan login dengan password baru.',
+    };
+  }
+
+  @Public()
+  @Post('register/request')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Request registration OTP',
+    description:
+      'Cocokkan unit + nomor WhatsApp terdaftar. Jika unit sudah punya akun, ' +
+      'kembalikan 409 "akun sudah terdaftar". Jika cocok & belum berakun, ' +
+      'kirim OTP 6-digit via WhatsApp.',
+  })
+  @ApiBody({ type: RegisterRequestDto })
+  @ApiResponse({
+    status: 200,
+    description: 'OTP dikirim; mengembalikan registerToken + maskedPhone.',
+    type: ResponseDto,
+  })
+  @ApiResponse({ status: 400, description: 'Bad Request - unit/nomor tidak cocok, throttle, atau WA belum siap' })
+  @ApiResponse({ status: 409, description: 'Conflict - akun untuk unit sudah terdaftar' })
+  async requestRegistration(@Body() dto: RegisterRequestDto) {
+    const result = await this.authService.requestRegistration(
+      dto.unitNumber,
+      dto.phoneNumber,
+    );
+    return {
+      statusCode: HttpStatus.OK,
+      message: 'Kode verifikasi telah dikirim ke WhatsApp Anda.',
+      data: result,
+    };
+  }
+
+  @Public()
+  @Post('register/complete')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary: 'Complete registration with OTP',
+    description:
+      'Verifikasi OTP, buat akun (identitas dari data warga), link resident, ' +
+      'lalu kembalikan token untuk auto-login.',
+  })
+  @ApiBody({ type: RegisterCompleteDto })
+  @ApiResponse({
+    status: 201,
+    description: 'Akun dibuat & auto-login.',
+    type: ResponseDto,
+  })
+  @ApiResponse({ status: 400, description: 'Bad Request - OTP salah/kadaluarsa atau password lemah' })
+  async completeRegistration(@Body() dto: RegisterCompleteDto) {
+    const result = await this.authService.completeRegistration(
+      dto.registerToken,
+      dto.otp,
+      dto.newPassword,
+    );
+    return {
+      statusCode: HttpStatus.CREATED,
+      message: 'Registrasi berhasil.',
+      data: result,
     };
   }
 }

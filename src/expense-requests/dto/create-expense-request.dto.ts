@@ -6,6 +6,7 @@ import {
   IsNumber,
   IsDateString,
   IsArray,
+  IsIn,
   Min,
   MaxLength,
   ArrayMaxSize,
@@ -35,12 +36,22 @@ export class CreateExpenseRequestDto {
   amount: number;
 
   @ApiPropertyOptional({
-    description: 'Expense category ID (must be an EXPENSE category). Defaults to PENGELUARAN-WARGA.',
+    description: 'Expense category ID (must be an EXPENSE category). Defaults to a fund-matched category based on fundType.',
     example: 'uuid-of-category',
   })
   @IsOptional()
   @IsString()
   categoryId?: string;
+
+  @ApiPropertyOptional({
+    description: 'Which fund this expense belongs to — determines which Kas it posts to on approval (Kas IPL / Kas Warga). Defaults to WARGA.',
+    example: 'IPL',
+    enum: ['IPL', 'WARGA'],
+  })
+  @IsOptional()
+  @IsString()
+  @IsIn(['IPL', 'WARGA'], { message: 'fundType must be IPL or WARGA' })
+  fundType?: string;
 
   @ApiProperty({
     description: 'Date the expense occurred / is requested (YYYY-MM-DD)',

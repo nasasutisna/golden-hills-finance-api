@@ -61,8 +61,9 @@ __decorate([
         description: 'Last name',
         example: 'Doe',
         maxLength: 100,
+        required: false,
     }),
-    (0, class_validator_1.IsNotEmpty)({ message: 'Last name is required' }),
+    (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.MaxLength)(100, { message: 'Last name must not exceed 100 characters' }),
     __metadata("design:type", String)

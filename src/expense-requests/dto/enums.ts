@@ -16,3 +16,6 @@ export const EXPENSE_REQUEST_ENTITY_TYPE = 'EXPENSE_REQUEST';
 
 /** Default EXPENSE category used when the requester does not provide categoryId. */
 export const DEFAULT_EXPENSE_CATEGORY_CODE = 'PENGELUARAN-WARGA';
+
+/** Default EXPENSE category for IPL-fund requests when no categoryId is provided. */
+export const DEFAULT_IPL_EXPENSE_CATEGORY_CODE = 'OPERASIONAL-IPL';

@@ -181,6 +181,7 @@ export class CashTransactionsService {
       title: string;
       amount: any;
       categoryId?: string | null;
+      fundType?: string | null;
       transactionDate: Date;
       paymentMethod?: string | null;
     },
@@ -206,8 +207,13 @@ export class CashTransactionsService {
 
     const description = `Pengeluaran ${request.requestNumber} - ${request.title}`;
 
-    // Resolve which Kas this expense posts to from the request category fundType.
-    const cashAccountId = await this.resolveCashAccountId(categoryId, tx);
+    // Resolve which Kas this expense posts to. The request's fundType is the
+    // single source of truth; fall back to the category-derived account only
+    // for legacy rows created before the fundType column existed.
+    let cashAccountId = request.fundType ? accountIdForFund(request.fundType) : null;
+    if (!cashAccountId) {
+      cashAccountId = await this.resolveCashAccountId(categoryId, tx);
+    }
 
     const cashTx = await this.cashTransactionsRepository.create(
       {
@@ -727,7 +733,7 @@ export class CashTransactionsService {
     startDate?: string,
     endDate?: string,
   ): Promise<{ buffer: Buffer; filename: string }> {
-    return this.buildReportExport('Kegiatan', CASH_ACCOUNT_IDS.KAS_WARGA, startDate, endDate);
+    return this.buildReportExport('Iuran Warga', CASH_ACCOUNT_IDS.KAS_WARGA, startDate, endDate);
   }
 
   /**

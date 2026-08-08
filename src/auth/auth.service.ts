@@ -8,7 +8,12 @@ import {
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
+import * as crypto from 'crypto';
 import { UsersService } from '../users/users.service';
+import { CreateUserDto } from '../users/dto/create-user.dto';
+import { PrismaService } from '../prisma/prisma.service';
+import { WhatsappBlastService } from '../whatsapp-blast/whatsapp-blast.service';
+import { normalizeToWaJid } from '../whatsapp-blast/helpers/phone.helper';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
@@ -42,10 +47,21 @@ export interface JwtPayload {
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
 
+  // --- Forgot-password (WhatsApp OTP) tuning ---
+  private static readonly OTP_TTL_MS = 10 * 60_000; // 10 menit
+  private static readonly MAX_VERIFY_ATTEMPTS = 5;
+  private static readonly THROTTLE_WINDOW_MS = 15 * 60_000; // 15 menit
+  private static readonly THROTTLE_MAX = 3; // max 3 request / window per unit|phone
+  private static readonly RESEND_COOLDOWN_MS = 60_000; // min 60 detik antar kirim per user
+  /** Best-effort request throttle (stateless; resets on restart). */
+  private readonly requestThrottle = new Map<string, number[]>();
+
   constructor(
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
+    private readonly prisma: PrismaService,
+    private readonly whatsappBlastService: WhatsappBlastService,
   ) {}
 
   async validateUser(username: string, password: string): Promise<any> {
@@ -199,6 +215,13 @@ export class AuthService {
     try {
       const payload = this.jwtService.verify<JwtPayload>(
         refreshTokenDto.refreshToken,
+        {
+          // Token refresh ditandatangani pakai jwt.refreshSecret (lihat generateTokens),
+          // jadi verify-nya juga harus pakai secret yang sama — bukan default access secret.
+          secret:
+            this.configService.get<string>('jwt.refreshSecret') ||
+            'default-refresh-secret',
+        },
       );
 
       if (payload.type !== 'refresh') {
@@ -306,6 +329,492 @@ export class AuthService {
       this.logger.error('Email verification error:', error);
       throw new BadRequestException('Invalid or expired verification token');
     }
+  }
+
+  // ==========================================================================
+  // Forgot password (WhatsApp OTP)
+  // ==========================================================================
+
+  /**
+   * Step 1 — request a reset OTP.
+   *
+   * Resolves the resident matching (unit + registered WhatsApp number), issues
+   * a single-use 6-digit OTP (hashed at rest) and sends it via WhatsApp. The
+   * response shape is identical whether or not the account exists, to prevent
+   * enumeration: an unknown unit/phone returns a dummy token + masked phone
+   * and sends nothing.
+   */
+  async requestPasswordReset(
+    unitNumber: string,
+    phoneNumber: string,
+  ): Promise<{ resetToken: string; maskedPhone: string }> {
+    const unit = (unitNumber || '').trim();
+    const phoneInput = (phoneNumber || '').trim();
+    const dummy = () => ({ resetToken: crypto.randomUUID(), maskedPhone: '••••' });
+
+    // Throttle applies regardless of account existence.
+    this.checkThrottle(`${unit.toLowerCase()}|${phoneInput}`);
+
+    const input = normalizeToWaJid(phoneInput);
+    if (!input.valid) {
+      this.logger.debug(`Forgot-password: nomor tidak valid "${phoneInput}"`);
+      return dummy();
+    }
+
+    // Cari resident pada unit tsb yang punya akun login (userId).
+    const residents = await this.prisma.resident.findMany({
+      where: {
+        deletedAt: null,
+        isActive: true,
+        userId: { not: null },
+        OR: [
+          { unitNumber: unit },
+          { houseUnit: { unitNumber: unit } },
+          { houseUnit: { unitCode: unit } },
+        ],
+      },
+      select: { userId: true, phoneNumber: true },
+    });
+
+    // Pilih resident yang nomor WA-nya cocok (normalisasi kedua sisi).
+    const match = residents.find(
+      (r) =>
+        !!r.phoneNumber &&
+        normalizeToWaJid(r.phoneNumber).normalized === input.normalized,
+    );
+
+    if (!match?.userId) {
+      this.logger.debug(
+        `Forgot-password: tidak ada match unit "${unit}" + nomor terdaftar`,
+      );
+      return dummy();
+    }
+
+    const userId = match.userId;
+
+    // Cooldown: kalau baru saja kirim OTP (< 60 detik), balikin token lama tanpa resend.
+    const recent = await this.prisma.passwordResetOtp.findFirst({
+      where: {
+        userId,
+        consumed: false,
+        createdAt: { gt: new Date(Date.now() - AuthService.RESEND_COOLDOWN_MS) },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (recent) {
+      return {
+        resetToken: recent.id,
+        maskedPhone: this.maskPhone(input.normalized!),
+      };
+    }
+
+    // Invalidasi OTP aktif lama user ini sebelum menerbitkan yang baru.
+    await this.prisma.passwordResetOtp.updateMany({
+      where: { userId, consumed: false },
+      data: { consumed: true },
+    });
+
+    const code = String(crypto.randomInt(100000, 1000000));
+    const row = await this.prisma.passwordResetOtp.create({
+      data: {
+        userId,
+        otpHash: this.hashOtp(userId, code),
+        expiresAt: new Date(Date.now() + AuthService.OTP_TTL_MS),
+      },
+    });
+
+    // Kirim OTP via WhatsApp. Kalau WA belum terhubung, batalkan OTP & beri
+    // pesan global (tidak membocorkan keberadaan akun karena berlaku semua).
+    const message =
+      `Kode reset password Golden Hills Anda: ${code}.\n` +
+      `Berlaku 10 menit. Jangan bagikan kode ini kepada siapa pun.`;
+    try {
+      await this.whatsappBlastService.sendTest({
+        phoneNumber: match.phoneNumber!,
+        message,
+      });
+    } catch (error) {
+      this.logger.warn(
+        `Forgot-password: gagal kirim OTP WA user ${userId}: ${error?.message}`,
+      );
+      await this.prisma.passwordResetOtp.update({
+        where: { id: row.id },
+        data: { consumed: true },
+      });
+      throw new BadRequestException(
+        'Layanan WhatsApp belum siap. Mohon coba lagi beberapa saat lagi.',
+      );
+    }
+
+    this.logger.log(`Forgot-password: OTP dikirim untuk user ${userId}`);
+    return {
+      resetToken: row.id,
+      maskedPhone: this.maskPhone(input.normalized!),
+    };
+  }
+
+  /**
+   * Step 2 — verify the OTP and set the new password.
+   *
+   * Bounded to MAX_VERIFY_ATTEMPTS wrong tries per token, after which the token
+   * is consumed. On success all of the user's other active OTPs are voided.
+   */
+  async resetPassword(
+    resetToken: string,
+    otp: string,
+    newPassword: string,
+  ): Promise<{ success: true }> {
+    const row = await this.prisma.passwordResetOtp.findUnique({
+      where: { id: resetToken },
+    });
+    const now = new Date();
+
+    if (!row || row.consumed || row.expiresAt < now) {
+      throw new BadRequestException(
+        'Kode tidak valid atau sudah kadaluarsa. Silakan minta kode baru.',
+      );
+    }
+
+    const attempts = row.attempts + 1;
+    if (attempts > AuthService.MAX_VERIFY_ATTEMPTS) {
+      await this.prisma.passwordResetOtp.update({
+        where: { id: resetToken },
+        data: { consumed: true, attempts },
+      });
+      throw new BadRequestException(
+        'Terlalu banyak percobaan salah. Silakan minta kode baru.',
+      );
+    }
+
+    // Persist counter dulu agar percobaan salah tetap tercatat walau kemudian throw.
+    await this.prisma.passwordResetOtp.update({
+      where: { id: resetToken },
+      data: { attempts },
+    });
+
+    if (this.hashOtp(row.userId, otp) !== row.otpHash) {
+      throw new BadRequestException('Kode OTP salah.');
+    }
+
+    // Sukses: konsumsi token, void sibling aktif, set password baru.
+    await this.prisma.passwordResetOtp.update({
+      where: { id: resetToken },
+      data: { consumed: true },
+    });
+    await this.prisma.passwordResetOtp.updateMany({
+      where: { userId: row.userId, consumed: false },
+      data: { consumed: true },
+    });
+    await this.usersService.updatePassword(row.userId, newPassword);
+
+    // Audit (belum ada tabel audit dedicated — catat di log).
+    this.logger.warn(`Password direset via OTP untuk user ${row.userId}`);
+
+    return { success: true };
+  }
+
+  // ==========================================================================
+  // Register (WhatsApp OTP) — mirror forgot-password, but creates the account
+  // ==========================================================================
+
+  /**
+   * Step 1 — request a registration OTP.
+   *
+   * Resolves the resident matching (unit + registered WhatsApp number). Unlike
+   * forgot-password this is an onboarding flow, so the outcome is explicit:
+   * unknown unit / phone mismatch / already-registered each return a clear
+   * error; only an unlinked, matching resident gets an OTP.
+   */
+  async requestRegistration(
+    unitNumber: string,
+    phoneNumber: string,
+  ): Promise<{ registerToken: string; maskedPhone: string }> {
+    const unit = (unitNumber || '').trim();
+    const phoneInput = (phoneNumber || '').trim();
+
+    // Throttle berlaku untuk semua percobaan, apa pun hasilnya.
+    this.checkThrottle(`register:${unit.toLowerCase()}|${phoneInput}`);
+
+    const input = normalizeToWaJid(phoneInput);
+    if (!input.valid) {
+      throw new BadRequestException('Nomor WhatsApp tidak valid.');
+    }
+
+    // Cari semua resident pada unit tsb (aktif, belum soft-delete). Tanpa filter
+    // userId — register justru mencari resident yang BELUM punya akun.
+    const residents = await this.prisma.resident.findMany({
+      where: {
+        deletedAt: null,
+        isActive: true,
+        OR: [
+          { unitNumber: unit },
+          { houseUnit: { unitNumber: unit } },
+          { houseUnit: { unitCode: unit } },
+        ],
+      },
+      select: { id: true, userId: true, phoneNumber: true },
+    });
+
+    if (residents.length === 0) {
+      throw new BadRequestException(
+        'Nomor unit tidak ditemukan. Periksa kembali penulisan unit Anda.',
+      );
+    }
+
+    // Pilih resident yang nomor WA-nya cocok (normalisasi kedua sisi).
+    const match = residents.find(
+      (r) =>
+        !!r.phoneNumber &&
+        normalizeToWaJid(r.phoneNumber).normalized === input.normalized,
+    );
+
+    if (!match) {
+      throw new BadRequestException(
+        'Nomor WhatsApp tidak cocok dengan unit ini.',
+      );
+    }
+
+    if (match.userId) {
+      throw new ConflictException(
+        'Akun untuk unit ini sudah terdaftar. Silakan login atau gunakan fitur Lupa Password.',
+      );
+    }
+
+    const residentId = match.id;
+
+    // Cooldown: kalau baru saja kirim OTP (< 60 detik), balikin token lama.
+    const recent = await this.prisma.registerOtp.findFirst({
+      where: {
+        residentId,
+        consumed: false,
+        createdAt: { gt: new Date(Date.now() - AuthService.RESEND_COOLDOWN_MS) },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+    if (recent) {
+      return {
+        registerToken: recent.id,
+        maskedPhone: this.maskPhone(input.normalized!),
+      };
+    }
+
+    // Invalidasi OTP aktif lama resident ini sebelum menerbitkan yang baru.
+    await this.prisma.registerOtp.updateMany({
+      where: { residentId, consumed: false },
+      data: { consumed: true },
+    });
+
+    const code = String(crypto.randomInt(100000, 1000000));
+    const row = await this.prisma.registerOtp.create({
+      data: {
+        residentId,
+        otpHash: this.hashOtp(residentId, code),
+        expiresAt: new Date(Date.now() + AuthService.OTP_TTL_MS),
+      },
+    });
+
+    const message =
+      `Kode registrasi Golden Hills Anda: ${code}.\n` +
+      `Berlaku 10 menit. Jangan bagikan kode ini kepada siapa pun.`;
+    try {
+      await this.whatsappBlastService.sendTest({
+        phoneNumber: match.phoneNumber!,
+        message,
+      });
+    } catch (error) {
+      this.logger.warn(
+        `Register: gagal kirim OTP WA resident ${residentId}: ${error?.message}`,
+      );
+      await this.prisma.registerOtp.update({
+        where: { id: row.id },
+        data: { consumed: true },
+      });
+      throw new BadRequestException(
+        'Layanan WhatsApp belum siap. Mohon coba lagi beberapa saat lagi.',
+      );
+    }
+
+    this.logger.log(`Register: OTP dikirim untuk resident ${residentId}`);
+    return {
+      registerToken: row.id,
+      maskedPhone: this.maskPhone(input.normalized!),
+    };
+  }
+
+  /**
+   * Step 2 — verify the OTP, create the account (identity auto-derived from the
+   * resident) and link the resident. Returns auth tokens for auto-login.
+   */
+  async completeRegistration(
+    registerToken: string,
+    otp: string,
+    newPassword: string,
+  ): Promise<AuthTokens & { user: any }> {
+    const row = await this.prisma.registerOtp.findUnique({
+      where: { id: registerToken },
+    });
+    const now = new Date();
+
+    if (!row || row.consumed || row.expiresAt < now) {
+      throw new BadRequestException(
+        'Kode tidak valid atau sudah kadaluarsa. Silakan minta kode baru.',
+      );
+    }
+
+    const attempts = row.attempts + 1;
+    if (attempts > AuthService.MAX_VERIFY_ATTEMPTS) {
+      await this.prisma.registerOtp.update({
+        where: { id: registerToken },
+        data: { consumed: true, attempts },
+      });
+      throw new BadRequestException(
+        'Terlalu banyak percobaan salah. Silakan minta kode baru.',
+      );
+    }
+
+    // Persist counter dulu agar percobaan salah tetap tercatat walau kemudian throw.
+    await this.prisma.registerOtp.update({
+      where: { id: registerToken },
+      data: { attempts },
+    });
+
+    if (this.hashOtp(row.residentId, otp) !== row.otpHash) {
+      throw new BadRequestException('Kode OTP salah.');
+    }
+
+    // Ambil data resident untuk identitas akun.
+    const resident = await this.prisma.resident.findUnique({
+      where: { id: row.residentId },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        phoneNumber: true,
+        houseUnit: { select: { unitCode: true } },
+      },
+    });
+    if (!resident) {
+      throw new BadRequestException('Data warga tidak ditemukan.');
+    }
+
+    // Username = kode unit kanonik (mis. "A-101"). Fallback ke nomor unit resident.
+    const baseUnit = resident.houseUnit?.unitCode || `resident-${resident.id.slice(0, 8)}`;
+    const username = await this.ensureUniqueUsername(baseUnit);
+
+    // Email dari data resident; kalau kosong, pakai placeholder unik.
+    const email = await this.ensureUniqueEmail(
+      resident.email ||
+        `${baseUnit.replace(/[^a-zA-Z0-9]/g, '').toLowerCase()}@resident.local`,
+    );
+
+    const createUserDto: CreateUserDto = {
+      username,
+      email,
+      password: newPassword,
+      passwordMode: 'manual',
+      firstName: resident.firstName,
+      lastName: resident.lastName,
+      phoneNumber: resident.phoneNumber ?? undefined,
+      roleId:
+        this.configService.get<string>('DEFAULT_USER_ROLE_ID') ||
+        'default-user-role',
+      isActive: true,
+      isEmailVerified: false,
+      residentId: resident.id,
+    };
+
+    // create() hash password di pusat & auto-link resident via residentId.
+    const user = await this.usersService.create(createUserDto);
+
+    // Konsumsi token + void sibling aktif.
+    await this.prisma.registerOtp.update({
+      where: { id: registerToken },
+      data: { consumed: true },
+    });
+    await this.prisma.registerOtp.updateMany({
+      where: { residentId: resident.id, consumed: false },
+      data: { consumed: true },
+    });
+
+    const userWithRole = await this.usersService.findById(user.id, {
+      role: {
+        select: { id: true, name: true, description: true },
+      },
+    });
+    const tokens = await this.generateTokens(userWithRole);
+
+    this.logger.log(
+      `New user registered via OTP: ${user.username} (unit ${baseUnit})`,
+    );
+
+    return {
+      ...tokens,
+      user: this.buildUserResponse(userWithRole),
+    };
+  }
+
+  /** Cari username unik berbasis kode unit; tambahkan suffix bila sudah dipakai. */
+  private async ensureUniqueUsername(base: string): Promise<string> {
+    if (!(await this.usersService.findByUsername(base))) return base;
+    for (let i = 0; i < 20; i += 1) {
+      const candidate = `${base}_${Date.now().toString().slice(-4)}${i || ''}`;
+      if (!(await this.usersService.findByUsername(candidate))) return candidate;
+    }
+    return `${base}_${Date.now().toString().slice(-4)}`;
+  }
+
+  /** Cari email unik; tambahkan suffix numerik bila sudah dipakai. */
+  private async ensureUniqueEmail(base: string): Promise<string> {
+    const exists = await this.usersService.findByEmail(base);
+    if (!exists) return base;
+    const [local, domain] = base.split('@');
+    let guard = 0;
+    let candidate = `${local}${Date.now().toString().slice(-4)}@${domain}`;
+    while (guard < 20) {
+      const taken = await this.usersService.findByEmail(candidate);
+      if (!taken) return candidate;
+      candidate = `${local}${Date.now().toString().slice(-4)}${guard}@${domain}`;
+      guard += 1;
+    }
+    return candidate;
+  }
+
+  /** Sliding-window throttle per key; throws when the window limit is exceeded. */
+  private checkThrottle(key: string): void {
+    const now = Date.now();
+    const window = AuthService.THROTTLE_WINDOW_MS;
+    const recent = (this.requestThrottle.get(key) ?? []).filter(
+      (ts) => now - ts < window,
+    );
+    if (recent.length >= AuthService.THROTTLE_MAX) {
+      throw new BadRequestException(
+        'Terlalu banyak permintaan reset password. Silakan coba lagi dalam beberapa menit.',
+      );
+    }
+    recent.push(now);
+    this.requestThrottle.set(key, recent);
+  }
+
+  /** Keyed SHA-256 hash of the OTP so the 6-digit code is never stored plaintext. */
+  private hashOtp(userId: string, code: string): string {
+    const secret =
+      this.configService.get<string>('OTP_HASH_SECRET') ||
+      this.configService.get<string>('jwt.secret') ||
+      'default-secret-key';
+    return crypto
+      .createHash('sha256')
+      .update(`${code}:${userId}:${secret}`)
+      .digest('hex');
+  }
+
+  /** "6281234567890" -> "0812****90" style display for the UI hint. */
+  private maskPhone(normalized: string): string {
+    const local = normalized.startsWith('62')
+      ? '0' + normalized.slice(2)
+      : normalized;
+    if (local.length <= 6) return '••••';
+    return `${local.slice(0, 4)}****${local.slice(-2)}`;
   }
 
   async generateTokens(user: any): Promise<AuthTokens> {

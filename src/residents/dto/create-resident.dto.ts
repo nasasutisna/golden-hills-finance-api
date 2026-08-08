@@ -55,11 +55,12 @@ export class CreateResidentDto {
     description: 'Last name',
     example: 'Doe',
     maxLength: 100,
+    required: false,
   })
-  @IsNotEmpty({ message: 'Last name is required' })
+  @IsOptional()
   @IsString()
   @MaxLength(100, { message: 'Last name must not exceed 100 characters' })
-  lastName: string;
+  lastName?: string;
 
   @ApiProperty({
     description: 'Email address',

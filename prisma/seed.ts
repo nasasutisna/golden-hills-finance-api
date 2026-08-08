@@ -156,6 +156,16 @@ async function main() {
         isActive: true,
       },
     }),
+    prisma.role.upsert({
+      where: { name: 'WARGA' },
+      update: {},
+      create: {
+        name: 'WARGA',
+        description: 'Warga (resident) biasa - akses dashboard & data diri sendiri',
+        permissions: JSON.stringify(['dashboard.view', 'residents.view']),
+        isActive: true,
+      },
+    }),
   ]);
 
   console.log(`✓ Created ${roles.length} roles`);

@@ -48,12 +48,62 @@ model User {
   expenseRequests       ExpenseRequest[] @relation("ExpenseRequestSubmitter")
   approvedExpenses      ExpenseRequest[] @relation("ExpenseRequestApprover")
   whatsappBlasts        WhatsappBlast[]  @relation("WhatsappBlastTriggeredBy")
+  passwordResetOtps     PasswordResetOtp[]
 
   @@index([email])
   @@index([username])
   @@index([roleId])
   @@index([deletedAt])
   @@map("users")
+}
+
+// ============================================================
+// PASSWORD RESET (WhatsApp OTP)
+// ============================================================
+
+/**
+ * One-time WhatsApp OTP for the self-service forgot-password flow.
+ * The row id IS the `resetToken` handed back to the client and ties
+ * the "request OTP" step to the "reset password" step. The 6-digit
+ * code itself is stored keyed-hashed (sha256), never plaintext, and
+ * the row is single-use with a short TTL + bounded verify attempts.
+ */
+model PasswordResetOtp {
+  id         String   @id @default(uuid())
+  userId     String   @map("user_id")
+  otpHash    String   @map("otp_hash") @db.VarChar(255)
+  attempts   Int      @default(0)
+  consumed   Boolean  @default(false)
+  expiresAt  DateTime @map("expires_at")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("password_reset_otps")
+}
+
+/**
+ * One-time WhatsApp OTP for the self-service register flow.
+ * Mirrors PasswordResetOtp but is keyed to a Resident (register has no
+ * User yet). The row id IS the `registerToken` handed back to the client
+ * and ties the "request OTP" step to the "create account" step. The
+ * 6-digit code is stored keyed-hashed (sha256), single-use, short TTL,
+ * bounded verify attempts.
+ */
+model RegisterOtp {
+  id          String   @id @default(uuid())
+  residentId  String   @map("resident_id")
+  otpHash     String   @map("otp_hash") @db.VarChar(255)
+  attempts    Int      @default(0)
+  consumed    Boolean  @default(false)
+  expiresAt   DateTime @map("expires_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  resident    Resident @relation(fields: [residentId], references: [id], onDelete: Cascade)
+
+  @@index([residentId])
+  @@map("register_otps")
 }
 
 model Role {
@@ -182,6 +232,7 @@ model Resident {
   payments           ResidentPayment[]
   iplPayments        IplPayment[]   @relation("IplPaymentResident")
   expenseRequests    ExpenseRequest[] @relation("ExpenseRequestResident")
+  registerOtps       RegisterOtp[]
 
   @@index([residentCode])
   @@index([email])
@@ -406,6 +457,10 @@ model ExpenseRequest {
   transactionDate   DateTime  @map("transaction_date")
   paymentMethod     String?   @map("payment_method") @db.VarChar(20)
 
+  /// Which fund this expense belongs to (IPL | WARGA). Single source of truth
+  /// for which Kas (Kas IPL / Kas Warga) the approved expense posts to.
+  fundType          String    @default("WARGA") @map("fund_type") @db.VarChar(20)
+
   status            String    @default("PENDING") @db.VarChar(20)
   approvedBy        String?   @map("approved_by")
   approvedAt        DateTime? @map("approved_at")
@@ -429,6 +484,7 @@ model ExpenseRequest {
   @@index([residentId])
   @@index([status])
   @@index([categoryId])
+  @@index([fundType])
   @@index([deletedAt])
   @@map("expense_requests")
 }

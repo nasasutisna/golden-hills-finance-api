@@ -3,7 +3,6 @@ import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { DashboardService } from './dashboard.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
-import { Roles } from '../common/decorators/roles.decorator';
 import { ApiResponseDecorators } from '../common/decorators/http-response.decorator';
 
 @ApiTags('Dashboard')
@@ -14,11 +13,10 @@ export class DashboardController {
   constructor(private readonly dashboardService: DashboardService) {}
 
   @Get('overview')
-  @Roles('ADMIN', 'ACCOUNTANT')
   @ApiOperation({
-    summary: 'Get dashboard overview (Admin/Accountant only)',
+    summary: 'Get dashboard overview (all authenticated roles)',
     description:
-      'Aggregated overview for the admin dashboard: house unit counts, current IPL period collection status, per-Kas (IPL/Warga) monthly flow, all-time balances, consolidated monthly income/expense chart, and recent transactions.',
+      'Aggregated overview for the dashboard: house unit counts, current IPL period collection status, per-Kas (IPL/Warga) monthly flow, all-time balances, consolidated monthly income/expense chart, and recent transactions. Open to every authenticated user.',
   })
   @ApiResponseDecorators.ok()
   @ApiResponseDecorators.standard()
@@ -32,11 +30,10 @@ export class DashboardController {
   }
 
   @Get('ipl-monthly-chart')
-  @Roles('ADMIN', 'ACCOUNTANT')
   @ApiOperation({
-    summary: 'Get IPL monthly income/expense for a year (Admin/Accountant only)',
+    summary: 'Get IPL monthly income/expense for a year (all authenticated roles)',
     description:
-      'Per-month IPL Kas income and expense (transfers excluded) for the dashboard charts. `year` defaults to the current year.',
+      'Per-month IPL Kas income and expense (transfers excluded) for the dashboard charts. `year` defaults to the current year. Open to every authenticated user.',
   })
   @ApiResponseDecorators.ok()
   @ApiResponseDecorators.standard()

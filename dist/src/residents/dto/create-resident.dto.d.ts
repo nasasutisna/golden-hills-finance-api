@@ -16,7 +16,7 @@ export declare enum MaritalStatus {
 export declare class CreateResidentDto {
     residentCode?: string;
     firstName: string;
-    lastName: string;
+    lastName?: string;
     email?: string;
     phoneNumber?: string;
     alternatePhone?: string;

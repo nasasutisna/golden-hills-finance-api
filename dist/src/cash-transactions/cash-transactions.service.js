@@ -131,7 +131,10 @@ let CashTransactionsService = CashTransactionsService_1 = class CashTransactions
         }
         const transactionNumber = await this.cashTransactionsRepository.generateTransactionNumber('EXPENSE');
         const description = `Pengeluaran ${request.requestNumber} - ${request.title}`;
-        const cashAccountId = await this.resolveCashAccountId(categoryId, tx);
+        let cashAccountId = request.fundType ? (0, cash_accounts_1.accountIdForFund)(request.fundType) : null;
+        if (!cashAccountId) {
+            cashAccountId = await this.resolveCashAccountId(categoryId, tx);
+        }
         const cashTx = await this.cashTransactionsRepository.create({
             transactionNumber,
             transactionDate: request.transactionDate,
@@ -457,7 +460,7 @@ let CashTransactionsService = CashTransactionsService_1 = class CashTransactions
         return this.buildReportExport('IPL', cash_accounts_1.CASH_ACCOUNT_IDS.KAS_IPL, startDate, endDate);
     }
     async exportKegiatanReport(startDate, endDate) {
-        return this.buildReportExport('Kegiatan', cash_accounts_1.CASH_ACCOUNT_IDS.KAS_WARGA, startDate, endDate);
+        return this.buildReportExport('Iuran Warga', cash_accounts_1.CASH_ACCOUNT_IDS.KAS_WARGA, startDate, endDate);
     }
     async getByReferenceType(referenceType, startDate, endDate) {
         const start = startDate ? new Date(startDate) : undefined;

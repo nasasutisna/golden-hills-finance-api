@@ -20,7 +20,9 @@ import {
   ExpenseRequestStatus,
   AUTO_APPROVE_ROLES,
   DEFAULT_EXPENSE_CATEGORY_CODE,
+  DEFAULT_IPL_EXPENSE_CATEGORY_CODE,
 } from './dto/enums';
+import { FUND_TYPES, FundType } from '../common/constants/cash-accounts';
 
 @Injectable()
 export class ExpenseRequestsService {
@@ -53,8 +55,12 @@ export class ExpenseRequestsService {
       const userRole = user.role?.name || '';
       const autoApprove = AUTO_APPROVE_ROLES.includes(userRole);
 
-      // 2. Validate / resolve category
-      const categoryId = await this.resolveCategoryId(dto.categoryId, tx);
+      // 2. Validate / resolve category + fundType (kept consistent)
+      const { categoryId, fundType } = await this.resolveCategoryId(
+        dto.categoryId,
+        dto.fundType,
+        tx,
+      );
 
       // 3. Generate request number + decide status
       const requestNumber = await this.repository.generateRequestNumber(tx);
@@ -73,6 +79,7 @@ export class ExpenseRequestsService {
           description: dto.description,
           amount: dto.amount,
           categoryId,
+          fundType,
           requestedById: userId,
           residentId,
           transactionDate: new Date(dto.transactionDate),
@@ -117,6 +124,7 @@ export class ExpenseRequestsService {
             title: request.title,
             amount: request.amount,
             categoryId: request.categoryId,
+            fundType: request.fundType,
             transactionDate: request.transactionDate,
             paymentMethod: request.paymentMethod,
           },
@@ -185,6 +193,7 @@ export class ExpenseRequestsService {
           title: request.title,
           amount: request.amount,
           categoryId: request.categoryId,
+          fundType: request.fundType,
           transactionDate: request.transactionDate,
           paymentMethod: request.paymentMethod,
         },
@@ -306,6 +315,7 @@ export class ExpenseRequestsService {
       ];
     }
     if (query.status) where.status = query.status;
+    if (query.fundType) where.fundType = query.fundType;
     if (query.categoryId) where.categoryId = query.categoryId;
     if (query.requestedById) where.requestedById = query.requestedById;
     if (query.residentId) where.residentId = query.residentId;
@@ -377,14 +387,23 @@ export class ExpenseRequestsService {
   // --------------------------------------------------------------
 
   /**
-   * Resolve categoryId: if provided, validate it is an EXPENSE category.
-   * If not provided, default to PENGELUARAN-WARGA. Returns null only if the
-   * default category doesn't exist (CashTransactionsService will throw then).
+   * Resolve the request's categoryId + fundType together so they always agree.
+   *
+   *  - If categoryId is provided: validate it is an EXPENSE category, then derive
+   *    the request's fundType from that category (defaults to WARGA if untagged).
+   *  - If categoryId is omitted: pick a default EXPENSE category matching the
+   *    requested fundType — WARGA → PENGELUARAN-WARGA, IPL → OPERASIONAL-IPL.
+   *
+   * The returned fundType is the single source of truth for which Kas the
+   * approved expense posts to (see CashTransactionsService.createFromExpenseRequest).
    */
   private async resolveCategoryId(
     categoryId: string | undefined,
+    fundType: string | undefined,
     tx?: PrismaTransactionalClient,
-  ): Promise<string | null> {
+  ): Promise<{ categoryId: string | null; fundType: string }> {
+    const resolvedFund: string = fundType === FUND_TYPES.IPL ? FUND_TYPES.IPL : FUND_TYPES.WARGA;
+
     if (categoryId) {
       const category = await this.transactionCategoriesRepository.findById(categoryId);
       if (!category) {
@@ -393,13 +412,19 @@ export class ExpenseRequestsService {
       if (category.categoryType !== 'EXPENSE') {
         throw new BadRequestException('Category must be an EXPENSE type');
       }
-      return category.id;
+      // The category's fundType wins so the stored fundType always matches the Kas
+      // the category would post to. Default to WARGA if the category is untagged.
+      const categoryFund = (category.fundType as FundType | null) || FUND_TYPES.WARGA;
+      return { categoryId: category.id, fundType: categoryFund };
     }
-    const defaultCategory =
-      await this.transactionCategoriesRepository.findByCategoryCode(
-        DEFAULT_EXPENSE_CATEGORY_CODE,
-      );
-    return defaultCategory?.id ?? null;
+
+    const defaultCode = resolvedFund === FUND_TYPES.IPL
+      ? DEFAULT_IPL_EXPENSE_CATEGORY_CODE
+      : DEFAULT_EXPENSE_CATEGORY_CODE;
+    const defaultCategory = await this.transactionCategoriesRepository.findByCategoryCode(
+      defaultCode,
+    );
+    return { categoryId: defaultCategory?.id ?? null, fundType: resolvedFund };
   }
 
   /**

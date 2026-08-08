@@ -43,6 +43,7 @@ const ipl_periods_module_1 = require("./ipl-periods/ipl-periods.module");
 const ipl_payments_module_1 = require("./ipl-payments/ipl-payments.module");
 const expense_requests_module_1 = require("./expense-requests/expense-requests.module");
 const dashboard_module_1 = require("./dashboard/dashboard.module");
+const backup_module_1 = require("./backup/backup.module");
 const whatsapp_blast_module_1 = require("./whatsapp-blast/whatsapp-blast.module");
 const whatsapp_bot_module_1 = require("./whatsapp-blast/bot/whatsapp-bot.module");
 let AppModule = class AppModule {
@@ -93,6 +94,7 @@ exports.AppModule = AppModule = __decorate([
             whatsapp_blast_module_1.WhatsappBlastModule,
             whatsapp_bot_module_1.WhatsappBotModule,
             dashboard_module_1.DashboardModule,
+            backup_module_1.BackupModule,
         ],
         controllers: [app_controller_1.AppController],
         providers: [

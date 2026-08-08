@@ -94,6 +94,7 @@ export declare class CashTransactionsService {
         title: string;
         amount: any;
         categoryId?: string | null;
+        fundType?: string | null;
         transactionDate: Date;
         paymentMethod?: string | null;
     }, approvedBy: string, tx?: PrismaTransactionalClient): Promise<{

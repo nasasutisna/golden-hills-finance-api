@@ -4,6 +4,8 @@ import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { ForgotPasswordRequestDto, ResetPasswordDto } from './dto/forgot-password.dto';
+import { RegisterRequestDto, RegisterCompleteDto } from './dto/register-otp.dto';
 import { CurrentUserData } from '../common/decorators/current-user.decorator';
 export declare class AuthController {
     private readonly authService;
@@ -55,5 +57,32 @@ export declare class AuthController {
     verifyEmail(token: string): Promise<{
         statusCode: HttpStatus;
         message: string;
+    }>;
+    requestPasswordReset(dto: ForgotPasswordRequestDto): Promise<{
+        statusCode: HttpStatus;
+        message: string;
+        data: {
+            resetToken: string;
+            maskedPhone: string;
+        };
+    }>;
+    resetPassword(dto: ResetPasswordDto): Promise<{
+        statusCode: HttpStatus;
+        message: string;
+    }>;
+    requestRegistration(dto: RegisterRequestDto): Promise<{
+        statusCode: HttpStatus;
+        message: string;
+        data: {
+            registerToken: string;
+            maskedPhone: string;
+        };
+    }>;
+    completeRegistration(dto: RegisterCompleteDto): Promise<{
+        statusCode: HttpStatus;
+        message: string;
+        data: import("./auth.service").AuthTokens & {
+            user: any;
+        };
     }>;
 }

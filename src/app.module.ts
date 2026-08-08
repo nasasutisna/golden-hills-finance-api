@@ -34,6 +34,7 @@ import { IplPeriodsModule } from './ipl-periods/ipl-periods.module';
 import { IplPaymentsModule } from './ipl-payments/ipl-payments.module';
 import { ExpenseRequestsModule } from './expense-requests/expense-requests.module';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { BackupModule } from './backup/backup.module';
 import { WhatsappBlastModule } from './whatsapp-blast/whatsapp-blast.module';
 import { WhatsappBotModule } from './whatsapp-blast/bot/whatsapp-bot.module';
 
@@ -105,6 +106,9 @@ import { WhatsappBotModule } from './whatsapp-blast/bot/whatsapp-bot.module';
 
     // Dashboard (aggregated overview)
     DashboardModule,
+
+    // Backup & Restore (DB + uploads archive)
+    BackupModule,
 
     // All modules completed successfully
   ],

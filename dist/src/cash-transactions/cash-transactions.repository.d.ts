@@ -50,6 +50,12 @@ export declare class CashTransactionsRepository {
             description: string | null;
             referenceType: string | null;
             status: string;
+            referenceId: string | null;
+            expenseRequest: {
+                title: string;
+                description: string | null;
+                requestNumber: string;
+            } | null;
             category: {
                 categoryName: string;
                 categoryCode: string;

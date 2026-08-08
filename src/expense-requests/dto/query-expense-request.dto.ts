@@ -18,6 +18,11 @@ export class QueryExpenseRequestDto extends PaginationDto {
   @IsString()
   categoryId?: string;
 
+  @ApiPropertyOptional({ description: 'Filter by fund type (IPL | WARGA)', enum: ['IPL', 'WARGA'] })
+  @IsOptional()
+  @IsString()
+  fundType?: string;
+
   @ApiPropertyOptional({ description: 'Filter by requester (user) ID' })
   @IsOptional()
   @IsString()

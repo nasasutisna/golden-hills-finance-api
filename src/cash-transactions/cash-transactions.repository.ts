@@ -368,6 +368,12 @@ export class CashTransactionsRepository {
       description: string | null;
       referenceType: string | null;
       status: string;
+      referenceId: string | null;
+      expenseRequest: {
+        title: string;
+        description: string | null;
+        requestNumber: string;
+      } | null;
       category: { categoryName: string; categoryCode: string } | null;
       creator: {
         firstName: string | null;
@@ -446,29 +452,65 @@ export class CashTransactionsRepository {
       }
     }
 
+    // Lookup the originating ExpenseRequest for every expense posted from one,
+    // so the export can show the real request description instead of the
+    // auto-generated "Pengeluaran REQ-… - title" ledger text.
+    const expenseRequestIds = Array.from(
+      new Set(
+        rows
+          .filter((t) => t.referenceType === 'EXPENSE_REQUEST' && t.referenceId)
+          .map((t) => t.referenceId as string),
+      ),
+    );
+    const expenseRequestMap = new Map<
+      string,
+      { title: string; description: string | null; requestNumber: string }
+    >();
+    if (expenseRequestIds.length > 0) {
+      const reqs = await this.prisma.expenseRequest.findMany({
+        where: { id: { in: expenseRequestIds } },
+        select: { id: true, title: true, description: true, requestNumber: true },
+      });
+      for (const er of reqs) {
+        expenseRequestMap.set(er.id, {
+          title: er.title,
+          description: er.description,
+          requestNumber: er.requestNumber,
+        });
+      }
+    }
+
     // Map to plain serializable rows (amount as number) for the export layer
-    const transactions = rows.map((t) => ({
-      transactionNumber: t.transactionNumber,
-      transactionDate: t.transactionDate,
-      transactionType: t.transactionType,
-      amount: Number(t.amount),
-      description: t.description,
-      referenceType: t.referenceType,
-      status: t.status,
-      category: t.category
-        ? {
-            categoryName: t.category.categoryName,
-            categoryCode: t.category.categoryCode,
-          }
-        : null,
-      creator: t.creator
-        ? {
-            firstName: t.creator.firstName,
-            lastName: t.creator.lastName,
-            username: t.creator.username,
-          }
-        : null,
-    }));
+    const transactions = rows.map((t) => {
+      const er =
+        t.referenceType === 'EXPENSE_REQUEST' && t.referenceId
+          ? expenseRequestMap.get(t.referenceId) ?? null
+          : null;
+      return {
+        transactionNumber: t.transactionNumber,
+        transactionDate: t.transactionDate,
+        transactionType: t.transactionType,
+        amount: Number(t.amount),
+        description: t.description,
+        referenceType: t.referenceType,
+        referenceId: t.referenceId,
+        status: t.status,
+        expenseRequest: er,
+        category: t.category
+          ? {
+              categoryName: t.category.categoryName,
+              categoryCode: t.category.categoryCode,
+            }
+          : null,
+        creator: t.creator
+          ? {
+              firstName: t.creator.firstName,
+              lastName: t.creator.lastName,
+              username: t.creator.username,
+            }
+          : null,
+      };
+    });
 
     return {
       transactions,
