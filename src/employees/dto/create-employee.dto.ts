@@ -49,11 +49,12 @@ export class CreateEmployeeDto {
     description: 'Last name',
     example: 'Doe',
     maxLength: 100,
+    required: false,
   })
-  @IsNotEmpty({ message: 'Last name is required' })
+  @IsOptional()
   @IsString()
   @MaxLength(100)
-  lastName: string;
+  lastName?: string;
 
   @ApiProperty({
     description: 'Email address',

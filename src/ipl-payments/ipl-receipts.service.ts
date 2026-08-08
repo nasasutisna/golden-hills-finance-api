@@ -1,6 +1,7 @@
 import { Injectable, Logger, NotFoundException, BadRequestException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as PDFDocument from 'pdfkit';
+import * as QRCode from 'qrcode';
 import { IplPaymentsRepository, IplPaymentWithFiles } from './ipl-payments.repository';
 import { PrismaService, PrismaTransactionalClient } from '../prisma/prisma.service';
 import { FileAttachmentsService } from '../file-attachments/file-attachments.service';
@@ -14,6 +15,7 @@ import {
 } from './helpers/file-naming.helper';
 
 interface ReceiptData {
+  paymentId: string;
   paymentNumber: string;
   receiptNumber: string;
   paymentDate: Date;
@@ -41,6 +43,7 @@ export class IplReceiptsService {
   private readonly companyName: string;
   private readonly companyPhone: string;
   private readonly companyEmail: string;
+  private readonly appUrl: string;
 
   constructor(
     private readonly configService: ConfigService,
@@ -52,6 +55,7 @@ export class IplReceiptsService {
     this.companyName = this.configService.get<string>('COMPANY_NAME', 'Paguyuban Warga Golden Hills');
     this.companyPhone = this.configService.get<string>('COMPANY_PHONE', '+6282121192344');
     this.companyEmail = this.configService.get<string>('COMPANY_EMAIL', 'paguyuban.wargagoldenhills@gmail.com');
+    this.appUrl = this.configService.get<string>('APP_URL', 'http://localhost:3000');
 
     // Ensure uploads directory exists
     ensureDir(this.uploadPath);
@@ -110,6 +114,7 @@ export class IplReceiptsService {
 
     // Prepare receipt data
     const receiptData: ReceiptData = {
+      paymentId: paymentId,
       paymentNumber: payment.paymentNumber,
       receiptNumber: this.generateReceiptNumber(payment.paymentNumber),
       paymentDate: new Date(payment.paymentDate),
@@ -248,9 +253,59 @@ export class IplReceiptsService {
   }
 
   /**
+   * Public receipt verification info (no auth).
+   * Returns only the fields needed to confirm a printed receipt's authenticity.
+   * Returns null when the payment doesn't exist or isn't approved, so a scanned
+   * fake/unknown QR renders an "invalid" page instead of leaking any data.
+   */
+  async getPublicReceiptInfo(paymentId: string): Promise<{
+    paymentNumber: string;
+    paymentDate: Date;
+    residentName: string;
+    blockName: string;
+    houseUnitNumber: string;
+    periodName: string;
+    calculatedAmount: string;
+    paymentMethod: string;
+    status: string;
+    approvedAt: Date | null;
+    approvedBy: string | null;
+  } | null> {
+    const payment = await this.iplPaymentsRepository.findById(paymentId);
+
+    if (!payment || payment.status !== 'APPROVED') {
+      return null;
+    }
+
+    return {
+      paymentNumber: payment.paymentNumber,
+      paymentDate: new Date(payment.paymentDate),
+      residentName: payment.resident ? `${payment.resident.firstName} ${payment.resident.lastName}`.trim() : '-',
+      blockName: payment.houseUnit?.houseBlock?.blockName || '-',
+      houseUnitNumber: payment.houseUnit?.unitNumber || '-',
+      periodName: payment.period?.periodName || '-',
+      calculatedAmount: this.formatCurrency(payment.calculatedAmount?.toString() || '0'),
+      paymentMethod: this.getPaymentMethodLabel(payment.paymentMethod),
+      status: payment.status,
+      approvedAt: payment.approvedAt,
+      approvedBy: payment.approver?.username || null,
+    };
+  }
+
+  /**
    * Create receipt PDF for single payment
    */
   private async createReceiptPdf(data: ReceiptData, outputPath: string): Promise<void> {
+    // QR code points to the public verification page — best-effort: if it fails,
+    // the receipt is still generated without a QR rather than blocking issuance.
+    const verifyUrl = `${this.appUrl}/v/kwitansi/${data.paymentId}`;
+    let qrBuffer: Buffer | null = null;
+    try {
+      qrBuffer = await QRCode.toBuffer(verifyUrl, { type: 'png', margin: 1, width: 240 });
+    } catch (err) {
+      this.logger.warn(`Failed to generate QR code for payment ${data.paymentNumber}: ${err instanceof Error ? err.message : String(err)}`);
+    }
+
     return new Promise((resolve, reject) => {
       try {
         const doc = new PDFDocument({
@@ -284,7 +339,7 @@ export class IplReceiptsService {
         this.drawCalculationDetails(doc, data);
 
         // Approval Section
-        this.drawApprovalSection(doc, data);
+        this.drawApprovalSection(doc, data, qrBuffer);
 
         // Footer
         this.drawFooter(doc);
@@ -334,8 +389,12 @@ export class IplReceiptsService {
     const col3Width = 100;
     const col4Width = 115;
 
+    // Box height is dynamic: header + data + period/method (+ optional reference row)
+    const rowCount = 3 + (data.referenceNumber ? 1 : 0);
+    const boxHeight = rowCount * rowHeight;
+
     // Draw box border
-    doc.rect(boxLeft, boxTop, boxWidth, 125).stroke();
+    doc.rect(boxLeft, boxTop, boxWidth, boxHeight).stroke();
 
     // Header row
     doc.rect(boxLeft, boxTop, boxWidth, rowHeight).fillAndStroke('#f0f0f0', '#000');
@@ -379,19 +438,10 @@ export class IplReceiptsService {
         .text(`Ref: ${data.referenceNumber}`, boxLeft + 5, boxTop + rowHeight * 3 + 8, { width: boxWidth - 10 });
     }
 
-    if (data.notes) {
-      // Fourth row - Notes
-      doc.moveTo(boxLeft, boxTop + rowHeight * 4).lineTo(boxLeft + boxWidth, boxTop + rowHeight * 4).stroke();
+    // Vertical divider line for the period/method rows
+    doc.moveTo(boxLeft + col1Width + col2Width, boxTop + rowHeight * 2).lineTo(boxLeft + col1Width + col2Width, boxTop + boxHeight).stroke();
 
-      doc.font('Helvetica')
-        .fontSize(9)
-        .text(`Catatan: ${data.notes}`, boxLeft + 5, boxTop + rowHeight * 4 + 8, { width: boxWidth - 10 });
-    }
-
-    // Vertical divider lines for remaining rows
-    doc.moveTo(boxLeft + col1Width + col2Width, boxTop + rowHeight * 2).lineTo(boxLeft + col1Width + col2Width, boxTop + rowHeight * 5).stroke();
-
-    doc.y = boxTop + 130;
+    doc.y = boxTop + boxHeight + 5;
   }
 
   /**
@@ -402,26 +452,22 @@ export class IplReceiptsService {
     const tableLeft = 50;
     const tableWidth = 495;
 
-    // Total amount box
-    doc.rect(tableLeft, tableTop, tableWidth, 40).fillAndStroke('#f5f5f5', '#000');
+    // Total amount box (taller to stack label + amount vertically)
+    doc.rect(tableLeft, tableTop, tableWidth, 55).fillAndStroke('#f5f5f5', '#000');
 
-    // Base y position for alignment - both texts on same baseline
-    const textY = tableTop + 14;
-
-    // Label text (smaller font)
-    doc.fontSize(12)
+    // Label text (centered, on top)
+    doc.fontSize(11)
       .font('Helvetica-Bold')
       .fillColor('#000')
-      .text('TOTAL PEMBAYARAN', tableLeft + 10, textY);
+      .text('TOTAL PEMBAYARAN', tableLeft, tableTop + 8, { width: tableWidth, align: 'center' });
 
-    // Amount text (larger font) - right-aligned with padding
-    // Use smaller offset to prevent wrapping/line break
-    doc.fontSize(14)
+    // Amount text (larger font) - centered below the label
+    doc.fontSize(16)
       .font('Helvetica-Bold')
       .fillColor('#006400')
-      .text(this.formatCurrency(data.calculatedAmount), -50, textY, { align: 'right' });
+      .text(this.formatCurrency(data.calculatedAmount), tableLeft, tableTop + 28, { width: tableWidth, align: 'center' });
 
-    doc.fillColor('#000').y = tableTop + 45;
+    doc.fillColor('#000').y = tableTop + 60;
   }
 
   /**
@@ -451,12 +497,13 @@ export class IplReceiptsService {
   /**
    * Draw approval section for single payment
    */
-  private drawApprovalSection(doc: typeof PDFDocument, data: ReceiptData): void {
+  private drawApprovalSection(doc: typeof PDFDocument, data: ReceiptData, qrBuffer: Buffer | null): void {
     const boxTop = doc.y;
     const boxLeft = 50;
     const boxWidth = 495;
+    const boxHeight = qrBuffer ? 80 : 70;
 
-    doc.rect(boxLeft, boxTop, boxWidth, 70).stroke();
+    doc.rect(boxLeft, boxTop, boxWidth, boxHeight).stroke();
 
     doc.fontSize(10)
       .font('Helvetica-Bold')
@@ -476,7 +523,27 @@ export class IplReceiptsService {
         .text(`Oleh: ${data.approvedBy}`, boxLeft + 10, boxTop + 52);
     }
 
-    doc.fillColor('#000').y = boxTop + 65;
+    // Verification QR code on the right side of the status box
+    if (qrBuffer) {
+      const qrSize = 56;
+      const qrAreaWidth = 90;
+      const qrAreaRight = boxLeft + boxWidth - 5; // 540
+      const qrAreaLeft = qrAreaRight - qrAreaWidth; // 450
+      const qrX = qrAreaLeft + (qrAreaWidth - qrSize) / 2; // centered in the area
+      const qrY = boxTop + 6;
+
+      doc.image(qrBuffer, qrX, qrY, { width: qrSize, height: qrSize });
+
+      doc.fontSize(7)
+        .font('Helvetica')
+        .fillColor('#444')
+        .text('Scan untuk verifikasi', qrAreaLeft, qrY + qrSize + 2, {
+          width: qrAreaWidth,
+          align: 'center',
+        });
+    }
+
+    doc.fillColor('#000').y = boxTop + boxHeight + 5;
   }
 
   /**

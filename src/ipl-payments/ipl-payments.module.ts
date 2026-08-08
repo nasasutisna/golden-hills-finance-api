@@ -3,6 +3,7 @@ import { IplPaymentsService } from './ipl-payments.service';
 import { IplPaymentsController } from './ipl-payments.controller';
 import { IplPaymentsRepository } from './ipl-payments.repository';
 import { IplReceiptsService } from './ipl-receipts.service';
+import { IplReceiptVerifyController } from './ipl-receipt-verify.controller';
 import { PrismaModule } from '../prisma/prisma.module';
 import { IplPeriodsModule } from '../ipl-periods/ipl-periods.module';
 import { ApprovalHistoriesModule } from '../approval-histories/approval-histories.module';
@@ -76,7 +77,7 @@ function sanitizeFilename(name: string): string {
       },
     }),
   ],
-  controllers: [IplPaymentsController],
+  controllers: [IplPaymentsController, IplReceiptVerifyController],
   providers: [IplPaymentsService, IplPaymentsRepository, IplReceiptsService],
   exports: [IplPaymentsService, IplPaymentsRepository, IplReceiptsService],
 })

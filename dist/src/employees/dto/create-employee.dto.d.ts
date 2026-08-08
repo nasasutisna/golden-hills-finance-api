@@ -7,7 +7,7 @@ export declare enum EmploymentStatus {
 export declare class CreateEmployeeDto {
     employeeCode?: string;
     firstName: string;
-    lastName: string;
+    lastName?: string;
     email?: string;
     phoneNumber?: string;
     alternatePhone?: string;
