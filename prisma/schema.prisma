@@ -305,17 +305,40 @@ model Employee {
   deletedAt         DateTime? @map("deleted_at")
 
   // Relations
-  position      EmployeePosition       @relation(fields: [positionId], references: [id], onDelete: Restrict)
-  user          User?                  @relation(fields: [userId], references: [id], onDelete: SetNull)
-  role          Role?                  @relation(fields: [roleId], references: [id], onDelete: SetNull)
-  salaryHeaders EmployeeSalaryHeader[]
-  cashAdvances  EmployeeCashAdvance[]
+  position          EmployeePosition       @relation(fields: [positionId], references: [id], onDelete: Restrict)
+  user              User?                  @relation(fields: [userId], references: [id], onDelete: SetNull)
+  role              Role?                  @relation(fields: [roleId], references: [id], onDelete: SetNull)
+  salaryHeaders     EmployeeSalaryHeader[]
+  cashAdvances      EmployeeCashAdvance[]
+  securitySchedules SecuritySchedule[]
 
   @@index([employeeCode])
   @@index([email])
   @@index([positionId])
   @@index([deletedAt])
   @@map("employees")
+}
+
+model SecuritySchedule {
+  id           String   @id @default(uuid())
+  employeeId   String   @map("employee_id")
+  specificDate DateTime @map("specific_date") @db.Date // tanggal shift (date-only)
+  shift        String   @db.VarChar(10) // "PAGI" | "MALAM"
+  startTime    String   @map("start_time") @db.VarChar(5) // "08:00"
+  endTime      String   @map("end_time") @db.VarChar(5) // "20:00"
+  isActive     Boolean  @default(true) @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+  deletedAt    DateTime? @map("deleted_at")
+
+  // Relations
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+
+  @@unique([employeeId, specificDate]) // 1 guard = maks 1 shift/hari
+  @@index([specificDate])
+  @@index([employeeId])
+  @@index([deletedAt])
+  @@map("security_schedules")
 }
 
 // ============================================================

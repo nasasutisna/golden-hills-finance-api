@@ -30,6 +30,7 @@ const cash_transactions_module_1 = require("./cash-transactions/cash-transaction
 const approval_histories_module_1 = require("./approval-histories/approval-histories.module");
 const employee_positions_module_1 = require("./employee-positions/employee-positions.module");
 const employees_module_1 = require("./employees/employees.module");
+const security_schedules_module_1 = require("./security-schedules/security-schedules.module");
 const inventories_module_1 = require("./inventories/inventories.module");
 const inventory_requests_module_1 = require("./inventory-requests/inventory-requests.module");
 const salary_components_module_1 = require("./salary-components/salary-components.module");
@@ -73,6 +74,7 @@ exports.AppModule = AppModule = __decorate([
             residents_module_1.ResidentsModule,
             employee_positions_module_1.EmployeePositionsModule,
             employees_module_1.EmployeesModule,
+            security_schedules_module_1.SecuritySchedulesModule,
             fee_types_module_1.FeeTypesModule,
             transaction_categories_module_1.TransactionCategoriesModule,
             cash_transactions_module_1.CashTransactionsModule,

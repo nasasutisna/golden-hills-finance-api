@@ -54,6 +54,7 @@ async function bootstrap() {
             .addTag('House Blocks', 'House block management endpoints')
             .addTag('Employees', 'Employee management endpoints')
             .addTag('Employee Positions', 'Employee position management endpoints')
+            .addTag('Security Schedules', 'Security guard weekly schedule endpoints')
             .addTag('Fee Types', 'Fee type management endpoints')
             .addTag('Invoices', 'Invoice management endpoints')
             .addTag('Payments', 'Payment management endpoints')

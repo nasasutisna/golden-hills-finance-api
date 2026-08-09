@@ -21,6 +21,7 @@ import { CashTransactionsModule } from './cash-transactions/cash-transactions.mo
 import { ApprovalHistoriesModule } from './approval-histories/approval-histories.module';
 import { EmployeePositionsModule } from './employee-positions/employee-positions.module';
 import { EmployeesModule } from './employees/employees.module';
+import { SecuritySchedulesModule } from './security-schedules/security-schedules.module';
 import { InventoriesModule } from './inventories/inventories.module';
 import { InventoryRequestsModule } from './inventory-requests/inventory-requests.module';
 import { SalaryComponentsModule } from './salary-components/salary-components.module';
@@ -73,6 +74,7 @@ import { WhatsappBotModule } from './whatsapp-blast/bot/whatsapp-bot.module';
     // Employee Management
     EmployeePositionsModule,
     EmployeesModule,
+    SecuritySchedulesModule,
 
     // Financial Management
     FeeTypesModule,
