@@ -3,12 +3,16 @@ import { QueryOptionsDto } from '../common/dto/query-options.dto';
 import { CreateHouseUnitDto, OccupancyStatus } from './dto/create-house-unit.dto';
 import { UpdateHouseUnitDto } from './dto/update-house-unit.dto';
 import { HouseUnitsRepository } from './house-units.repository';
+import { PrismaService } from '../prisma/prisma.service';
 
 @Injectable()
 export class HouseUnitsService {
   private readonly logger = new Logger(HouseUnitsService.name);
 
-  constructor(private readonly houseUnitsRepository: HouseUnitsRepository) {}
+  constructor(
+    private readonly houseUnitsRepository: HouseUnitsRepository,
+    private readonly prisma: PrismaService,
+  ) {}
 
   async findAll(queryOptions: QueryOptionsDto) {
     const { page = 1, limit = 10, sortBy = 'unitCode', sortOrder = 'asc', search, searchFields = 'unitCode,unitNumber', filters } = queryOptions;
@@ -66,11 +70,23 @@ export class HouseUnitsService {
     return await this.houseUnitsRepository.findByHouseBlock(houseBlockId);
   }
 
+  async findUnassigned() {
+    return await this.houseUnitsRepository.findUnassigned();
+  }
+
   async create(createHouseUnitDto: CreateHouseUnitDto) {
     try {
       // Auto-set IPL percentage based on occupancy status if not provided
       if (!createHouseUnitDto.iplPercentage && createHouseUnitDto.occupancyStatus) {
         createHouseUnitDto.iplPercentage = this.getIplPercentage(createHouseUnitDto.occupancyStatus);
+      }
+
+      // Auto-generate unit code if not provided (e.g. A-101 from Blok A + No. 101)
+      if (!createHouseUnitDto.unitCode || !createHouseUnitDto.unitCode.trim()) {
+        createHouseUnitDto.unitCode = await this.generateUnitCode(
+          createHouseUnitDto.houseBlockId,
+          createHouseUnitDto.unitNumber,
+        );
       }
 
       const houseUnit = await this.houseUnitsRepository.create(createHouseUnitDto);
@@ -153,5 +169,41 @@ export class HouseUnitsService {
       default:
         return 100;
     }
+  }
+
+  /**
+   * Auto-generate a unique unit code.
+   * Pattern: `{blockCode}-{unitNumber}` when a block is assigned (e.g. A-101),
+   * otherwise `UNIT-{unitNumber}`. Appends a numeric suffix on collision.
+   *
+   * NOTE: the DB `unit_code` column has a global @unique constraint that spans
+   * soft-deleted rows too, so the existence check must NOT filter by deletedAt.
+   */
+  private async generateUnitCode(houseBlockId?: string, unitNumber?: string): Promise<string> {
+    const num = (unitNumber ?? '').toString().trim() || '0';
+    let prefix = 'UNIT-';
+
+    if (houseBlockId) {
+      const block = await this.prisma.houseBlock.findUnique({
+        where: { id: houseBlockId },
+        select: { blockCode: true },
+      });
+      if (block?.blockCode) {
+        prefix = `${block.blockCode}-`;
+      }
+    }
+
+    const base = `${prefix}${num}`;
+    let candidate = base.slice(0, 20);
+    let suffix = 2;
+    // Global uniqueness (includes soft-deleted rows to match the DB constraint)
+    while (
+      await this.prisma.houseUnit.findFirst({ where: { unitCode: candidate } })
+    ) {
+      const suffixStr = `-${suffix}`;
+      candidate = `${base.slice(0, 20 - suffixStr.length)}${suffixStr}`;
+      suffix++;
+    }
+    return candidate;
   }
 }

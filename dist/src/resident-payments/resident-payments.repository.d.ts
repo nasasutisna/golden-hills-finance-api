@@ -40,7 +40,7 @@ export declare class ResidentPaymentsRepository {
             houseBlock: {
                 blockCode: string;
                 blockName: string;
-            };
+            } | null;
             residents: {
                 id: string;
                 firstName: string;

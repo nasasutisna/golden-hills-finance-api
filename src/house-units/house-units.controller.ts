@@ -133,6 +133,22 @@ export class HouseUnitsController {
     };
   }
 
+  @Get('unassigned')
+  @ApiOperation({
+    summary: 'Get unassigned units',
+    description: 'Get all units that do not belong to any house block (houseBlockId is null)',
+  })
+  @ApiResponseDecorators.ok()
+  @ApiResponseDecorators.standard()
+  async getUnassigned() {
+    const units = await this.houseUnitsService.findUnassigned();
+    return {
+      statusCode: 200,
+      message: 'Unassigned house units retrieved successfully',
+      data: units,
+    };
+  }
+
   @Get(':id')
   @ApiOperation({
     summary: 'Get house unit by ID',

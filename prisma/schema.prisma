@@ -131,25 +131,19 @@ model Role {
 // ============================================================
 
 model HouseBlock {
-  id               String    @id @default(uuid())
-  blockCode        String    @unique @map("block_code") @db.VarChar(20)
-  blockName        String    @map("block_name") @db.VarChar(100)
-  blockType        String?   @map("block_type") @db.VarChar(50)
-  address          String?   @db.VarChar(255)
-  totalUnits       Int       @default(0) @map("total_units")
-  totalFloors      Int?      @map("total_floors")
-  constructionYear Int?      @map("construction_year")
-  facilities       String?   @db.Text
-  coordinatorId    String?   @map("coordinator_id")
-  isActive         Boolean   @default(true) @map("is_active")
-  createdAt        DateTime  @default(now()) @map("created_at")
-  updatedAt        DateTime  @updatedAt @map("updated_at")
-  deletedAt        DateTime? @map("deleted_at")
+  id            String    @id @default(uuid())
+  blockCode     String    @unique @map("block_code") @db.VarChar(20)
+  blockName     String    @map("block_name") @db.VarChar(100)
+  description   String?   @db.Text
+  coordinatorId String?   @map("coordinator_id")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  deletedAt     DateTime? @map("deleted_at")
 
   // Relations
-  units         HouseUnit[]   @relation("BlockUnits")
-  coordinator   Resident?     @relation("BlockCoordinator", fields: [coordinatorId], references: [id], onDelete: SetNull)
-  residents     Resident[]
+  units       HouseUnit[] @relation("BlockUnits")
+  coordinator Resident?   @relation("BlockCoordinator", fields: [coordinatorId], references: [id], onDelete: SetNull)
+  residents   Resident[]
 
   @@index([blockCode])
   @@index([coordinatorId])
@@ -161,7 +155,7 @@ model HouseUnit {
   id           String @id @default(uuid())
   unitCode     String @unique @map("unit_code") @db.VarChar(20)
   unitNumber   String @map("unit_number") @db.VarChar(20)
-  houseBlockId String @map("house_block_id")
+  houseBlockId String? @map("house_block_id")
 
   // Physical property data
   landArea     Decimal @map("land_area") @db.Decimal(10, 2)
@@ -184,7 +178,7 @@ model HouseUnit {
   deletedAt DateTime? @map("deleted_at")
 
   // Relations
-  houseBlock  HouseBlock  @relation("BlockUnits", fields: [houseBlockId], references: [id], onDelete: Restrict)
+  houseBlock  HouseBlock?  @relation("BlockUnits", fields: [houseBlockId], references: [id], onDelete: SetNull)
   residents   Resident[]
   iplPayments IplPayment[] @relation("IplPaymentUnit")
 

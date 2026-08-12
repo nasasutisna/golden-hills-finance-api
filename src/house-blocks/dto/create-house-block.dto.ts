@@ -3,31 +3,21 @@ import {
   IsNotEmpty,
   IsString,
   IsOptional,
-  IsInt,
-  IsBoolean,
-  IsEnum,
+  IsArray,
   MaxLength,
-  IsNumber,
-  Min,
 } from 'class-validator';
-import { Type } from 'class-transformer';
-
-export enum BlockType {
-  RESIDENTIAL = 'RESIDENTIAL',
-  COMMERCIAL = 'COMMERCIAL',
-  MIXED = 'MIXED',
-}
 
 export class CreateHouseBlockDto {
   @ApiProperty({
-    description: 'Block code (unique identifier)',
-    example: 'BLK-A',
+    description: 'Block code (unique identifier). Omit to auto-generate BLK-001 sequence.',
+    example: 'BLK-001',
     maxLength: 20,
+    required: false,
   })
-  @IsNotEmpty({ message: 'Block code is required' })
+  @IsOptional()
   @IsString()
   @MaxLength(20, { message: 'Block code must not exceed 20 characters' })
-  blockCode: string;
+  blockCode?: string;
 
   @ApiProperty({
     description: 'Block name',
@@ -38,107 +28,6 @@ export class CreateHouseBlockDto {
   @IsString()
   @MaxLength(100)
   blockName: string;
-
-  @ApiProperty({
-    description: 'Block type',
-    enum: BlockType,
-    default: BlockType.RESIDENTIAL,
-  })
-  @IsNotEmpty({ message: 'Block type is required' })
-  @IsEnum(BlockType, { message: 'Invalid block type' })
-  blockType: BlockType;
-
-  @ApiProperty({
-    description: 'Address',
-    example: 'Jalan Golden Hills Block A',
-    maxLength: 255,
-    required: false,
-  })
-  @IsOptional()
-  @IsString()
-  @MaxLength(255)
-  address?: string;
-
-  @ApiProperty({
-    description: 'Total number of units',
-    example: 24,
-    default: 0,
-  })
-  @IsNotEmpty({ message: 'Total units is required' })
-  @IsInt()
-  @Min(0)
-  @Type(() => Number)
-  totalUnits: number = 0;
-
-  @ApiProperty({
-    description: 'Total number of floors',
-    example: 4,
-    required: false,
-  })
-  @IsOptional()
-  @IsInt()
-  @Min(1)
-  @Type(() => Number)
-  totalFloors?: number;
-
-  @ApiProperty({
-    description: 'Construction year',
-    example: 2020,
-    required: false,
-  })
-  @IsOptional()
-  @IsInt()
-  @Min(1900)
-  @Type(() => Number)
-  constructionYear?: number;
-
-  @ApiProperty({
-    description: 'Land area in square meters',
-    example: 2000,
-    required: false,
-  })
-  @IsOptional()
-  @IsNumber()
-  @Min(0)
-  @Type(() => Number)
-  landArea?: number;
-
-  @ApiProperty({
-    description: 'Building area in square meters',
-    example: 1500,
-    required: false,
-  })
-  @IsOptional()
-  @IsNumber()
-  @Min(0)
-  @Type(() => Number)
-  buildingArea?: number;
-
-  @ApiProperty({
-    description: 'Facilities (JSON object)',
-    example: '{"parking": true, "gym": true, "pool": true}',
-    required: false,
-  })
-  @IsOptional()
-  facilities?: string;
-
-  @ApiProperty({
-    description: 'Additional amenities',
-    required: false,
-  })
-  @IsOptional()
-  @IsString()
-  amenities?: string;
-
-  @ApiProperty({
-    description: 'Is block active',
-    example: true,
-    default: true,
-    required: false,
-  })
-  @IsOptional()
-  @IsBoolean()
-  isActive?: boolean;
 
   @ApiProperty({
     description: 'Additional description',
@@ -156,4 +45,26 @@ export class CreateHouseBlockDto {
   @IsOptional()
   @IsString()
   coordinatorId?: string;
+
+  @ApiProperty({
+    description: 'Unit IDs to assign to this block (only units without a block are assigned)',
+    example: ['123e4567-e89b-12d3-a456-426614174000'],
+    required: false,
+    type: [String],
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  assignUnitIds?: string[];
+
+  @ApiProperty({
+    description: 'Unit IDs to release from this block (set houseBlockId back to null)',
+    example: ['123e4567-e89b-12d3-a456-426614174000'],
+    required: false,
+    type: [String],
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  unassignUnitIds?: string[];
 }

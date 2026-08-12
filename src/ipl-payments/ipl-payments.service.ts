@@ -1094,6 +1094,10 @@ export class IplPaymentsService {
       throw new BadRequestException('Resident is not assigned to a house unit');
     }
 
+    if (!resident.houseUnit.houseBlockId) {
+      throw new ForbiddenException('Resident unit is not assigned to any block');
+    }
+
     // Validate coordinator is assigned to this block
     const block = await prisma.houseBlock.findFirst({
       where: {

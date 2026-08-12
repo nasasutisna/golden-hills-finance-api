@@ -55,13 +55,13 @@ export interface IplPaymentWithFiles extends IplPayment {
     unitNumber: string;
     landArea: any;
     iplPercentage: any;
-    houseBlockId: string;
+    houseBlockId: string | null;
     houseBlock?: {
       id: string;
       blockCode: string;
       blockName: string;
       coordinatorId?: string | null;
-    };
+    } | null;
   };
   submitter?: {
     id: string;

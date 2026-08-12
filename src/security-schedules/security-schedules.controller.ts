@@ -79,7 +79,7 @@ export class SecuritySchedulesController {
   }
 
   @Put('day/:date')
-  @Roles('ADMIN', 'MANAGER')
+  @Roles('ADMIN', 'MANAGER', 'SUPERADMIN', 'ACCOUNTANT')
   @ApiOperation({
     summary: 'Replace one day of security schedules (manual day editor)',
     description:

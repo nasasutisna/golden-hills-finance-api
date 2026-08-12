@@ -28,7 +28,6 @@ export class ResidentsRepository {
               id: true,
               blockCode: true,
               blockName: true,
-              address: true,
             },
           },
           houseUnit: {

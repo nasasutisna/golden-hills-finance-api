@@ -21,14 +21,15 @@ export enum OccupancyStatus {
 
 export class CreateHouseUnitDto {
   @ApiProperty({
-    description: 'Unit code (unique identifier)',
+    description: 'Unit code (unique identifier). Auto-generated from Blok + Nomor Unit when omitted (e.g. A-101).',
     example: 'A-101',
     maxLength: 20,
+    required: false,
   })
-  @IsNotEmpty({ message: 'Unit code is required' })
+  @IsOptional()
   @IsString()
   @MaxLength(20, { message: 'Unit code must not exceed 20 characters' })
-  unitCode: string;
+  unitCode?: string;
 
   @ApiProperty({
     description: 'Unit number',
@@ -41,12 +42,13 @@ export class CreateHouseUnitDto {
   unitNumber: string;
 
   @ApiProperty({
-    description: 'House block ID',
+    description: 'House block ID (optional — leave empty for unassigned unit, assign later via block form)',
     example: '123e4567-e89b-12d3-a456-426614174000',
+    required: false,
   })
-  @IsNotEmpty({ message: 'House block ID is required' })
+  @IsOptional()
   @IsString()
-  houseBlockId: string;
+  houseBlockId?: string;
 
   @ApiProperty({
     description: 'Land area in square meters',

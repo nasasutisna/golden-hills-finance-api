@@ -1,6 +1,46 @@
 import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { HouseBlock } from '@prisma/client';
+import { generateBlockCode } from './helpers/block-code.helper';
+
+// Shared relation includes for consistent HouseBlock responses
+const HOUSE_BLOCK_INCLUDE = {
+  units: {
+    where: { deletedAt: null },
+    select: {
+      id: true,
+      unitCode: true,
+      unitNumber: true,
+      unitType: true,
+      landArea: true,
+      buildingArea: true,
+      occupancyStatus: true,
+      isActive: true,
+    },
+  },
+  residents: {
+    where: { deletedAt: null },
+    select: {
+      id: true,
+      residentCode: true,
+      firstName: true,
+      lastName: true,
+      unitNumber: true,
+      isActive: true,
+    },
+  },
+  coordinator: {
+    select: {
+      id: true,
+      residentCode: true,
+      firstName: true,
+      lastName: true,
+      email: true,
+      phoneNumber: true,
+      isActive: true,
+    },
+  },
+};
 
 @Injectable()
 export class HouseBlocksRepository {
@@ -21,30 +61,7 @@ export class HouseBlocksRepository {
         skip,
         take,
         orderBy,
-        include: include || {
-          residents: {
-            where: { deletedAt: null },
-            select: {
-              id: true,
-              residentCode: true,
-              firstName: true,
-              lastName: true,
-              unitNumber: true,
-              isActive: true,
-            },
-          },
-          coordinator: {
-            select: {
-              id: true,
-              residentCode: true,
-              firstName: true,
-              lastName: true,
-              email: true,
-              phoneNumber: true,
-              isActive: true,
-            },
-          },
-        },
+        include: include || HOUSE_BLOCK_INCLUDE,
       }),
       this.prisma.houseBlock.count({ where: { ...where, deletedAt: null } }),
     ]);
@@ -56,6 +73,7 @@ export class HouseBlocksRepository {
     const houseBlock = await this.prisma.houseBlock.findFirst({
       where: { id, deletedAt: null },
       include: {
+        ...HOUSE_BLOCK_INCLUDE,
         residents: {
           where: { deletedAt: null },
           select: {
@@ -68,17 +86,6 @@ export class HouseBlocksRepository {
             isActive: true,
           },
           orderBy: { unitNumber: 'asc' },
-        },
-        coordinator: {
-          select: {
-            id: true,
-            residentCode: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-            phoneNumber: true,
-            isActive: true,
-          },
         },
       },
     });
@@ -93,58 +100,59 @@ export class HouseBlocksRepository {
   async findByBlockCode(blockCode: string): Promise<HouseBlock | null> {
     return this.prisma.houseBlock.findFirst({
       where: { blockCode, deletedAt: null },
-      include: {
-        residents: true,
-        coordinator: {
-          select: {
-            id: true,
-            residentCode: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-            phoneNumber: true,
-            isActive: true,
-          },
-        },
-      },
+      include: HOUSE_BLOCK_INCLUDE,
     });
   }
 
   async create(data: any): Promise<HouseBlock> {
     try {
+      const { assignUnitIds, unassignUnitIds, ...blockData } = data;
+
+      // Auto-generate block code when not provided (BLK-001 sequence)
+      if (!blockData.blockCode) {
+        blockData.blockCode = await generateBlockCode(this.prisma);
+      }
+
       // Check if coordinatorId is provided and if the resident exists
-      if (data.coordinatorId) {
+      if (blockData.coordinatorId) {
         const coordinator = await this.prisma.resident.findFirst({
           where: {
-            id: data.coordinatorId,
+            id: blockData.coordinatorId,
             deletedAt: null, // Only check active residents
           },
         });
 
         if (!coordinator) {
-          throw new NotFoundException(`Coordinator (Resident) with ID "${data.coordinatorId}" not found or inactive`);
+          throw new NotFoundException(`Coordinator (Resident) with ID "${blockData.coordinatorId}" not found or inactive`);
         }
       }
 
-      return this.prisma.houseBlock.create({
-        data,
-        include: {
-          residents: true,
-          coordinator: {
-            select: {
-              id: true,
-              residentCode: true,
-              firstName: true,
-              lastName: true,
-              email: true,
-              phoneNumber: true,
-              isActive: true,
+      // Atomic: create block + assign units in one transaction
+      return await this.prisma.$transaction(async (tx) => {
+        const houseBlock = await tx.houseBlock.create({
+          data: blockData,
+        });
+
+        // Assign units (guard: only units currently WITHOUT a block)
+        if (assignUnitIds?.length) {
+          await tx.houseUnit.updateMany({
+            where: {
+              id: { in: assignUnitIds },
+              houseBlockId: null,
+              deletedAt: null,
             },
-          },
-        },
+            data: { houseBlockId: houseBlock.id },
+          });
+        }
+
+        // Re-fetch with relations so response reflects assigned units
+        return (await tx.houseBlock.findUnique({
+          where: { id: houseBlock.id },
+          include: HOUSE_BLOCK_INCLUDE,
+        })) as HouseBlock;
       });
     } catch (error) {
-      // Handle unique constraint violations
+      // Handle unique constraint violations (block_code or unit_code)
       if (error.code === 'P2002' && error.meta?.target?.includes('block_code')) {
         throw new ConflictException(`Block code "${data.blockCode}" already exists`);
       }
@@ -162,52 +170,72 @@ export class HouseBlocksRepository {
 
   async update(id: string, data: any): Promise<HouseBlock> {
     try {
+      const { assignUnitIds, unassignUnitIds, ...blockData } = data;
+
       // Check if blockCode is being updated and if it already exists
-      if (data.blockCode) {
+      if (blockData.blockCode) {
         const existingBlock = await this.prisma.houseBlock.findFirst({
           where: {
-            blockCode: data.blockCode,
+            blockCode: blockData.blockCode,
             id: { not: id }, // Exclude the current block
             deletedAt: null, // Only check active blocks
           },
         });
 
         if (existingBlock) {
-          throw new ConflictException(`Block code "${data.blockCode}" already exists`);
+          throw new ConflictException(`Block code "${blockData.blockCode}" already exists`);
         }
       }
 
       // Check if coordinatorId is being updated and if the resident exists
-      if (data.coordinatorId !== undefined && data.coordinatorId !== null) {
+      if (blockData.coordinatorId !== undefined && blockData.coordinatorId !== null) {
         const coordinator = await this.prisma.resident.findFirst({
           where: {
-            id: data.coordinatorId,
+            id: blockData.coordinatorId,
             deletedAt: null, // Only check active residents
           },
         });
 
         if (!coordinator) {
-          throw new NotFoundException(`Coordinator (Resident) with ID "${data.coordinatorId}" not found or inactive`);
+          throw new NotFoundException(`Coordinator (Resident) with ID "${blockData.coordinatorId}" not found or inactive`);
         }
       }
 
-      return await this.prisma.houseBlock.update({
-        where: { id },
-        data,
-        include: {
-          residents: true,
-          coordinator: {
-            select: {
-              id: true,
-              residentCode: true,
-              firstName: true,
-              lastName: true,
-              email: true,
-              phoneNumber: true,
-              isActive: true,
+      // Atomic: update block + assign/release units in one transaction
+      return await this.prisma.$transaction(async (tx) => {
+        await tx.houseBlock.update({
+          where: { id },
+          data: blockData,
+        });
+
+        // Assign units (guard: only units currently WITHOUT a block — anti-rebut)
+        if (assignUnitIds?.length) {
+          await tx.houseUnit.updateMany({
+            where: {
+              id: { in: assignUnitIds },
+              houseBlockId: null,
+              deletedAt: null,
             },
-          },
-        },
+            data: { houseBlockId: id },
+          });
+        }
+
+        // Release units (guard: only units currently IN this block — anti-salah-lepas)
+        if (unassignUnitIds?.length) {
+          await tx.houseUnit.updateMany({
+            where: {
+              id: { in: unassignUnitIds },
+              houseBlockId: id,
+              deletedAt: null,
+            },
+            data: { houseBlockId: null },
+          });
+        }
+
+        return (await tx.houseBlock.findUnique({
+          where: { id },
+          include: HOUSE_BLOCK_INCLUDE,
+        })) as HouseBlock;
       });
     } catch (error) {
       if (error.code === 'P2025') {
@@ -232,28 +260,14 @@ export class HouseBlocksRepository {
   async softDelete(id: string): Promise<HouseBlock> {
     return this.update(id, {
       deletedAt: new Date(),
-      isActive: false,
     });
   }
 
   async restore(id: string): Promise<HouseBlock> {
     return this.prisma.houseBlock.update({
       where: { id },
-      data: { deletedAt: null, isActive: true },
-      include: {
-        residents: true,
-        coordinator: {
-          select: {
-            id: true,
-            residentCode: true,
-            firstName: true,
-            lastName: true,
-            email: true,
-            phoneNumber: true,
-            isActive: true,
-          },
-        },
-      },
+      data: { deletedAt: null },
+      include: HOUSE_BLOCK_INCLUDE,
     });
   }
 
@@ -270,44 +284,42 @@ export class HouseBlocksRepository {
     return count > 0;
   }
 
-  async getActiveBlocksCount(): Promise<number> {
-    return this.prisma.houseBlock.count({
-      where: { isActive: true, deletedAt: null },
-    });
-  }
-
+  /**
+   * Total units = actual HouseUnit rows (not a manual counter on the block).
+   */
   async getTotalUnits(): Promise<number> {
-    const blocks = await this.prisma.houseBlock.findMany({
+    return this.prisma.houseUnit.count({
       where: { deletedAt: null },
-      select: { totalUnits: true },
     });
-
-    return blocks.reduce((sum, block) => sum + block.totalUnits, 0);
   }
 
   async getOccupancyStats(): Promise<{
+    totalBlocks: number;
     totalUnits: number;
     occupiedUnits: number;
-    availableUnits: number;
+    vacantUnits: number;
     occupancyRate: number;
   }> {
-    const totalUnits = await this.getTotalUnits();
+    const [totalBlocks, totalUnits, occupiedUnits] = await Promise.all([
+      this.prisma.houseBlock.count({ where: { deletedAt: null } }),
+      this.getTotalUnits(),
+      this.prisma.resident.count({
+        where: {
+          isActive: true,
+          deletedAt: null,
+          moveOutDate: null,
+        },
+      }),
+    ]);
 
-    const occupiedUnits = await this.prisma.resident.count({
-      where: {
-        isActive: true,
-        deletedAt: null,
-        moveOutDate: null,
-      },
-    });
-
-    const availableUnits = totalUnits - occupiedUnits;
+    const vacantUnits = Math.max(0, totalUnits - occupiedUnits);
     const occupancyRate = totalUnits > 0 ? (occupiedUnits / totalUnits) * 100 : 0;
 
     return {
+      totalBlocks,
       totalUnits,
       occupiedUnits,
-      availableUnits,
+      vacantUnits,
       occupancyRate: Math.round(occupancyRate * 100) / 100,
     };
   }

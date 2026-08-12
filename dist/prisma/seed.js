@@ -206,18 +206,6 @@ async function main() {
             create: {
                 blockCode: 'BLK-A',
                 blockName: 'Block A - Residential',
-                blockType: 'RESIDENTIAL',
-                address: 'Jalan Golden Hills Block A',
-                totalUnits: 24,
-                totalFloors: 4,
-                constructionYear: 2020,
-                facilities: JSON.stringify({
-                    parking: true,
-                    gym: true,
-                    pool: true,
-                    security: true,
-                }),
-                isActive: true,
             },
         }),
         prisma.houseBlock.upsert({
@@ -226,18 +214,6 @@ async function main() {
             create: {
                 blockCode: 'BLK-B',
                 blockName: 'Block B - Residential',
-                blockType: 'RESIDENTIAL',
-                address: 'Jalan Golden Hills Block B',
-                totalUnits: 30,
-                totalFloors: 5,
-                constructionYear: 2021,
-                facilities: JSON.stringify({
-                    parking: true,
-                    gym: false,
-                    pool: true,
-                    security: true,
-                }),
-                isActive: true,
             },
         }),
         prisma.houseBlock.upsert({
@@ -246,18 +222,6 @@ async function main() {
             create: {
                 blockCode: 'BLK-C',
                 blockName: 'Block C - Commercial',
-                blockType: 'COMMERCIAL',
-                address: 'Jalan Golden Hills Block C',
-                totalUnits: 15,
-                totalFloors: 3,
-                constructionYear: 2019,
-                facilities: JSON.stringify({
-                    parking: true,
-                    gym: false,
-                    pool: false,
-                    security: true,
-                }),
-                isActive: true,
             },
         }),
     ]);

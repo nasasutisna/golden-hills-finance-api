@@ -75,7 +75,6 @@ export declare class EmployeeSalaryHeadersController {
             lastName: string;
             phoneNumber: string | null;
             roleId: string | null;
-            address: string | null;
             userId: string | null;
             alternatePhone: string | null;
             identityNumber: string | null;
@@ -85,6 +84,7 @@ export declare class EmployeeSalaryHeadersController {
             emergencyContact: string | null;
             emergencyPhone: string | null;
             employeeCode: string;
+            address: string | null;
             city: string | null;
             province: string | null;
             postalCode: string | null;
@@ -197,7 +197,6 @@ export declare class EmployeeSalaryHeadersController {
             lastName: string;
             phoneNumber: string | null;
             roleId: string | null;
-            address: string | null;
             userId: string | null;
             alternatePhone: string | null;
             identityNumber: string | null;
@@ -207,6 +206,7 @@ export declare class EmployeeSalaryHeadersController {
             emergencyContact: string | null;
             emergencyPhone: string | null;
             employeeCode: string;
+            address: string | null;
             city: string | null;
             province: string | null;
             postalCode: string | null;
@@ -302,7 +302,6 @@ export declare class EmployeeSalaryHeadersController {
             lastName: string;
             phoneNumber: string | null;
             roleId: string | null;
-            address: string | null;
             userId: string | null;
             alternatePhone: string | null;
             identityNumber: string | null;
@@ -312,6 +311,7 @@ export declare class EmployeeSalaryHeadersController {
             emergencyContact: string | null;
             emergencyPhone: string | null;
             employeeCode: string;
+            address: string | null;
             city: string | null;
             province: string | null;
             postalCode: string | null;

@@ -10,18 +10,12 @@ export declare class HouseBlocksController {
         message: string;
         data: {
             id: string;
-            isActive: boolean;
+            description: string | null;
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
             blockCode: string;
             blockName: string;
-            blockType: string | null;
-            address: string | null;
-            totalUnits: number;
-            totalFloors: number | null;
-            constructionYear: number | null;
-            facilities: string | null;
             coordinatorId: string | null;
         };
     }>;
@@ -30,18 +24,12 @@ export declare class HouseBlocksController {
         message: string;
         data: {
             id: string;
-            isActive: boolean;
+            description: string | null;
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
             blockCode: string;
             blockName: string;
-            blockType: string | null;
-            address: string | null;
-            totalUnits: number;
-            totalFloors: number | null;
-            constructionYear: number | null;
-            facilities: string | null;
             coordinatorId: string | null;
         }[];
         meta: {
@@ -57,9 +45,10 @@ export declare class HouseBlocksController {
         statusCode: number;
         message: string;
         data: {
+            totalBlocks: number;
             totalUnits: number;
             occupiedUnits: number;
-            availableUnits: number;
+            vacantUnits: number;
             occupancyRate: number;
         };
     }>;
@@ -68,18 +57,12 @@ export declare class HouseBlocksController {
         message: string;
         data: {
             id: string;
-            isActive: boolean;
+            description: string | null;
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
             blockCode: string;
             blockName: string;
-            blockType: string | null;
-            address: string | null;
-            totalUnits: number;
-            totalFloors: number | null;
-            constructionYear: number | null;
-            facilities: string | null;
             coordinatorId: string | null;
         };
     }>;
@@ -88,18 +71,12 @@ export declare class HouseBlocksController {
         message: string;
         data: {
             id: string;
-            isActive: boolean;
+            description: string | null;
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
             blockCode: string;
             blockName: string;
-            blockType: string | null;
-            address: string | null;
-            totalUnits: number;
-            totalFloors: number | null;
-            constructionYear: number | null;
-            facilities: string | null;
             coordinatorId: string | null;
         };
     }>;
@@ -108,18 +85,12 @@ export declare class HouseBlocksController {
         message: string;
         data: {
             id: string;
-            isActive: boolean;
+            description: string | null;
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
             blockCode: string;
             blockName: string;
-            blockType: string | null;
-            address: string | null;
-            totalUnits: number;
-            totalFloors: number | null;
-            constructionYear: number | null;
-            facilities: string | null;
             coordinatorId: string | null;
         };
     }>;
@@ -128,18 +99,12 @@ export declare class HouseBlocksController {
         message: string;
         data: {
             id: string;
-            isActive: boolean;
+            description: string | null;
             createdAt: Date;
             updatedAt: Date;
             deletedAt: Date | null;
             blockCode: string;
             blockName: string;
-            blockType: string | null;
-            address: string | null;
-            totalUnits: number;
-            totalFloors: number | null;
-            constructionYear: number | null;
-            facilities: string | null;
             coordinatorId: string | null;
         };
     }>;

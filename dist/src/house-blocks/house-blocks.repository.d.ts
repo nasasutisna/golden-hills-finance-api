@@ -21,12 +21,12 @@ export declare class HouseBlocksRepository {
     restore(id: string): Promise<HouseBlock>;
     count(where?: any): Promise<number>;
     exists(id: string): Promise<boolean>;
-    getActiveBlocksCount(): Promise<number>;
     getTotalUnits(): Promise<number>;
     getOccupancyStats(): Promise<{
+        totalBlocks: number;
         totalUnits: number;
         occupiedUnits: number;
-        availableUnits: number;
+        vacantUnits: number;
         occupancyRate: number;
     }>;
 }

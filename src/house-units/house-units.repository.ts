@@ -27,8 +27,6 @@ export class HouseUnitsRepository {
               id: true,
               blockCode: true,
               blockName: true,
-              blockType: true,
-              address: true,
             },
           },
           residents: {
@@ -62,8 +60,6 @@ export class HouseUnitsRepository {
             id: true,
             blockCode: true,
             blockName: true,
-            blockType: true,
-            address: true,
           },
         },
         residents: {
@@ -89,8 +85,6 @@ export class HouseUnitsRepository {
             id: true,
             blockCode: true,
             blockName: true,
-            blockType: true,
-            address: true,
           },
         },
         residents: {
@@ -119,6 +113,23 @@ export class HouseUnitsRepository {
         },
       },
       orderBy: [{ floorNumber: 'asc' }, { unitNumber: 'asc' }],
+    });
+  }
+
+  async findUnassigned(): Promise<Partial<HouseUnit>[]> {
+    return this.prisma.houseUnit.findMany({
+      where: { houseBlockId: null, deletedAt: null },
+      select: {
+        id: true,
+        unitCode: true,
+        unitNumber: true,
+        unitType: true,
+        landArea: true,
+        buildingArea: true,
+        occupancyStatus: true,
+        isActive: true,
+      },
+      orderBy: [{ unitCode: 'asc' }],
     });
   }
 
