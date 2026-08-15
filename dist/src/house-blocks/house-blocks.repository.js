@@ -222,17 +222,19 @@ let HouseBlocksRepository = class HouseBlocksRepository {
             throw error;
         }
     }
-    async softDelete(id) {
-        return this.update(id, {
-            deletedAt: new Date(),
-        });
-    }
-    async restore(id) {
-        return this.prisma.houseBlock.update({
-            where: { id },
-            data: { deletedAt: null },
-            include: HOUSE_BLOCK_INCLUDE,
-        });
+    async remove(id) {
+        try {
+            return await this.prisma.houseBlock.delete({
+                where: { id },
+                include: HOUSE_BLOCK_INCLUDE,
+            });
+        }
+        catch (error) {
+            if (error.code === 'P2025') {
+                throw new common_1.NotFoundException('House block not found');
+            }
+            throw error;
+        }
     }
     async count(where) {
         return this.prisma.houseBlock.count({

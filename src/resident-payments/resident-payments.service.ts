@@ -3,11 +3,13 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { QueryOptionsDto } from '../common/dto/query-options.dto';
 import { CreateResidentPaymentDto } from './dto/create-resident-payment.dto';
 import { UpdateResidentPaymentDto } from './dto/update-resident-payment.dto';
+import { RejectResidentPaymentDto } from './dto/reject-resident-payment.dto';
 import { CreateBulkResidentPaymentDto, BulkPaymentResultDto } from './dto/create-bulk-resident-payment.dto';
+import { CreateApprovalHistoryDto, ApprovalAction } from '../approval-histories/dto/create-approval-history.dto';
 import { QueryResidentPaymentMatrixDto } from './dto/query-resident-payment-matrix.dto';
 import { ResidentPaymentsRepository } from './resident-payments.repository';
 import { ResidentInvoicesRepository } from '../resident-invoices/resident-invoices.repository';
-import { PrismaService } from '../prisma/prisma.service';
+import { PrismaService, PrismaTransactionalClient } from '../prisma/prisma.service';
 import { FileAttachmentsService } from '../file-attachments/file-attachments.service';
 import { CashTransactionsService } from '../cash-transactions/cash-transactions.service';
 import { ResidentPaymentReceiptsService } from './resident-payment-receipts.service';
@@ -284,6 +286,70 @@ export class ResidentPaymentsService {
     });
 
     return verifiedPayment;
+  }
+
+  /**
+   * Reject a PENDING payment: marks it FAILED with a mandatory reason.
+   * No invoice update, no receipt/ledger side effects (those only happen on
+   * verify). Mirrors the expense-requests reject flow, including the
+   * ApprovalHistory audit row.
+   */
+  async rejectPayment(id: string, rejectedBy: string, dto: RejectResidentPaymentDto) {
+    return await this.prisma.executeInTransaction(async (tx) => {
+      const payment = await this.residentPaymentsRepository.findById(id);
+
+      if (payment.status !== 'PENDING') {
+        throw new BadRequestException(
+          `Cannot reject payment with status ${payment.status}`,
+        );
+      }
+
+      const updated = await this.residentPaymentsRepository.rejectPayment(
+        id,
+        rejectedBy,
+        dto.reason,
+        tx as any,
+      );
+
+      await this.createApprovalHistory(
+        {
+          entityType: 'ResidentPayment',
+          entityId: id,
+          action: ApprovalAction.REJECTED,
+          fromStatus: 'PENDING',
+          toStatus: 'FAILED',
+          approvedBy: rejectedBy,
+          createdBy: rejectedBy,
+          comments: dto.reason,
+        },
+        tx,
+      );
+
+      this.logger.log(`Payment rejected: ${updated.paymentNumber}`);
+      return updated;
+    });
+  }
+
+  /**
+   * Write an ApprovalHistory row inside the current transaction.
+   * ApprovalHistoriesService.create does not accept a tx, so we call
+   * prisma.approvalHistory.create directly (mirrors expense-requests pattern).
+   */
+  private async createApprovalHistory(
+    dto: CreateApprovalHistoryDto,
+    tx?: PrismaTransactionalClient,
+  ) {
+    const prisma = tx || this.prisma;
+    // `fromStatus` exists only on the DTO — the ApprovalHistory table has no
+    // such column and Prisma rejects unknown args, so strip both it and the
+    // renamed `toStatus`.
+    const { toStatus, fromStatus, ...rest } = dto;
+    return prisma.approvalHistory.create({
+      data: {
+        ...rest,
+        status: toStatus,
+      },
+    });
   }
 
   async update(id: string, updateResidentPaymentDto: UpdateResidentPaymentDto) {

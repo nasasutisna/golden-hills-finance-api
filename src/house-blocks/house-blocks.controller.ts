@@ -123,35 +123,19 @@ export class HouseBlocksController {
   @Delete(':id')
   @Roles('ADMIN')
   @ApiOperation({
-    summary: 'Soft delete house block',
-    description: 'Soft delete house block',
+    summary: 'Delete house block',
+    description:
+      'Permanently delete a house block. Units and residents are released ' +
+      '(their block reference is cleared) automatically via the DB cascade.',
   })
   @ApiParam({ name: 'id', description: 'House Block ID' })
   @ApiResponseDecorators.ok()
   @ApiResponseDecorators.standard()
   async remove(@Param('id', ParseUuidPipe) id: string) {
-    const houseBlock = await this.houseBlocksService.softDelete(id);
+    const houseBlock = await this.houseBlocksService.remove(id);
     return {
       statusCode: 200,
       message: 'House block deleted successfully',
-      data: houseBlock,
-    };
-  }
-
-  @Patch(':id/restore')
-  @Roles('ADMIN')
-  @ApiOperation({
-    summary: 'Restore deleted house block',
-    description: 'Restore a soft deleted house block',
-  })
-  @ApiParam({ name: 'id', description: 'House Block ID' })
-  @ApiResponseDecorators.ok()
-  @ApiResponseDecorators.standard()
-  async restore(@Param('id', ParseUuidPipe) id: string) {
-    const houseBlock = await this.houseBlocksService.restore(id);
-    return {
-      statusCode: 200,
-      message: 'House block restored successfully',
       data: houseBlock,
     };
   }

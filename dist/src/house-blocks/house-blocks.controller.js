@@ -70,18 +70,10 @@ let HouseBlocksController = class HouseBlocksController {
         };
     }
     async remove(id) {
-        const houseBlock = await this.houseBlocksService.softDelete(id);
+        const houseBlock = await this.houseBlocksService.remove(id);
         return {
             statusCode: 200,
             message: 'House block deleted successfully',
-            data: houseBlock,
-        };
-    }
-    async restore(id) {
-        const houseBlock = await this.houseBlocksService.restore(id);
-        return {
-            statusCode: 200,
-            message: 'House block restored successfully',
             data: houseBlock,
         };
     }
@@ -160,8 +152,9 @@ __decorate([
     (0, common_1.Delete)(':id'),
     (0, roles_decorator_1.Roles)('ADMIN'),
     (0, swagger_1.ApiOperation)({
-        summary: 'Soft delete house block',
-        description: 'Soft delete house block',
+        summary: 'Delete house block',
+        description: 'Permanently delete a house block. Units and residents are released ' +
+            '(their block reference is cleared) automatically via the DB cascade.',
     }),
     (0, swagger_1.ApiParam)({ name: 'id', description: 'House Block ID' }),
     http_response_decorator_1.ApiResponseDecorators.ok(),
@@ -171,21 +164,6 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", Promise)
 ], HouseBlocksController.prototype, "remove", null);
-__decorate([
-    (0, common_1.Patch)(':id/restore'),
-    (0, roles_decorator_1.Roles)('ADMIN'),
-    (0, swagger_1.ApiOperation)({
-        summary: 'Restore deleted house block',
-        description: 'Restore a soft deleted house block',
-    }),
-    (0, swagger_1.ApiParam)({ name: 'id', description: 'House Block ID' }),
-    http_response_decorator_1.ApiResponseDecorators.ok(),
-    http_response_decorator_1.ApiResponseDecorators.standard(),
-    __param(0, (0, common_1.Param)('id', parse_uuid_pipe_1.ParseUuidPipe)),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [String]),
-    __metadata("design:returntype", Promise)
-], HouseBlocksController.prototype, "restore", null);
 exports.HouseBlocksController = HouseBlocksController = __decorate([
     (0, swagger_1.ApiTags)('House Blocks'),
     (0, swagger_1.ApiBearerAuth)('JWT-auth'),

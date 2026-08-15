@@ -22,6 +22,7 @@ const file_attachments_service_1 = require("../file-attachments/file-attachments
 const create_resident_payment_dto_1 = require("./dto/create-resident-payment.dto");
 const create_resident_payment_dto_2 = require("./dto/create-resident-payment.dto");
 const update_resident_payment_dto_1 = require("./dto/update-resident-payment.dto");
+const reject_resident_payment_dto_1 = require("./dto/reject-resident-payment.dto");
 const create_bulk_resident_payment_dto_1 = require("./dto/create-bulk-resident-payment.dto");
 const query_resident_payment_matrix_dto_1 = require("./dto/query-resident-payment-matrix.dto");
 const query_options_dto_1 = require("../common/dto/query-options.dto");
@@ -151,6 +152,14 @@ let ResidentPaymentsController = class ResidentPaymentsController {
         return {
             statusCode: 200,
             message: 'Payment verified successfully',
+            data: payment,
+        };
+    }
+    async rejectPayment(id, user, rejectDto) {
+        const payment = await this.residentPaymentsService.rejectPayment(id, user.id, rejectDto);
+        return {
+            statusCode: 200,
+            message: 'Payment rejected successfully',
             data: payment,
         };
     }
@@ -344,6 +353,23 @@ __decorate([
     __metadata("design:paramtypes", [String, Object]),
     __metadata("design:returntype", Promise)
 ], ResidentPaymentsController.prototype, "verifyPayment", null);
+__decorate([
+    (0, common_1.Patch)(':id/reject'),
+    (0, roles_decorator_1.Roles)('ADMIN', 'ACCOUNTANT'),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Reject payment',
+        description: 'Reject a pending payment with a mandatory reason (status becomes FAILED)',
+    }),
+    (0, swagger_1.ApiParam)({ name: 'id', description: 'Payment ID' }),
+    http_response_decorator_1.ApiResponseDecorators.ok(),
+    http_response_decorator_1.ApiResponseDecorators.standard(),
+    __param(0, (0, common_1.Param)('id', parse_uuid_pipe_1.ParseUuidPipe)),
+    __param(1, (0, current_user_decorator_1.CurrentUser)()),
+    __param(2, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object, reject_resident_payment_dto_1.RejectResidentPaymentDto]),
+    __metadata("design:returntype", Promise)
+], ResidentPaymentsController.prototype, "rejectPayment", null);
 __decorate([
     (0, common_1.Delete)(':id'),
     (0, roles_decorator_1.Roles)('ADMIN'),

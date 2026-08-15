@@ -20,6 +20,7 @@ export declare class ResidentPaymentsRepository {
     getByResident(residentId: string): Promise<ResidentPayment[]>;
     getByInvoice(invoiceId: string): Promise<ResidentPayment[]>;
     verifyPayment(paymentId: string, verifiedBy: string, tx?: PrismaTransactionalClient): Promise<ResidentPayment>;
+    rejectPayment(paymentId: string, rejectedBy: string, reason: string, tx?: PrismaTransactionalClient): Promise<ResidentPayment>;
     generatePaymentNumber(): Promise<string>;
     generateReferenceNumber(tx?: PrismaTransactionalClient): Promise<string>;
     getPaymentStatistics(residentId?: string): Promise<any>;

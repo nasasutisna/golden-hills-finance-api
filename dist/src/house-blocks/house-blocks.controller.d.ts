@@ -94,18 +94,4 @@ export declare class HouseBlocksController {
             coordinatorId: string | null;
         };
     }>;
-    restore(id: string): Promise<{
-        statusCode: number;
-        message: string;
-        data: {
-            id: string;
-            description: string | null;
-            createdAt: Date;
-            updatedAt: Date;
-            deletedAt: Date | null;
-            blockCode: string;
-            blockName: string;
-            coordinatorId: string | null;
-        };
-    }>;
 }

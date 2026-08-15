@@ -254,16 +254,20 @@ export class IplPaymentsController {
   }
 
   @Get('matrix/delinquent')
-  @Roles('ADMIN', 'ACCOUNTANT')
+  @Roles('ADMIN', 'ACCOUNTANT', 'COORDINATOR')
   @ApiOperation({
-    summary: 'Get delinquent IPL units (Admin/Accountant only)',
+    summary: 'Get delinquent IPL units (Admin/Accountant/Coordinator)',
     description:
-      'Active house units with a trailing streak of >=3 UNPAID months ending at the selected year\'s as-of month. Drives the on-screen list and the PDF export (same source).',
+      'Active house units with a trailing streak of >=3 UNPAID months ending at the selected year\'s as-of month. ' +
+      'Drives the on-screen list and the PDF export (same source). Role-scoped like the matrix: a coordinator only sees their own block(s).',
   })
   @ApiResponseDecorators.ok()
   @ApiResponseDecorators.standard()
-  async getDelinquentUnits(@Query() query: QueryIplPaymentMatrixDto) {
-    const data = await this.iplPaymentsService.getDelinquentUnits(query);
+  async getDelinquentUnits(
+    @Query() query: QueryIplPaymentMatrixDto,
+    @CurrentUser() user: CurrentUserData,
+  ) {
+    const data = await this.iplPaymentsService.getDelinquentUnits(query, user);
     return {
       statusCode: 200,
       message: 'Delinquent IPL units retrieved successfully',
@@ -272,17 +276,21 @@ export class IplPaymentsController {
   }
 
   @Get('matrix/delinquent/report')
-  @Roles('ADMIN', 'ACCOUNTANT')
+  @Roles('ADMIN', 'ACCOUNTANT', 'COORDINATOR')
   @ApiOperation({
-    summary: 'Export delinquent IPL units report to PDF (Admin/Accountant only)',
+    summary: 'Export delinquent IPL units report to PDF (Admin/Accountant/Coordinator)',
     description:
-      'Download the delinquent-units list (same as the JSON endpoint) as a PDF file. Generated server-side with pdfkit.',
+      'Download the delinquent-units list (same as the JSON endpoint) as a PDF file. Generated server-side with pdfkit. Role-scoped like the matrix.',
   })
   async exportDelinquentReport(
     @Res() res: Response,
     @Query() query: QueryIplPaymentMatrixDto,
+    @CurrentUser() user: CurrentUserData,
   ) {
-    const { buffer, filename } = await this.iplPaymentsService.exportDelinquentReport(query);
+    const { buffer, filename } = await this.iplPaymentsService.exportDelinquentReport(
+      query,
+      user,
+    );
     res.header({
       'Content-Type': 'application/pdf',
       'Content-Disposition': `attachment; filename="${filename}"`,
@@ -309,9 +317,9 @@ export class IplPaymentsController {
   }
 
   @Patch(':id/approve')
-  @Roles('ADMIN', 'ACCOUNTANT')
+  @Roles('ADMIN', 'ACCOUNTANT', 'SUPERADMIN')
   @ApiOperation({
-    summary: 'Approve IPL payment (Admin/Accountant only)',
+    summary: 'Approve IPL payment (Admin/Accountant/Superadmin only)',
     description: 'Approve a pending IPL payment',
   })
   @ApiParam({ name: 'id', description: 'Payment ID' })
@@ -331,9 +339,9 @@ export class IplPaymentsController {
   }
 
   @Patch(':id/reject')
-  @Roles('ADMIN', 'ACCOUNTANT')
+  @Roles('ADMIN', 'ACCOUNTANT', 'SUPERADMIN')
   @ApiOperation({
-    summary: 'Reject IPL payment (Admin/Accountant only)',
+    summary: 'Reject IPL payment (Admin/Accountant/Superadmin only)',
     description: 'Reject a pending IPL payment with a reason',
   })
   @ApiParam({ name: 'id', description: 'Payment ID' })
@@ -374,16 +382,23 @@ export class IplPaymentsController {
   }
 
   @Delete(':id')
-  @Roles('ADMIN', 'ACCOUNTANT')
+  @Roles('ADMIN', 'ACCOUNTANT', 'COORDINATOR')
   @ApiOperation({
-    summary: 'Delete IPL payment (Admin/Accountant only)',
-    description: 'Soft delete an IPL payment',
+    summary: 'Delete IPL payment (Coordinator may delete rejected submissions only)',
+    description:
+      'Soft delete an IPL payment — group-wide for multi-month transfers (paymentGroupId). ' +
+      'Also deletes the proof-of-transfer files (attachment row + physical file). ' +
+      'Once deleted, the months can be paid again via the normal create flow ("ajukan ulang"). ' +
+      'COORDINATOR is restricted to REJECTED submissions; ADMIN/ACCOUNTANT can delete any.',
   })
   @ApiParam({ name: 'id', description: 'Payment ID' })
   @ApiResponseDecorators.ok()
   @ApiResponseDecorators.standard()
-  async remove(@Param('id', ParseUuidPipe) id: string) {
-    const payment = await this.iplPaymentsService.softDelete(id);
+  async remove(
+    @Param('id', ParseUuidPipe) id: string,
+    @CurrentUser('id') userId: string,
+  ) {
+    const payment = await this.iplPaymentsService.softDelete(id, userId);
     return {
       statusCode: 200,
       message: 'IPL payment deleted successfully',

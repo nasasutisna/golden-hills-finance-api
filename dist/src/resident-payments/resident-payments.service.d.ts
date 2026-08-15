@@ -2,6 +2,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { QueryOptionsDto } from '../common/dto/query-options.dto';
 import { CreateResidentPaymentDto } from './dto/create-resident-payment.dto';
 import { UpdateResidentPaymentDto } from './dto/update-resident-payment.dto';
+import { RejectResidentPaymentDto } from './dto/reject-resident-payment.dto';
 import { CreateBulkResidentPaymentDto, BulkPaymentResultDto } from './dto/create-bulk-resident-payment.dto';
 import { QueryResidentPaymentMatrixDto } from './dto/query-resident-payment-matrix.dto';
 import { ResidentPaymentsRepository } from './resident-payments.repository';
@@ -37,6 +38,7 @@ export declare class ResidentPaymentsService {
             paymentNumber: string;
             paymentMethod: string;
             referenceNumber: string | null;
+            rejectionReason: string | null;
             invoiceId: string | null;
             transactionId: string | null;
             verifiedBy: string | null;
@@ -66,6 +68,7 @@ export declare class ResidentPaymentsService {
         paymentNumber: string;
         paymentMethod: string;
         referenceNumber: string | null;
+        rejectionReason: string | null;
         invoiceId: string | null;
         transactionId: string | null;
         verifiedBy: string | null;
@@ -86,6 +89,7 @@ export declare class ResidentPaymentsService {
         paymentNumber: string;
         paymentMethod: string;
         referenceNumber: string | null;
+        rejectionReason: string | null;
         invoiceId: string | null;
         transactionId: string | null;
         verifiedBy: string | null;
@@ -107,11 +111,34 @@ export declare class ResidentPaymentsService {
         paymentNumber: string;
         paymentMethod: string;
         referenceNumber: string | null;
+        rejectionReason: string | null;
         invoiceId: string | null;
         transactionId: string | null;
         verifiedBy: string | null;
         verifiedAt: Date | null;
     }>;
+    rejectPayment(id: string, rejectedBy: string, dto: RejectResidentPaymentDto): Promise<{
+        id: string;
+        createdAt: Date;
+        updatedAt: Date;
+        deletedAt: Date | null;
+        bankName: string | null;
+        notes: string | null;
+        status: string;
+        residentId: string;
+        createdBy: string;
+        amount: import("@prisma/client-runtime-utils").Decimal;
+        paymentDate: Date;
+        paymentNumber: string;
+        paymentMethod: string;
+        referenceNumber: string | null;
+        rejectionReason: string | null;
+        invoiceId: string | null;
+        transactionId: string | null;
+        verifiedBy: string | null;
+        verifiedAt: Date | null;
+    }>;
+    private createApprovalHistory;
     update(id: string, updateResidentPaymentDto: UpdateResidentPaymentDto): Promise<{
         id: string;
         createdAt: Date;
@@ -127,6 +154,7 @@ export declare class ResidentPaymentsService {
         paymentNumber: string;
         paymentMethod: string;
         referenceNumber: string | null;
+        rejectionReason: string | null;
         invoiceId: string | null;
         transactionId: string | null;
         verifiedBy: string | null;
@@ -147,6 +175,7 @@ export declare class ResidentPaymentsService {
         paymentNumber: string;
         paymentMethod: string;
         referenceNumber: string | null;
+        rejectionReason: string | null;
         invoiceId: string | null;
         transactionId: string | null;
         verifiedBy: string | null;
@@ -167,6 +196,7 @@ export declare class ResidentPaymentsService {
         paymentNumber: string;
         paymentMethod: string;
         referenceNumber: string | null;
+        rejectionReason: string | null;
         invoiceId: string | null;
         transactionId: string | null;
         verifiedBy: string | null;
@@ -187,6 +217,7 @@ export declare class ResidentPaymentsService {
         paymentNumber: string;
         paymentMethod: string;
         referenceNumber: string | null;
+        rejectionReason: string | null;
         invoiceId: string | null;
         transactionId: string | null;
         verifiedBy: string | null;
@@ -264,6 +295,7 @@ export declare class ResidentPaymentsService {
         paymentNumber: string;
         paymentMethod: string;
         referenceNumber: string | null;
+        rejectionReason: string | null;
         invoiceId: string | null;
         transactionId: string | null;
         verifiedBy: string | null;

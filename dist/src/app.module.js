@@ -44,6 +44,7 @@ const ipl_periods_module_1 = require("./ipl-periods/ipl-periods.module");
 const ipl_payments_module_1 = require("./ipl-payments/ipl-payments.module");
 const expense_requests_module_1 = require("./expense-requests/expense-requests.module");
 const dashboard_module_1 = require("./dashboard/dashboard.module");
+const approvals_module_1 = require("./approvals/approvals.module");
 const backup_module_1 = require("./backup/backup.module");
 const whatsapp_blast_module_1 = require("./whatsapp-blast/whatsapp-blast.module");
 const whatsapp_bot_module_1 = require("./whatsapp-blast/bot/whatsapp-bot.module");
@@ -96,6 +97,7 @@ exports.AppModule = AppModule = __decorate([
             whatsapp_blast_module_1.WhatsappBlastModule,
             whatsapp_bot_module_1.WhatsappBotModule,
             dashboard_module_1.DashboardModule,
+            approvals_module_1.ApprovalsModule,
             backup_module_1.BackupModule,
         ],
         controllers: [app_controller_1.AppController],

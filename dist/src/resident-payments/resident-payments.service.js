@@ -13,6 +13,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.ResidentPaymentsService = exports.RESIDENT_IURAN_MONTHLY_RATE = void 0;
 const common_1 = require("@nestjs/common");
 const event_emitter_1 = require("@nestjs/event-emitter");
+const create_approval_history_dto_1 = require("../approval-histories/dto/create-approval-history.dto");
 const resident_payments_repository_1 = require("./resident-payments.repository");
 const resident_invoices_repository_1 = require("../resident-invoices/resident-invoices.repository");
 const prisma_service_1 = require("../prisma/prisma.service");
@@ -184,6 +185,37 @@ let ResidentPaymentsService = ResidentPaymentsService_1 = class ResidentPayments
             }
         });
         return verifiedPayment;
+    }
+    async rejectPayment(id, rejectedBy, dto) {
+        return await this.prisma.executeInTransaction(async (tx) => {
+            const payment = await this.residentPaymentsRepository.findById(id);
+            if (payment.status !== 'PENDING') {
+                throw new common_1.BadRequestException(`Cannot reject payment with status ${payment.status}`);
+            }
+            const updated = await this.residentPaymentsRepository.rejectPayment(id, rejectedBy, dto.reason, tx);
+            await this.createApprovalHistory({
+                entityType: 'ResidentPayment',
+                entityId: id,
+                action: create_approval_history_dto_1.ApprovalAction.REJECTED,
+                fromStatus: 'PENDING',
+                toStatus: 'FAILED',
+                approvedBy: rejectedBy,
+                createdBy: rejectedBy,
+                comments: dto.reason,
+            }, tx);
+            this.logger.log(`Payment rejected: ${updated.paymentNumber}`);
+            return updated;
+        });
+    }
+    async createApprovalHistory(dto, tx) {
+        const prisma = tx || this.prisma;
+        const { toStatus, fromStatus, ...rest } = dto;
+        return prisma.approvalHistory.create({
+            data: {
+                ...rest,
+                status: toStatus,
+            },
+        });
     }
     async update(id, updateResidentPaymentDto) {
         try {

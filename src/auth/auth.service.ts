@@ -4,6 +4,7 @@ import {
   BadRequestException,
   Logger,
   ConflictException,
+  InternalServerErrorException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
@@ -141,7 +142,7 @@ export class AuthService {
     // Password hashing is handled centrally by UsersService.create
     const user = await this.usersService.create({
       ...registerDto,
-      roleId: registerDto.roleId || this.configService.get<string>('DEFAULT_USER_ROLE_ID', 'default-user-role'),
+      roleId: registerDto.roleId || (await this.resolveDefaultRoleId()),
       isActive: true,
       isEmailVerified: false,
     });
@@ -716,9 +717,7 @@ export class AuthService {
       firstName: resident.firstName,
       lastName: resident.lastName,
       phoneNumber: resident.phoneNumber ?? undefined,
-      roleId:
-        this.configService.get<string>('DEFAULT_USER_ROLE_ID') ||
-        'default-user-role',
+      roleId: await this.resolveDefaultRoleId(),
       isActive: true,
       isEmailVerified: false,
       residentId: resident.id,
@@ -762,6 +761,34 @@ export class AuthService {
       if (!(await this.usersService.findByUsername(candidate))) return candidate;
     }
     return `${base}_${Date.now().toString().slice(-4)}`;
+  }
+
+  /**
+   * Resolve the role for self-registered users. Prefers the WARGA role by name
+   * (stable across environments, immune to a missing/mistyped env id); falls
+   * back to DEFAULT_USER_ROLE_ID when set. Throws if neither resolves to an
+   * active role — never returns a placeholder string that would violate the
+   * users.role_id FK constraint.
+   */
+  private async resolveDefaultRoleId(): Promise<string> {
+    const byName = await this.prisma.role.findFirst({
+      where: { name: 'WARGA', isActive: true },
+      select: { id: true },
+    });
+    if (byName) return byName.id;
+
+    const fallback = this.configService.get<string>('DEFAULT_USER_ROLE_ID');
+    if (fallback) {
+      const byEnv = await this.prisma.role.findUnique({
+        where: { id: fallback },
+        select: { id: true },
+      });
+      if (byEnv) return byEnv.id;
+    }
+
+    throw new InternalServerErrorException(
+      'Role WARGA tidak ditemukan. Hubungi administrator.',
+    );
   }
 
   /** Cari email unik; tambahkan suffix numerik bila sudah dipakai. */

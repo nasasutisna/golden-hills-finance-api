@@ -3,6 +3,7 @@ import { ResidentPaymentReceiptsService } from './resident-payment-receipts.serv
 import { FileAttachmentsService } from '../file-attachments/file-attachments.service';
 import { CreateResidentPaymentDto } from './dto/create-resident-payment.dto';
 import { UpdateResidentPaymentDto } from './dto/update-resident-payment.dto';
+import { RejectResidentPaymentDto } from './dto/reject-resident-payment.dto';
 import { CreateBulkResidentPaymentDto } from './dto/create-bulk-resident-payment.dto';
 import { QueryResidentPaymentMatrixDto } from './dto/query-resident-payment-matrix.dto';
 import { QueryOptionsDto } from '../common/dto/query-options.dto';
@@ -30,6 +31,7 @@ export declare class ResidentPaymentsController {
             paymentNumber: string;
             paymentMethod: string;
             referenceNumber: string | null;
+            rejectionReason: string | null;
             invoiceId: string | null;
             transactionId: string | null;
             verifiedBy: string | null;
@@ -59,6 +61,7 @@ export declare class ResidentPaymentsController {
             paymentNumber: string;
             paymentMethod: string;
             referenceNumber: string | null;
+            rejectionReason: string | null;
             invoiceId: string | null;
             transactionId: string | null;
             verifiedBy: string | null;
@@ -96,6 +99,7 @@ export declare class ResidentPaymentsController {
             paymentNumber: string;
             paymentMethod: string;
             referenceNumber: string | null;
+            rejectionReason: string | null;
             invoiceId: string | null;
             transactionId: string | null;
             verifiedBy: string | null;
@@ -120,6 +124,7 @@ export declare class ResidentPaymentsController {
             paymentNumber: string;
             paymentMethod: string;
             referenceNumber: string | null;
+            rejectionReason: string | null;
             invoiceId: string | null;
             transactionId: string | null;
             verifiedBy: string | null;
@@ -176,6 +181,7 @@ export declare class ResidentPaymentsController {
             paymentNumber: string;
             paymentMethod: string;
             referenceNumber: string | null;
+            rejectionReason: string | null;
             invoiceId: string | null;
             transactionId: string | null;
             verifiedBy: string | null;
@@ -215,6 +221,7 @@ export declare class ResidentPaymentsController {
             paymentNumber: string;
             paymentMethod: string;
             referenceNumber: string | null;
+            rejectionReason: string | null;
             invoiceId: string | null;
             transactionId: string | null;
             verifiedBy: string | null;
@@ -239,6 +246,32 @@ export declare class ResidentPaymentsController {
             paymentNumber: string;
             paymentMethod: string;
             referenceNumber: string | null;
+            rejectionReason: string | null;
+            invoiceId: string | null;
+            transactionId: string | null;
+            verifiedBy: string | null;
+            verifiedAt: Date | null;
+        };
+    }>;
+    rejectPayment(id: string, user: CurrentUserData, rejectDto: RejectResidentPaymentDto): Promise<{
+        statusCode: number;
+        message: string;
+        data: {
+            id: string;
+            createdAt: Date;
+            updatedAt: Date;
+            deletedAt: Date | null;
+            bankName: string | null;
+            notes: string | null;
+            status: string;
+            residentId: string;
+            createdBy: string;
+            amount: import("@prisma/client-runtime-utils").Decimal;
+            paymentDate: Date;
+            paymentNumber: string;
+            paymentMethod: string;
+            referenceNumber: string | null;
+            rejectionReason: string | null;
             invoiceId: string | null;
             transactionId: string | null;
             verifiedBy: string | null;
@@ -263,6 +296,7 @@ export declare class ResidentPaymentsController {
             paymentNumber: string;
             paymentMethod: string;
             referenceNumber: string | null;
+            rejectionReason: string | null;
             invoiceId: string | null;
             transactionId: string | null;
             verifiedBy: string | null;

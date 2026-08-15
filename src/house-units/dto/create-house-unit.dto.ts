@@ -17,6 +17,7 @@ export enum OccupancyStatus {
   OCCASIONALLY = 'OCCASIONALLY',
   VACANT = 'VACANT',
   RENTED = 'RENTED',
+  ESTATE = 'ESTATE',
 }
 
 export class CreateHouseUnitDto {

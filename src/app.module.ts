@@ -35,6 +35,7 @@ import { IplPeriodsModule } from './ipl-periods/ipl-periods.module';
 import { IplPaymentsModule } from './ipl-payments/ipl-payments.module';
 import { ExpenseRequestsModule } from './expense-requests/expense-requests.module';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { ApprovalsModule } from './approvals/approvals.module';
 import { BackupModule } from './backup/backup.module';
 import { WhatsappBlastModule } from './whatsapp-blast/whatsapp-blast.module';
 import { WhatsappBotModule } from './whatsapp-blast/bot/whatsapp-bot.module';
@@ -108,6 +109,9 @@ import { WhatsappBotModule } from './whatsapp-blast/bot/whatsapp-bot.module';
 
     // Dashboard (aggregated overview)
     DashboardModule,
+
+    // Unified pending-approval queue (IPL, Iuran Warga, Pengeluaran)
+    ApprovalsModule,
 
     // Backup & Restore (DB + uploads archive)
     BackupModule,

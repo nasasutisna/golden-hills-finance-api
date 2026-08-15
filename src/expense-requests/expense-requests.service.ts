@@ -437,7 +437,10 @@ export class ExpenseRequestsService {
     tx?: PrismaTransactionalClient,
   ) {
     const prisma = tx || this.prisma;
-    const { toStatus, ...rest } = dto;
+    // `fromStatus` exists only on the DTO — the ApprovalHistory table has no
+    // such column and Prisma rejects unknown args, so strip both it and the
+    // renamed `toStatus`.
+    const { toStatus, fromStatus, ...rest } = dto;
     return prisma.approvalHistory.create({
       data: {
         ...rest,

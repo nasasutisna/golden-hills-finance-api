@@ -27,6 +27,7 @@ import { FileAttachmentsService } from '../file-attachments/file-attachments.ser
 import { CreateResidentPaymentDto } from './dto/create-resident-payment.dto';
 import { PaymentMethod } from './dto/create-resident-payment.dto';
 import { UpdateResidentPaymentDto } from './dto/update-resident-payment.dto';
+import { RejectResidentPaymentDto } from './dto/reject-resident-payment.dto';
 import { CreateBulkResidentPaymentDto } from './dto/create-bulk-resident-payment.dto';
 import { QueryResidentPaymentMatrixDto } from './dto/query-resident-payment-matrix.dto';
 import { QueryOptionsDto } from '../common/dto/query-options.dto';
@@ -312,6 +313,28 @@ export class ResidentPaymentsController {
     return {
       statusCode: 200,
       message: 'Payment verified successfully',
+      data: payment,
+    };
+  }
+
+  @Patch(':id/reject')
+  @Roles('ADMIN', 'ACCOUNTANT')
+  @ApiOperation({
+    summary: 'Reject payment',
+    description: 'Reject a pending payment with a mandatory reason (status becomes FAILED)',
+  })
+  @ApiParam({ name: 'id', description: 'Payment ID' })
+  @ApiResponseDecorators.ok()
+  @ApiResponseDecorators.standard()
+  async rejectPayment(
+    @Param('id', ParseUuidPipe) id: string,
+    @CurrentUser() user: CurrentUserData,
+    @Body() rejectDto: RejectResidentPaymentDto,
+  ) {
+    const payment = await this.residentPaymentsService.rejectPayment(id, user.id, rejectDto);
+    return {
+      statusCode: 200,
+      message: 'Payment rejected successfully',
       data: payment,
     };
   }

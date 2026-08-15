@@ -66,17 +66,7 @@ export declare class HouseBlocksService {
         blockName: string;
         coordinatorId: string | null;
     }>;
-    softDelete(id: string): Promise<{
-        id: string;
-        description: string | null;
-        createdAt: Date;
-        updatedAt: Date;
-        deletedAt: Date | null;
-        blockCode: string;
-        blockName: string;
-        coordinatorId: string | null;
-    }>;
-    restore(id: string): Promise<{
+    remove(id: string): Promise<{
         id: string;
         description: string | null;
         createdAt: Date;

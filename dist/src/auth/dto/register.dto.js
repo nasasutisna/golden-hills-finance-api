@@ -27,8 +27,8 @@ __decorate([
     (0, class_validator_1.IsString)(),
     (0, class_validator_1.MinLength)(3, { message: 'Username must be at least 3 characters' }),
     (0, class_validator_1.MaxLength)(50, { message: 'Username must not exceed 50 characters' }),
-    (0, class_validator_1.Matches)(/^[a-zA-Z0-9_]+$/, {
-        message: 'Username can only contain letters, numbers, and underscores',
+    (0, class_validator_1.Matches)(/^[a-zA-Z0-9._-]+$/, {
+        message: 'Username can only contain letters, numbers, dots, dashes, and underscores',
     }),
     __metadata("design:type", String)
 ], RegisterDto.prototype, "username", void 0);

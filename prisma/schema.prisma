@@ -579,6 +579,7 @@ model ResidentPayment {
   status          String    @default("PENDING") @db.VarChar(20)
   verifiedBy      String?   @map("verified_by")
   verifiedAt      DateTime? @map("verified_at")
+  rejectionReason String?   @map("rejection_reason") @db.Text
 
   createdBy       String    @map("created_by")
   createdAt       DateTime  @default(now()) @map("created_at")

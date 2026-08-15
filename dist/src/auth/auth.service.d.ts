@@ -82,6 +82,7 @@ export declare class AuthService {
         user: any;
     }>;
     private ensureUniqueUsername;
+    private resolveDefaultRoleId;
     private ensureUniqueEmail;
     private checkThrottle;
     private hashOtp;

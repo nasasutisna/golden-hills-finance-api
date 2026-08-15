@@ -17,7 +17,7 @@ import { CashTransactionsService } from '../cash-transactions/cash-transactions.
 import { ResidentPaymentReceiptsService } from '../resident-payments/resident-payment-receipts.service';
 import { IplPeriodsService } from '../ipl-periods/ipl-periods.service';
 import { generateReferenceNumber } from './helpers/reference-number.helper';
-import { generateBuktiTransferFilename, sanitizeFilename } from './helpers/file-naming.helper';
+import { generateBuktiTransferFilename, sanitizeFilename, deleteFile } from './helpers/file-naming.helper';
 import {
   computeAsOfMonth,
   computeDelinquentUnits,
@@ -736,7 +736,7 @@ export class IplPaymentsService {
   }
 
   async reject(id: string, approverId: string, dto: RejectIplPaymentDto) {
-    return await this.prisma.executeInTransaction(async (tx) => {
+    await this.prisma.executeInTransaction(async (tx) => {
       // Get payment to check if it's part of a group
       const payment = await this.iplPaymentsRepository.findById(id);
 
@@ -804,10 +804,11 @@ export class IplPaymentsService {
           rejectionReason: dto.rejectionReason,
         });
       });
-
-      // Return updated payment
-      return await this.iplPaymentsRepository.findById(id);
     });
+
+    // Read AFTER commit — a findById inside the tx callback would run on a
+    // non-transactional connection and return the pre-commit (stale) row.
+    return await this.iplPaymentsRepository.findById(id);
   }
 
   async update(id: string, updateIplPaymentDto: UpdateIplPaymentDto) {
@@ -821,9 +822,74 @@ export class IplPaymentsService {
     }
   }
 
-  async softDelete(id: string) {
-    const payment = await this.iplPaymentsRepository.softDelete(id);
-    this.logger.log(`IPL payment soft deleted: ${payment.paymentNumber}`);
+  /**
+   * Soft-delete a payment (group-wide for multi-month transfers) and remove
+   * its proof-of-transfer files (FileAttachment row + physical file).
+   *
+   * This is the "ajukan ulang" path for rejected submissions: once deleted,
+   * the months are free to be paid again through the normal create flow
+   * (checkExistingPayments filters deletedAt: null).
+   *
+   * COORDINATOR may only delete REJECTED submissions; ADMIN/ACCOUNTANT can
+   * delete any payment (previous behavior). Kwitansi receipts (category
+   * RECEIPT) are NOT touched — only PAYMENT_PROOF attachments are removed.
+   */
+  async softDelete(id: string, userId: string) {
+    const payment = await this.iplPaymentsRepository.findById(id);
+
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: { select: { name: true } } },
+    });
+    const userRole = user?.role?.name || '';
+    if (userRole === 'COORDINATOR' && payment.status !== IplPaymentStatus.REJECTED) {
+      throw new ForbiddenException('Koordinator hanya dapat menghapus pengajuan yang ditolak');
+    }
+
+    let deletedRows = 0;
+    let deletedProofs = 0;
+
+    await this.prisma.executeInTransaction(async (tx) => {
+      // A multi-month transfer is atomic — delete every month in the group
+      const targetIds = payment.paymentGroupId
+        ? (
+            await tx.iplPayment.findMany({
+              where: { paymentGroupId: payment.paymentGroupId, deletedAt: null },
+              select: { id: true },
+            })
+          ).map((p) => p.id)
+        : [id];
+
+      // Remove proof-of-transfer files. The proof is attached to the group's
+      // FIRST payment only, so search across all rows of the group.
+      const proofs = await tx.fileAttachment.findMany({
+        where: {
+          entityType: 'IplPayment',
+          entityId: { in: targetIds },
+          deletedAt: null,
+          category: 'PAYMENT_PROOF',
+        },
+      });
+      for (const proof of proofs) {
+        // DB paths are inconsistent: some rows store '/uploads/...', others
+        // 'uploads/...'. path.join('.', ...) normalizes both to './uploads/...'
+        // relative to cwd (same convention as persistProofFile).
+        deleteFile(path.join('.', proof.filePath));
+        await tx.fileAttachment.delete({ where: { id: proof.id } });
+      }
+      deletedProofs = proofs.length;
+
+      for (const targetId of targetIds) {
+        await this.iplPaymentsRepository.update(targetId, { deletedAt: new Date() }, tx);
+      }
+      deletedRows = targetIds.length;
+    });
+
+    this.logger.log(
+      `IPL payment soft deleted: ${payment.paymentNumber} (${deletedRows} row(s) in group, ${deletedProofs} proof file(s) removed) by ${userRole || 'unknown role'}`,
+    );
+
+    // Return the pre-delete snapshot — the row is now hidden from queries.
     return payment;
   }
 
@@ -1306,10 +1372,14 @@ export class IplPaymentsService {
         const period = periodByMonth.get(month);
         const pm = period ? perUnit?.get(period.id) : undefined;
         const paymentId = pm?.id ?? null;
-        let status: 'PAID' | 'PENDING' | 'UNPAID' = 'UNPAID';
+        let status: 'PAID' | 'PENDING' | 'UNPAID' | 'REJECTED' = 'UNPAID';
         if (pm) {
           if (pm.status === 'APPROVED') status = 'PAID';
           else if (pm.status === 'PENDING') status = 'PENDING';
+          // A rejected submission still owes the month — surfaced as its own
+          // cell status so the matrix shows it ("ajukan ulang" = delete the
+          // rejected payment, then pay again via the normal create flow).
+          else if (pm.status === 'REJECTED') status = 'REJECTED';
         }
 
         if (status === 'PAID') {
@@ -1381,9 +1451,17 @@ export class IplPaymentsService {
    * ≥3 UNPAID months ending at the selected year's as-of month. Built on top
    * of `getMatrix` (no extra query). Used by the on-screen list (JSON) and the
    * PDF export — single source of truth so both always match.
+   *
+   * `user` threads the same role scoping as the on-screen matrix through: a
+   * coordinator gets only their block(s), everyone-else only their own unit —
+   * so the delinquent list can never show units the caller can't see in the
+   * matrix itself.
    */
-  async getDelinquentUnits(query: QueryIplPaymentMatrixDto): Promise<DelinquentReport> {
-    const matrix = await this.getMatrix(query);
+  async getDelinquentUnits(
+    query: QueryIplPaymentMatrixDto,
+    user?: CurrentUserData,
+  ): Promise<DelinquentReport> {
+    const matrix = await this.getMatrix(query, user);
     const asOfMonth = computeAsOfMonth(matrix.year);
     const units = computeDelinquentUnits(matrix.rows, asOfMonth);
     return {
@@ -1604,8 +1682,9 @@ export class IplPaymentsService {
    */
   async exportDelinquentReport(
     query: QueryIplPaymentMatrixDto,
+    user?: CurrentUserData,
   ): Promise<{ buffer: Buffer; filename: string }> {
-    const report = await this.getDelinquentUnits(query);
+    const report = await this.getDelinquentUnits(query, user);
     const buffer = await buildDelinquentReportPdf(report, {
       organizationName: this.configService.get<string>(
         'COMPANY_NAME',

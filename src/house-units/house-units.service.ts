@@ -166,6 +166,8 @@ export class HouseUnitsService {
         return 0; // Or 50 depending on policy
       case OccupancyStatus.RENTED:
         return 100;
+      case OccupancyStatus.ESTATE:
+        return 0;
       default:
         return 100;
     }

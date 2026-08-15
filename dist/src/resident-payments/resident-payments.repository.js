@@ -108,6 +108,14 @@ let ResidentPaymentsRepository = class ResidentPaymentsRepository {
             verifiedAt: new Date(),
         }, tx);
     }
+    async rejectPayment(paymentId, rejectedBy, reason, tx) {
+        return this.update(paymentId, {
+            status: 'FAILED',
+            verifiedBy: rejectedBy,
+            verifiedAt: new Date(),
+            rejectionReason: reason,
+        }, tx);
+    }
     async generatePaymentNumber() {
         const count = await this.prisma.residentPayment.count();
         const timestamp = Date.now().toString().slice(-6);

@@ -86,9 +86,9 @@ export class HouseUnitsController {
   @Get('by-status/:status')
   @ApiOperation({
     summary: 'Get units by occupancy status',
-    description: 'Get all units filtered by occupancy status (FULLY_OCCUPIED, OCCASIONALLY, VACANT, RENTED)',
+    description: 'Get all units filtered by occupancy status (FULLY_OCCUPIED, OCCASIONALLY, VACANT, RENTED, ESTATE)',
   })
-  @ApiParam({ name: 'status', description: 'Occupancy status', enum: ['FULLY_OCCUPIED', 'OCCASIONALLY', 'VACANT', 'RENTED'] })
+  @ApiParam({ name: 'status', description: 'Occupancy status', enum: ['FULLY_OCCUPIED', 'OCCASIONALLY', 'VACANT', 'RENTED', 'ESTATE'] })
   @ApiResponseDecorators.ok()
   @ApiResponseDecorators.standard()
   async getUnitsByStatus(@Param('status') status: string) {

@@ -123,6 +123,24 @@ export class ResidentPaymentsRepository {
     );
   }
 
+  async rejectPayment(
+    paymentId: string,
+    rejectedBy: string,
+    reason: string,
+    tx?: PrismaTransactionalClient,
+  ): Promise<ResidentPayment> {
+    return this.update(
+      paymentId,
+      {
+        status: 'FAILED',
+        verifiedBy: rejectedBy,
+        verifiedAt: new Date(),
+        rejectionReason: reason,
+      },
+      tx,
+    );
+  }
+
   async generatePaymentNumber(): Promise<string> {
     const count = await this.prisma.residentPayment.count();
     const timestamp = Date.now().toString().slice(-6);

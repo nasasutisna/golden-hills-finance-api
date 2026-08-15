@@ -95,14 +95,9 @@ let HouseBlocksService = HouseBlocksService_1 = class HouseBlocksService {
             throw error;
         }
     }
-    async softDelete(id) {
-        const houseBlock = await this.houseBlocksRepository.softDelete(id);
-        this.logger.log(`House block soft deleted: ${houseBlock.blockCode}`);
-        return houseBlock;
-    }
-    async restore(id) {
-        const houseBlock = await this.houseBlocksRepository.restore(id);
-        this.logger.log(`House block restored: ${houseBlock.blockCode}`);
+    async remove(id) {
+        const houseBlock = await this.houseBlocksRepository.remove(id);
+        this.logger.log(`House block deleted: ${houseBlock.blockCode}`);
         return houseBlock;
     }
     async getOccupancyStats() {

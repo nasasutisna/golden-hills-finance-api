@@ -90,7 +90,7 @@ let AuthService = AuthService_1 = class AuthService {
         }
         const user = await this.usersService.create({
             ...registerDto,
-            roleId: registerDto.roleId || this.configService.get('DEFAULT_USER_ROLE_ID', 'default-user-role'),
+            roleId: registerDto.roleId || (await this.resolveDefaultRoleId()),
             isActive: true,
             isEmailVerified: false,
         });
@@ -462,8 +462,7 @@ let AuthService = AuthService_1 = class AuthService {
             firstName: resident.firstName,
             lastName: resident.lastName,
             phoneNumber: resident.phoneNumber ?? undefined,
-            roleId: this.configService.get('DEFAULT_USER_ROLE_ID') ||
-                'default-user-role',
+            roleId: await this.resolveDefaultRoleId(),
             isActive: true,
             isEmailVerified: false,
             residentId: resident.id,
@@ -498,6 +497,24 @@ let AuthService = AuthService_1 = class AuthService {
                 return candidate;
         }
         return `${base}_${Date.now().toString().slice(-4)}`;
+    }
+    async resolveDefaultRoleId() {
+        const byName = await this.prisma.role.findFirst({
+            where: { name: 'WARGA', isActive: true },
+            select: { id: true },
+        });
+        if (byName)
+            return byName.id;
+        const fallback = this.configService.get('DEFAULT_USER_ROLE_ID');
+        if (fallback) {
+            const byEnv = await this.prisma.role.findUnique({
+                where: { id: fallback },
+                select: { id: true },
+            });
+            if (byEnv)
+                return byEnv.id;
+        }
+        throw new common_1.InternalServerErrorException('Role WARGA tidak ditemukan. Hubungi administrator.');
     }
     async ensureUniqueEmail(base) {
         const exists = await this.usersService.findByEmail(base);

@@ -26,7 +26,7 @@ export const MONTH_NAMES_LONG_ID: string[] = [
   'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
 ];
 
-export type CellStatus = 'PAID' | 'PENDING' | 'UNPAID';
+export type CellStatus = 'PAID' | 'PENDING' | 'UNPAID' | 'REJECTED';
 
 /** Structural view of a matrix row — matches `IplPaymentsService.getMatrix` output. */
 export interface MatrixRowLike {
@@ -87,13 +87,15 @@ export function computeAsOfMonth(year: number, now: Date = new Date()): number {
 /**
  * Walk back from the as-of month while the cell is UNPAID; return the streak
  * length (0 when as-of month itself is not UNPAID, or as-of month is 0).
+ * REJECTED cells extend the streak too — a rejected submission still owes the
+ * month (resolved via delete → fresh payment → approve).
  */
 function trailingUnpaidStreak(row: MatrixRowLike, asOfMonth: number): number {
   if (asOfMonth < 1) return 0;
   let streak = 0;
   for (let month = asOfMonth; month >= 1; month--) {
     const cell = row.cells.find((c) => c.month === month);
-    if (cell?.status === 'UNPAID') {
+    if (cell?.status === 'UNPAID' || cell?.status === 'REJECTED') {
       streak++;
     } else {
       break;

@@ -257,18 +257,22 @@ export class HouseBlocksRepository {
     }
   }
 
-  async softDelete(id: string): Promise<HouseBlock> {
-    return this.update(id, {
-      deletedAt: new Date(),
-    });
-  }
-
-  async restore(id: string): Promise<HouseBlock> {
-    return this.prisma.houseBlock.update({
-      where: { id },
-      data: { deletedAt: null },
-      include: HOUSE_BLOCK_INCLUDE,
-    });
+  async remove(id: string): Promise<HouseBlock> {
+    // Hard delete. The schema's onDelete: SetNull on HouseUnit.houseBlock and
+    // Resident.houseBlock makes the DB null those FKs automatically, releasing
+    // the units/residents so they can be assigned to other blocks — no manual
+    // detach needed.
+    try {
+      return await this.prisma.houseBlock.delete({
+        where: { id },
+        include: HOUSE_BLOCK_INCLUDE,
+      });
+    } catch (error) {
+      if (error.code === 'P2025') {
+        throw new NotFoundException('House block not found');
+      }
+      throw error;
+    }
   }
 
   async count(where?: any): Promise<number> {

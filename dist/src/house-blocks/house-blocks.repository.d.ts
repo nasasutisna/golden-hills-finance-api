@@ -17,8 +17,7 @@ export declare class HouseBlocksRepository {
     findByBlockCode(blockCode: string): Promise<HouseBlock | null>;
     create(data: any): Promise<HouseBlock>;
     update(id: string, data: any): Promise<HouseBlock>;
-    softDelete(id: string): Promise<HouseBlock>;
-    restore(id: string): Promise<HouseBlock>;
+    remove(id: string): Promise<HouseBlock>;
     count(where?: any): Promise<number>;
     exists(id: string): Promise<boolean>;
     getTotalUnits(): Promise<number>;
