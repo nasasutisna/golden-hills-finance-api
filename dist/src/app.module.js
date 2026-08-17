@@ -11,6 +11,8 @@ const common_1 = require("@nestjs/common");
 const config_1 = require("@nestjs/config");
 const event_emitter_1 = require("@nestjs/event-emitter");
 const serve_static_1 = require("@nestjs/serve-static");
+const core_1 = require("@nestjs/core");
+const throttler_1 = require("@nestjs/throttler");
 const app_controller_1 = require("./app.controller");
 const app_service_1 = require("./app.service");
 const config_module_1 = require("./config/config.module");
@@ -59,6 +61,12 @@ exports.AppModule = AppModule = __decorate([
                 serveRoot: '/uploads',
             }),
             event_emitter_1.EventEmitterModule.forRoot(),
+            throttler_1.ThrottlerModule.forRoot([
+                {
+                    ttl: parseInt(process.env.RATE_LIMIT_TTL || '60', 10) * 1000,
+                    limit: parseInt(process.env.RATE_LIMIT_MAX || '100', 10),
+                },
+            ]),
             config_1.ConfigModule.forRoot({
                 isGlobal: true,
                 envFilePath: ['.env', '.env.development', '.env.production'],
@@ -102,6 +110,7 @@ exports.AppModule = AppModule = __decorate([
         ],
         controllers: [app_controller_1.AppController],
         providers: [
+            { provide: core_1.APP_GUARD, useClass: throttler_1.ThrottlerGuard },
             app_service_1.AppService,
             {
                 provide: 'AppConfig',

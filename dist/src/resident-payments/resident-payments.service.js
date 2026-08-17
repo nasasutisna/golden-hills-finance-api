@@ -289,9 +289,43 @@ let ResidentPaymentsService = ResidentPaymentsService_1 = class ResidentPayments
             };
         });
     }
-    async getMatrix(query) {
+    async resolveMatrixScope(user) {
+        if (!user)
+            return null;
+        if (['SUPERADMIN', 'ADMIN', 'ACCOUNTANT'].includes(user.roleName)) {
+            return null;
+        }
+        if (user.roleName === 'COORDINATOR') {
+            const [blocks, ownResident] = await Promise.all([
+                this.prisma.houseBlock.findMany({
+                    where: { coordinator: { userId: user.id }, deletedAt: null },
+                    select: { id: true },
+                }),
+                this.prisma.resident.findFirst({
+                    where: { userId: user.id, deletedAt: null },
+                    select: { houseUnitId: true },
+                }),
+            ]);
+            return {
+                houseBlockIds: blocks.map((b) => b.id),
+                houseUnitIds: ownResident?.houseUnitId ? [ownResident.houseUnitId] : [],
+            };
+        }
+        const resident = await this.prisma.resident.findFirst({
+            where: { userId: user.id, deletedAt: null },
+            select: { houseUnitId: true, houseBlockId: true },
+        });
+        if (resident?.houseUnitId)
+            return { houseUnitIds: [resident.houseUnitId] };
+        if (resident?.houseBlockId)
+            return { houseBlockIds: [resident.houseBlockId] };
+        return { houseBlockIds: [] };
+    }
+    async getMatrix(query, user) {
         const year = query.year ?? new Date().getFullYear();
-        const { units, payments } = await this.residentPaymentsRepository.getMatrixData(year, query.houseBlockId);
+        const scope = (await this.resolveMatrixScope(user)) ??
+            (query.houseBlockId ? { houseBlockId: query.houseBlockId } : {});
+        const { units, payments } = await this.residentPaymentsRepository.getMatrixData(year, scope);
         const MONTH_NAMES_SHORT = [
             'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
             'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des',

@@ -199,9 +199,29 @@ let ResidentPaymentsRepository = class ResidentPaymentsRepository {
         }
         return createdPayments;
     }
-    async getMatrixData(year, houseBlockId) {
+    async getMatrixData(year, scope) {
+        const unitWhere = { deletedAt: null };
+        if (scope?.houseBlockId) {
+            unitWhere.houseBlockId = scope.houseBlockId;
+        }
+        else {
+            const hasBlockIds = scope?.houseBlockIds !== undefined;
+            const hasUnitIds = scope?.houseUnitIds !== undefined;
+            if (hasBlockIds && hasUnitIds) {
+                unitWhere.OR = [
+                    { houseBlockId: { in: scope.houseBlockIds } },
+                    { id: { in: scope.houseUnitIds } },
+                ];
+            }
+            else if (hasBlockIds) {
+                unitWhere.houseBlockId = { in: scope.houseBlockIds };
+            }
+            else if (hasUnitIds) {
+                unitWhere.id = { in: scope.houseUnitIds };
+            }
+        }
         const units = await this.prisma.houseUnit.findMany({
-            where: { deletedAt: null, ...(houseBlockId ? { houseBlockId } : {}) },
+            where: unitWhere,
             select: {
                 id: true,
                 unitCode: true,
@@ -226,7 +246,6 @@ let ResidentPaymentsRepository = class ResidentPaymentsRepository {
                     gte: new Date(year, 0, 1),
                     lt: new Date(year + 1, 0, 1),
                 },
-                ...(houseBlockId ? { resident: { houseBlockId } } : {}),
             },
             select: {
                 id: true,

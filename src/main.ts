@@ -29,11 +29,20 @@ async function bootstrap() {
   // Set global prefix
   app.setGlobalPrefix(apiPrefix);
 
+  // Behind a reverse proxy (nginx etc.), read the real client IP from
+  // X-Forwarded-For so rate limiting (ThrottlerGuard) tracks actual clients
+  // instead of lumping everyone under the proxy IP. Enable via TRUST_PROXY=true.
+  if (process.env.TRUST_PROXY === 'true') {
+    app.getHttpAdapter().getInstance().set('trust proxy', 1);
+  }
+
   // Enable CORS
   app.enableCors({
     origin: process.env.CORS_ORIGIN || '*',
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true,
+    // Let the frontend read the throttler's retry hint on 429 responses
+    exposedHeaders: ['Retry-After'],
   });
 
   // Global validation pipe

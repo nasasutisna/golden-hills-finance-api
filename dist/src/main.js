@@ -22,10 +22,14 @@ async function bootstrap() {
         prefix: '/uploads/',
     });
     app.setGlobalPrefix(apiPrefix);
+    if (process.env.TRUST_PROXY === 'true') {
+        app.getHttpAdapter().getInstance().set('trust proxy', 1);
+    }
     app.enableCors({
         origin: process.env.CORS_ORIGIN || '*',
         methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
         credentials: true,
+        exposedHeaders: ['Retry-After'],
     });
     app.useGlobalPipes(new validation_pipe_1.ValidationPipe({
         whitelist: false,

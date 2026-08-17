@@ -1,5 +1,6 @@
 import { PrismaService, PrismaTransactionalClient } from '../prisma/prisma.service';
 import { ResidentPayment } from '@prisma/client';
+import { MatrixScope } from '../ipl-payments/ipl-payments.repository';
 export declare class ResidentPaymentsRepository {
     private readonly prisma;
     constructor(prisma: PrismaService);
@@ -34,7 +35,7 @@ export declare class ResidentPaymentsRepository {
         }>;
     }>;
     createManyInTransaction(payments: any[], tx: PrismaTransactionalClient): Promise<ResidentPayment[]>;
-    getMatrixData(year: number, houseBlockId?: string): Promise<{
+    getMatrixData(year: number, scope?: MatrixScope): Promise<{
         units: {
             id: string;
             isActive: boolean;

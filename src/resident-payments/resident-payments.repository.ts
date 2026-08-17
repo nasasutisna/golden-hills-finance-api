@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService, PrismaTransactionalClient } from '../prisma/prisma.service';
 import { ResidentPayment } from '@prisma/client';
+import { MatrixScope } from '../ipl-payments/ipl-payments.repository';
 
 @Injectable()
 export class ResidentPaymentsRepository {
@@ -254,14 +255,41 @@ export class ResidentPaymentsRepository {
   }
 
   /**
-   * Raw data for the resident payment (Iuran Warga) matrix: all active units
-   * (with their first resident + block) and every resident payment in the
-   * given year. The service reduces these into the final unit x month matrix.
-   * Mirrors `IplPaymentsRepository.getMatrixData`.
+   * Raw data for the resident payment (Iuran Warga) matrix: the in-scope
+   * units (with their first resident + block) and every resident payment in
+   * the given year. The service reduces these into the final unit x month
+   * matrix — payments belonging to out-of-scope units simply never land on a
+   * rendered row. Mirrors `IplPaymentsRepository.getMatrixData`.
+   *
+   * `scope` narrows the units query by role (see MatrixScope). When omitted
+   * (e.g. the WA bot's getUnitOutstanding path calls getMatrix without a
+   * user), every non-deleted unit is returned.
    */
-  async getMatrixData(year: number, houseBlockId?: string) {
+  async getMatrixData(year: number, scope?: MatrixScope) {
+    const unitWhere: any = { deletedAt: null };
+    if (scope?.houseBlockId) {
+      // Admin explicit single-block filter.
+      unitWhere.houseBlockId = scope.houseBlockId;
+    } else {
+      const hasBlockIds = scope?.houseBlockIds !== undefined;
+      const hasUnitIds = scope?.houseUnitIds !== undefined;
+      if (hasBlockIds && hasUnitIds) {
+        // Coordinator who is also a resident: blocks OR own house unit (same
+        // semantics as the IPL matrix).
+        unitWhere.OR = [
+          { houseBlockId: { in: scope!.houseBlockIds! } },
+          { id: { in: scope!.houseUnitIds! } },
+        ];
+      } else if (hasBlockIds) {
+        // `in: []` matches nothing → drives the empty-matrix case.
+        unitWhere.houseBlockId = { in: scope!.houseBlockIds! };
+      } else if (hasUnitIds) {
+        unitWhere.id = { in: scope!.houseUnitIds! };
+      }
+    }
+
     const units = await this.prisma.houseUnit.findMany({
-      where: { deletedAt: null, ...(houseBlockId ? { houseBlockId } : {}) },
+      where: unitWhere,
       select: {
         id: true,
         unitCode: true,
@@ -287,7 +315,6 @@ export class ResidentPaymentsRepository {
           gte: new Date(year, 0, 1),
           lt: new Date(year + 1, 0, 1),
         },
-        ...(houseBlockId ? { resident: { houseBlockId } } : {}),
       },
       select: {
         id: true,

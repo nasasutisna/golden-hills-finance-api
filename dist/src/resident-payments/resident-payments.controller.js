@@ -115,8 +115,8 @@ let ResidentPaymentsController = class ResidentPaymentsController {
             data: payments,
         };
     }
-    async getMatrix(query) {
-        const data = await this.residentPaymentsService.getMatrix(query);
+    async getMatrix(query, user) {
+        const data = await this.residentPaymentsService.getMatrix(query, user);
         return {
             statusCode: 200,
             message: 'Resident payment matrix retrieved successfully',
@@ -280,17 +280,19 @@ __decorate([
 ], ResidentPaymentsController.prototype, "getByInvoice", null);
 __decorate([
     (0, common_1.Get)('matrix'),
-    (0, roles_decorator_1.Roles)('ADMIN', 'ACCOUNTANT'),
     (0, swagger_1.ApiOperation)({
-        summary: 'Get resident payment matrix (Admin/Accountant only)',
+        summary: 'Get resident payment matrix (role-scoped)',
         description: 'Read-only matrix of house unit x monthly resident-payment (Iuran Warga) status for a year, ' +
-            'aggregated by paymentDate month, with monthly and yearly totals.',
+            'aggregated by paymentDate month, with monthly and yearly totals. ' +
+            'Scoped by the caller role: admin/finance/superadmin see all units, a block coordinator sees only their block(s), ' +
+            'and any other role sees only their own house unit.',
     }),
     http_response_decorator_1.ApiResponseDecorators.ok(),
     http_response_decorator_1.ApiResponseDecorators.standard(),
     __param(0, (0, common_1.Query)()),
+    __param(1, (0, current_user_decorator_1.CurrentUser)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [query_resident_payment_matrix_dto_1.QueryResidentPaymentMatrixDto]),
+    __metadata("design:paramtypes", [query_resident_payment_matrix_dto_1.QueryResidentPaymentMatrixDto, Object]),
     __metadata("design:returntype", Promise)
 ], ResidentPaymentsController.prototype, "getMatrix", null);
 __decorate([

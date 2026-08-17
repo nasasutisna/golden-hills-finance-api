@@ -2,6 +2,8 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { EventEmitterModule } from '@nestjs/event-emitter';
 import { ServeStaticModule } from '@nestjs/serve-static';
+import { APP_GUARD } from '@nestjs/core';
+import { ThrottlerModule, ThrottlerGuard } from '@nestjs/throttler';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AppConfigModule } from './config/config.module';
@@ -50,6 +52,16 @@ import { WhatsappBotModule } from './whatsapp-blast/bot/whatsapp-bot.module';
     // Event bus — decouples IPL approve/reject from the WhatsApp bot so the
     // bot can notify residents (and send the KWT) without a module back-edge.
     EventEmitterModule.forRoot(),
+    // Rate limiting — rejects with HTTP 429 when a single IP exceeds the limit.
+    // RATE_LIMIT_TTL is in seconds (matches .env convention); throttler wants ms.
+    // Stricter overrides live on sensitive auth endpoints (@Throttle).
+    ThrottlerModule.forRoot([
+      {
+        ttl:
+          parseInt(process.env.RATE_LIMIT_TTL || '60', 10) * 1000,
+        limit: parseInt(process.env.RATE_LIMIT_MAX || '100', 10),
+      },
+    ]),
     // Configuration
     ConfigModule.forRoot({
       isGlobal: true,
@@ -120,6 +132,8 @@ import { WhatsappBotModule } from './whatsapp-blast/bot/whatsapp-bot.module';
   ],
   controllers: [AppController],
   providers: [
+    // Global throttler guard — applies rate limiting to every route
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
     AppService,
     {
       provide: 'AppConfig',

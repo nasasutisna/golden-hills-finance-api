@@ -11,6 +11,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { FileAttachmentsService } from '../file-attachments/file-attachments.service';
 import { CashTransactionsService } from '../cash-transactions/cash-transactions.service';
 import { ResidentPaymentReceiptsService } from './resident-payment-receipts.service';
+import { CurrentUserData } from '../common/decorators/current-user.decorator';
 export declare const RESIDENT_IURAN_MONTHLY_RATE = 20000;
 export declare class ResidentPaymentsService {
     private readonly residentPaymentsRepository;
@@ -227,7 +228,8 @@ export declare class ResidentPaymentsService {
     count(where?: any): Promise<number>;
     exists(id: string): Promise<boolean>;
     createBulk(createBulkDto: CreateBulkResidentPaymentDto): Promise<BulkPaymentResultDto>;
-    getMatrix(query: QueryResidentPaymentMatrixDto): Promise<{
+    private resolveMatrixScope;
+    getMatrix(query: QueryResidentPaymentMatrixDto, user?: CurrentUserData): Promise<{
         year: number;
         monthlyRate: number;
         unitCount: number;

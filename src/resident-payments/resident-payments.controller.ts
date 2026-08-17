@@ -222,17 +222,21 @@ export class ResidentPaymentsController {
   }
 
   @Get('matrix')
-  @Roles('ADMIN', 'ACCOUNTANT')
   @ApiOperation({
-    summary: 'Get resident payment matrix (Admin/Accountant only)',
+    summary: 'Get resident payment matrix (role-scoped)',
     description:
       'Read-only matrix of house unit x monthly resident-payment (Iuran Warga) status for a year, ' +
-      'aggregated by paymentDate month, with monthly and yearly totals.',
+      'aggregated by paymentDate month, with monthly and yearly totals. ' +
+      'Scoped by the caller role: admin/finance/superadmin see all units, a block coordinator sees only their block(s), ' +
+      'and any other role sees only their own house unit.',
   })
   @ApiResponseDecorators.ok()
   @ApiResponseDecorators.standard()
-  async getMatrix(@Query() query: QueryResidentPaymentMatrixDto) {
-    const data = await this.residentPaymentsService.getMatrix(query);
+  async getMatrix(
+    @Query() query: QueryResidentPaymentMatrixDto,
+    @CurrentUser() user: CurrentUserData,
+  ) {
+    const data = await this.residentPaymentsService.getMatrix(query, user);
     return {
       statusCode: 200,
       message: 'Resident payment matrix retrieved successfully',

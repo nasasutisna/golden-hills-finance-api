@@ -15,6 +15,7 @@ import {
   ApiBearerAuth,
   ApiBody,
 } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
@@ -41,6 +42,7 @@ export class AuthController {
 
   @Public()
   @Post('login')
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'User login',
@@ -75,6 +77,7 @@ export class AuthController {
 
   @Public()
   @Post('register')
+  @Throttle({ default: { limit: 3, ttl: 60_000 } })
   @ApiOperation({
     summary: 'User registration',
     description: 'Register a new user account',
@@ -96,6 +99,7 @@ export class AuthController {
 
   @Public()
   @Post('refresh')
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Refresh access token',
@@ -208,6 +212,7 @@ export class AuthController {
 
   @Public()
   @Post('verify-email')
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Verify email',
@@ -229,6 +234,7 @@ export class AuthController {
 
   @Public()
   @Post('forgot-password/request')
+  @Throttle({ default: { limit: 3, ttl: 60_000 } })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Request password reset OTP',
@@ -258,6 +264,7 @@ export class AuthController {
 
   @Public()
   @Post('forgot-password/reset')
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Reset password with OTP',
@@ -285,6 +292,7 @@ export class AuthController {
 
   @Public()
   @Post('register/request')
+  @Throttle({ default: { limit: 3, ttl: 60_000 } })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Request registration OTP',
@@ -315,6 +323,7 @@ export class AuthController {
 
   @Public()
   @Post('register/complete')
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
     summary: 'Complete registration with OTP',

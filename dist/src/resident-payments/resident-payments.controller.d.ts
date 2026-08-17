@@ -131,7 +131,7 @@ export declare class ResidentPaymentsController {
             verifiedAt: Date | null;
         }[];
     }>;
-    getMatrix(query: QueryResidentPaymentMatrixDto): Promise<{
+    getMatrix(query: QueryResidentPaymentMatrixDto, user: CurrentUserData): Promise<{
         statusCode: number;
         message: string;
         data: {

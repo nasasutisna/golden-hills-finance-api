@@ -15,6 +15,8 @@ import { CashTransactionsService } from '../cash-transactions/cash-transactions.
 import { ResidentPaymentReceiptsService } from './resident-payment-receipts.service';
 import { generateBuktiTransferFilename, sanitizeFilename } from '../ipl-payments/helpers/file-naming.helper';
 import { computeAsOfMonth } from '../ipl-payments/helpers/delinquent-units.helper';
+import { MatrixScope } from '../ipl-payments/ipl-payments.repository';
+import { CurrentUserData } from '../common/decorators/current-user.decorator';
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -452,6 +454,51 @@ export class ResidentPaymentsService {
   }
 
   /**
+   * Resolve the matrix unit-scope for the logged-in user (same semantics as
+   * IplPaymentsService.resolveMatrixScope). Returns `null` for full access
+   * (admin/finance/superadmin, or no user — e.g. the WA bot path).
+   * COORDINATOR → the blocks they coordinate, OR'd with their own house unit.
+   * Every other role (WARGA, PENGURUS, STAFF, ...) → their own house unit
+   * (or block if the unit isn't set). No assignment at all → an empty scope
+   * so the matrix is empty instead of leaking other units.
+   */
+  private async resolveMatrixScope(user?: CurrentUserData): Promise<MatrixScope | null> {
+    if (!user) return null;
+
+    if (['SUPERADMIN', 'ADMIN', 'ACCOUNTANT'].includes(user.roleName)) {
+      return null;
+    }
+
+    if (user.roleName === 'COORDINATOR') {
+      // Blocks they coordinate OR'd with their own house unit, so a
+      // coordinator who lives outside their block — or who coordinates no
+      // block at all — still sees their own row.
+      const [blocks, ownResident] = await Promise.all([
+        this.prisma.houseBlock.findMany({
+          where: { coordinator: { userId: user.id }, deletedAt: null },
+          select: { id: true },
+        }),
+        this.prisma.resident.findFirst({
+          where: { userId: user.id, deletedAt: null },
+          select: { houseUnitId: true },
+        }),
+      ]);
+      return {
+        houseBlockIds: blocks.map((b) => b.id),
+        houseUnitIds: ownResident?.houseUnitId ? [ownResident.houseUnitId] : [],
+      };
+    }
+
+    const resident = await this.prisma.resident.findFirst({
+      where: { userId: user.id, deletedAt: null },
+      select: { houseUnitId: true, houseBlockId: true },
+    });
+    if (resident?.houseUnitId) return { houseUnitIds: [resident.houseUnitId] };
+    if (resident?.houseBlockId) return { houseBlockIds: [resident.houseBlockId] };
+    return { houseBlockIds: [] };
+  }
+
+  /**
    * Build the read-only house-unit x month resident-payment (Iuran Warga)
    * matrix for a year.
    *
@@ -474,12 +521,22 @@ export class ResidentPaymentsService {
    * surface as a row-level `pendingCount` badge instead. The matrix is a
    * coverage report, so `grandTotal` / `monthTotals` reflect covered months ×
    * rate, not raw cash received.
+   *
+   * Data is scoped by the caller's role (see resolveMatrixScope): admins see
+   * everything (and honor an explicit `?houseBlockId=`), coordinators see only
+   * their block(s), and every other role sees only their own house unit.
+   * `user` is optional so internal callers (getUnitOutstanding / WA bot) can
+   * request the unscoped (full) matrix.
    */
-  async getMatrix(query: QueryResidentPaymentMatrixDto) {
+  async getMatrix(query: QueryResidentPaymentMatrixDto, user?: CurrentUserData) {
     const year = query.year ?? new Date().getFullYear();
+    const scope =
+      (await this.resolveMatrixScope(user)) ??
+      // Full-access role (or no user): honor an explicit block filter, else all units.
+      (query.houseBlockId ? { houseBlockId: query.houseBlockId } : {});
     const { units, payments } = await this.residentPaymentsRepository.getMatrixData(
       year,
-      query.houseBlockId,
+      scope,
     );
 
     const MONTH_NAMES_SHORT = [
