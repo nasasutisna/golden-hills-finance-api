@@ -6,7 +6,7 @@
   "private": true,
   "license": "UNLICENSED",
   "scripts": {
-    "build": "nest build",
+    "build": "npx prisma generate && nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "start": "TS_NODE_TRANSPILE_ONLY=true nest start",
     "start:dev": "TS_NODE_TRANSPILE_ONLY=true nest start --watch",
